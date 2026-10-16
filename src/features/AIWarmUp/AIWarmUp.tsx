@@ -1,5 +1,5 @@
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Brain, Check, X } from 'lucide-react';
+import { Brain, Check, Play, X } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import Styles from './AIWarmUp.module.css';
@@ -52,6 +52,7 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                 </svg>
                 <Brain className={Styles.brain} size={20} strokeWidth={1.75} />
                 {offline && <X className={`${Styles.badge} ${Styles.badgeFailed}`} size={14} strokeWidth={3} />}
+                {canStart && <Play className={`${Styles.badge} ${Styles.badgePlay}`} size={14} strokeWidth={0} fill="currentColor" />}
                 {ready && <Check className={`${Styles.badge} ${Styles.badgeReady}`} size={14} strokeWidth={3} />}
             </button>
             {generated && <span className={Styles.generated}>{generated}</span>}

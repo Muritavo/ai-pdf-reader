@@ -88,3 +88,7 @@
 .badgeReady {
     color: var(--success);
 }
+
+.badgePlay {
+    color: var(--accent);
+}

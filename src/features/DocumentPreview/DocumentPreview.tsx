@@ -89,11 +89,6 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setTimeout(() => indicator.classList.remove(Styles.highlight), 2000);
     };
 
-    // Prepares the document for the AI as soon as it is available
-    useEffect(() => {
-        if (warmUp.status === 'online' && warmUp.state === 'idle') warmUp.start();
-    }, [warmUp.status, warmUp.state]);
-
     useEffect(() => {
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
         window.addEventListener('mouseup', listener);
