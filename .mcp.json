@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "playwright-mcp": {
+      "command": "bun",
+      "args": ["playwright-mcp", "--cdp-timeout", "5000", "--timeout-action", "5000", "--timeout-navigation", "5000", "--isolated"]
+    }
+  }
+}
