@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
@@ -7,6 +7,7 @@ import { Clock, ExternalLink } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
+import { wordingOf } from '../../../../utils/wording';
 import AIWarmUp from '../../../AIWarmUp';
 import { useWarmUp } from '../../../../context/AIContext';
 import { TestIds } from '../../../../testids';
@@ -68,20 +69,27 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
         return () => document.removeEventListener('keydown', handleEscape);
     }, []);
 
+    const asking = useRef(false);
+
     const handleAsk = async () => {
         const prompt = promptText?.trim();
-        if (!prompt || !aiReady) return;
+        // A question being answered is not sent again, as it would be asked twice
+        if (!prompt || !aiReady || asking.current) return;
 
+        asking.current = true;
         setIsLoading(true);
         setIsError(false);
         try {
             const context = await getNormalizedText(fullText);
             const result = await askContext(prompt, context);
             setLastAnswer(result);
-            saveHistory([{ prompt, answer: result, timestamp: new Date().toISOString() }, ...(history ?? [])]);
+            // Asking again with the same wording replaces the previous entry instead of adding another one
+            const others = (history ?? []).filter(entry => wordingOf(entry.prompt) !== wordingOf(prompt));
+            saveHistory([{ prompt, answer: result, timestamp: new Date().toISOString() }, ...others]);
         } catch {
             setIsError(true);
         } finally {
+            asking.current = false;
             setIsLoading(false);
         }
     };

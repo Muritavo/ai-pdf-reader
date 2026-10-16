@@ -415,6 +415,51 @@ test.describe('asking questions', () => {
         await expect(items.nth(1)).toContainText('Primeira pergunta');
     });
 
+    test('does not repeat a question asked again with the same wording', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Qual é o objetivo?');
+        await ask(page, 'Outra pergunta');
+
+        // Same wording, only the case, accents, punctuation and spacing change
+        await ask(page, '  qual e o  OBJETIVO ');
+
+        await byId(page, TestIds.ai.historyToggle).click();
+        const items = byId(page, TestIds.ai.historyItem);
+        await expect(items).toHaveCount(2);
+        // The question asked again goes to the top, as it was asked last
+        await expect(items.nth(0)).toContainText('qual e o OBJETIVO');
+        await expect(items.nth(1)).toContainText('Outra pergunta');
+        expect(ai.requestsOfKind('ask')).toHaveLength(3);
+    });
+
+    test('keeps a different wording as another question', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Qual é o objetivo?');
+        await ask(page, 'Qual é o objetivo principal?');
+
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(2);
+    });
+
+    test('does not send the question twice while it is being answered', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        ai.chunkDelayMs = 300;
+        await promptInput(page).fill('Pergunta lenta');
+
+        await promptInput(page).press('Enter');
+        await promptInput(page).press('Enter');
+        await promptInput(page).press('Enter');
+
+        await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Pergunta lenta');
+        expect(ai.requestsOfKind('ask')).toHaveLength(1);
+        await byId(page, TestIds.ai.historyToggle).click();
+        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(1);
+    });
+
     test('brings back a previous question and its answer', async ({ page }) => {
         await openSamplePreview(page);
         await warmUp(page);
