@@ -2,6 +2,7 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain, Check, Play, X } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
+import { TestIds } from '../../testids';
 import Styles from './AIWarmUp.module.css';
 
 const RADIUS = 20;
@@ -32,6 +33,8 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
         <div className={Styles.wrapper}>
             <button
                 type="button"
+                data-testid={TestIds.ai.warmUp}
+                data-state={offline ? 'offline' : ready ? 'ready' : state}
                 className={`${Styles.container} ${ready ? Styles.ready : ''} ${offline || state === 'error' ? Styles.failed : ''}`}
                 title={label}
                 aria-label={label}
@@ -55,7 +58,7 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                 {canStart && <Play className={`${Styles.badge} ${Styles.badgePlay}`} size={14} strokeWidth={0} fill="currentColor" />}
                 {ready && <Check className={`${Styles.badge} ${Styles.badgeReady}`} size={14} strokeWidth={3} />}
             </button>
-            {generated && <span className={Styles.generated}>{generated}</span>}
+            {generated && <span className={Styles.generated} data-testid={TestIds.ai.generatedWords}>{generated}</span>}
         </div>
     );
 }

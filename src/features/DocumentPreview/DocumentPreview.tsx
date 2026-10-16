@@ -13,6 +13,7 @@ import { useWarmUp } from '../../context/AIContext';
 import { appendHighlightedText, useHighlightsForPDF } from '../../utils/highlight';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import DocumentPromptBar from './components/DocumentPromptBar';
+import { TestIds } from '../../testids';
 import Styles from './DocumentPreview.module.scss';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -183,7 +184,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         for (const textLayer of textLayers) {
             textLayer.textDivs.forEach((textDiv, index) => {
                 const text = textLayer.textContentItemsStr[index];
-                if (text) appendHighlightedText(textDiv, text, highlightRules, Styles.wordHighlight);
+                if (text) appendHighlightedText(textDiv, text, highlightRules, Styles.wordHighlight, TestIds.preview.highlight);
             });
         }
     }, [highlightRules, textLayers]);
@@ -199,6 +200,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             )}
             <div
                 ref={previewBoxRef}
+                data-testid={TestIds.preview.box}
                 className={Styles.previewBox}
                 onMouseUp={() => window.setTimeout(() => menuRef.current?.openMenu(), 0)}
             >
@@ -208,9 +210,14 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     </div>
                 )}
                 {pages.map(page => (
-                    <div key={page.id} className={Styles.pageWrapper}>
-                        <canvas ref={page.canvasRef} />
-                        <div ref={page.textLayerRef} className={Styles.textLayer} onClick={handleTextLayerClick} />
+                    <div key={page.id} className={Styles.pageWrapper} data-testid={TestIds.preview.page}>
+                        <canvas ref={page.canvasRef} data-testid={TestIds.preview.canvas} />
+                        <div
+                            ref={page.textLayerRef}
+                            data-testid={TestIds.preview.textLayer}
+                            className={Styles.textLayer}
+                            onClick={handleTextLayerClick}
+                        />
                         {warmUp.state === 'running' && warmUp.page === page.id && (
                             <div className={Styles.readingPage}>
                                 <PixelatedScan
@@ -225,6 +232,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 {lastClick && (
                     <div
                         key={lastClick.key}
+                        data-testid={TestIds.preview.lastClickMarker}
                         className={Styles.clickIndicator}
                         style={{ left: `${lastClick.x}%`, top: `${scrollHeight * (lastClick.y / 100)}px` }}
                     />
@@ -232,6 +240,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 {pointsOfInterest.map(poi => (
                     <div
                         key={poi.key}
+                        data-testid={TestIds.preview.pointOfInterest}
                         className={Styles.poiIndicator}
                         title={poi.word}
                         style={{ left: `${poi.x}%`, top: `${scrollHeight * (poi.y / 100)}px` }}

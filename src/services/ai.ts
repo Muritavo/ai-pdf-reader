@@ -1,5 +1,5 @@
 const API_KEY = "stub";
-export const AI_ENDPOINT = "http://localhost:9876";
+export const AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://localhost:9876";
 const API_URL = `${AI_ENDPOINT}/v1/chat/completions`;
 const MODEL_STATUS_URL = `${AI_ENDPOINT}/v1/models/status`;
 import { wrapFunction } from "../utils/hash";

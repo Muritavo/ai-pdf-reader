@@ -85,6 +85,7 @@ export function appendHighlightedText(
     text: string,
     highlightRules: HighlightRule[],
     markClassName: string,
+    markTestId: string,
 ) {
     const matches = collectHighlightMatches(text, highlightRules);
     container.textContent = '';
@@ -94,6 +95,7 @@ export function appendHighlightedText(
         if (match.start > currentIndex) container.append(document.createTextNode(text.slice(currentIndex, match.start)));
         const mark = document.createElement('mark');
         mark.className = markClassName;
+        mark.dataset.testid = markTestId;
         mark.style.backgroundColor = match.color;
         mark.textContent = text.slice(match.start, match.end);
         container.append(mark);

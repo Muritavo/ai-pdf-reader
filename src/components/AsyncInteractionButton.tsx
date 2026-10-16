@@ -11,18 +11,20 @@ export default function AsyncInteractionButton({
     variant,
     disabled,
     title,
+    'data-testid': testId,
 }: PropsWithChildren<{
     action: () => Promise<unknown>;
     className?: string;
     disabled?: boolean;
     title?: string;
+    'data-testid'?: string;
     variant?: React.ComponentProps<typeof Button>['variant'];
 }>) {
     const { txt } = useShortIntl();
     const control = useAsyncControl({ action });
 
     return (
-        <Button variant={variant} className={className} onClick={control.action} disabled={disabled || control.loading} title={title}>
+        <Button variant={variant} className={className} onClick={control.action} disabled={disabled || control.loading} title={title} data-testid={testId}>
             {control.error ? (
                 txt('documentPreview.menu.tryAgain')
             ) : control.loading ? (

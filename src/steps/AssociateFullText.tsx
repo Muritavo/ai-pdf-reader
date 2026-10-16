@@ -6,6 +6,7 @@ import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
+import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
 function ArticleItem({
@@ -17,17 +18,28 @@ function ArticleItem({
 }: {
     article: Article;
     fullText?: FullText;
-    onAttach: (file: File) => void;
+    onAttach: (file: File) => Promise<unknown>;
     onDetach: () => void;
     onOpen: () => void;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
+    const [attachError, setAttachError] = useState<string>();
+    const attach = async (file: File) => {
+        setAttachError(undefined);
+        try {
+            await onAttach(file);
+        } catch {
+            setAttachError('Arquivo inválido: envie um PDF válido.');
+        }
+    };
     const meta = [article.year, article.journal].filter(Boolean).join(' · ');
 
     return (
         <div className={Styles.articleSlot}>
             <div
+                data-testid={TestIds.fullTexts.articleCard}
+                data-state={fullText ? 'with-pdf' : 'missing-pdf'}
                 className={`${Styles.article} ${fullText ? Styles.withPdf : Styles.missingPdf} ${dragging ? Styles.dragging : ''}`}
                 onDragOver={e => {
                     e.preventDefault();
@@ -39,7 +51,7 @@ function ArticleItem({
                     e.preventDefault();
                     setDragging(false);
                     const file = e.dataTransfer.files.item(0);
-                    if (file?.type === 'application/pdf') onAttach(file);
+                    if (file) attach(file);
                 }}
             >
                 <div className={Styles.articleInfo}>
@@ -58,16 +70,22 @@ function ArticleItem({
                             )}
                         </Text>
                     )}
+                    {attachError && (
+                        <Text type="caption" className={Styles.error} role="alert" data-testid={TestIds.fullTexts.articleError}>
+                            {attachError}
+                        </Text>
+                    )}
                 </div>
                 <div className={Styles.articleActions} onClick={e => e.stopPropagation()}>
                     <input
                         ref={inputRef}
                         type="file"
                         accept="application/pdf"
+                        data-testid={TestIds.fullTexts.articleFileInput}
                         hidden
                         onChange={e => {
                             const file = e.target.files?.item(0);
-                            if (file) onAttach(file);
+                            if (file) attach(file);
                             e.target.value = '';
                         }}
                     />
@@ -131,6 +149,7 @@ export default function AssociateFullText() {
                 className={Styles.search}
                 placeholder="Buscar por título"
                 aria-label="Buscar por título"
+                data-testid={TestIds.fullTexts.search}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
             />
@@ -138,17 +157,17 @@ export default function AssociateFullText() {
             <Text type="description">
                 Envie ou arraste o PDF de cada artigo. Itens tracejados ainda não possuem texto completo.
             </Text>
-            <Text type="caption">
+            <Text type="caption" data-testid={TestIds.fullTexts.progressCount}>
                 {associated} de {articles.length} artigos com PDF
                 {query.trim() && ` · ${visible.length} encontrados`}
             </Text>
             <progress className={Styles.progress} max={articles.length || 1} value={associated} />
 
-            <ul className={Styles.articleList}>
+            <ul className={Styles.articleList} data-testid={TestIds.fullTexts.list}>
                 {visible.length === 0 && <Text type="description">Nenhum artigo encontrado.</Text>}
                 {pending.map(renderItem)}
                 {uploadedVisible > 0 && (
-                    <li role="separator" className={Styles.divider}>
+                    <li role="separator" className={Styles.divider} data-testid={TestIds.fullTexts.withPdfDivider}>
                         <Text type="caption">Com texto completo · {uploadedVisible}</Text>
                     </li>
                 )}

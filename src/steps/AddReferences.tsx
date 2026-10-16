@@ -4,6 +4,7 @@ import Button from '@onepercentio/one-ui/components/Button';
 import Text from '@onepercentio/one-ui/components/Text';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import { parseArticlesCsv } from '../utils/parseArticlesCsv';
+import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
 export default function AddReferences({ onNext }: { onNext: () => void }) {
@@ -35,6 +36,7 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
 
             <FileInput
                 accept=".csv,text/csv"
+                data-testid={TestIds.references.fileInput}
                 file={file}
                 onFile={onFile}
                 footer="Formato aceito: .csv"
@@ -51,16 +53,19 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
             />
 
             {error && (
-                <Text type="caption" className={Styles.error} role="alert">
+                <Text type="caption" className={Styles.error} role="alert" data-testid={TestIds.references.error}>
                     {error}
                 </Text>
             )}
 
             {articles.length > 0 && (
                 <div className={Styles.actions}>
-                    <Text type="caption">{articles.length} referências carregadas.</Text>
+                    <Text type="caption" data-testid={TestIds.references.loadedCount}>
+                        {articles.length} referências carregadas.
+                    </Text>
                     <Button
                         variant="outline"
+                        data-testid={TestIds.references.clear}
                         onClick={() => {
                             setFile(undefined);
                             clear();
@@ -68,7 +73,7 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
                     >
                         Limpar
                     </Button>
-                    <Button variant="primary" onClick={onNext}>
+                    <Button variant="primary" onClick={onNext} data-testid={TestIds.references.next}>
                         Associar texto completo →
                     </Button>
                 </div>

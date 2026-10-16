@@ -5,6 +5,7 @@ import Styles from './FeaturesMenu.module.scss';
 import type { FullText } from '../../../../models/Article';
 import { defineWordInContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
+import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
 
 export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
@@ -69,6 +70,7 @@ export default forwardRef(function FeaturesMenu(
     const menuItems = [
         {
             id: 'search-on-google',
+            testId: TestIds.menu.searchOnGoogle,
             label: txt('documentPreview.menu.searchOnGoogle'),
             onClick: async () => {
                 window.open(
@@ -81,6 +83,7 @@ export default forwardRef(function FeaturesMenu(
         },
         {
             id: 'highlight-word-instances',
+            testId: TestIds.menu.highlight,
             label: txt('documentPreview.menu.highlightInstances'),
             onClick: async () => {
                 addHighlight(word);
@@ -89,6 +92,7 @@ export default forwardRef(function FeaturesMenu(
         },
         {
             id: 'define-word',
+            testId: TestIds.menu.define,
             label: txt('documentPreview.menu.define'),
             disabled: !aiReady,
             hint: txt('aiWarmUp.locked'),
@@ -105,6 +109,7 @@ export default forwardRef(function FeaturesMenu(
         },
         {
             id: 'mark-this-location',
+            testId: TestIds.menu.markLocation,
             label: txt('documentPreview.menu.markLocation'),
             onClick: async () => {
                 const coords = getDocumentCoordinates();
@@ -118,11 +123,12 @@ export default forwardRef(function FeaturesMenu(
 
     // Rendered on the body so it stays above the dialog and positioned by viewport coordinates
     return createPortal(
-        <div className={Styles.menu} onMouseUp={e => e.stopPropagation()} style={{ left: x, top: y }}>
+        <div data-testid={TestIds.menu.root} className={Styles.menu} onMouseUp={e => e.stopPropagation()} style={{ left: x, top: y }}>
             <div className={Styles.selectedWord}>{displayWord}</div>
             {menuItems.map(item => (
                 <AsyncInteractionButton
                     key={item.id}
+                    data-testid={item.testId}
                     variant="transparent"
                     className={Styles.menuButton}
                     action={item.onClick}

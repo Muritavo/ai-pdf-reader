@@ -9,6 +9,7 @@ import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
 import AIWarmUp from '../../../AIWarmUp';
 import { useWarmUp } from '../../../../context/AIContext';
+import { TestIds } from '../../../../testids';
 import ResponseModal from '../ResponseModal/ResponseModal';
 import Styles from './DocumentPromptBar.module.scss';
 
@@ -102,6 +103,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                         <div className={Styles.historyActions}>
                             <Button
                                 variant="transparent"
+                                data-testid={TestIds.ai.historyClear}
                                 className={Styles.clearButton}
                                 onClick={() => {
                                     setHistory(undefined);
@@ -120,6 +122,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                             history.map((entry, index) => (
                                 <div
                                     key={index}
+                                    data-testid={TestIds.ai.historyItem}
                                     className={Styles.historyItem}
                                     onClick={() => {
                                         setLastAnswer(entry.answer);
@@ -150,6 +153,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                 <div className={Styles.inputRow}>
                     <Button
                         variant="transparent"
+                        data-testid={TestIds.ai.historyToggle}
                         className={Styles.iconButton}
                         onClick={() => setShowHistory(!showHistory)}
                         title={txt('documentPreview.promptBar.history')}
@@ -159,6 +163,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                     <AIWarmUp fullText={fullText} />
                     <input
                         type="text"
+                        data-testid={TestIds.ai.promptInput}
                         value={promptText ?? ''}
                         onChange={e => setPromptText(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -167,13 +172,13 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                         title={aiReady ? undefined : txt('aiWarmUp.locked')}
                         placeholder={txt('documentPreview.promptBar.placeholder')}
                     />
-                    <Button variant="primary" onClick={handleAsk} disabled={!aiReady || !promptText?.trim() || isLoading}>
+                    <Button variant="primary" data-testid={TestIds.ai.promptSend} onClick={handleAsk} disabled={!aiReady || !promptText?.trim() || isLoading}>
                         {isLoading ? <Dots dotsCount={5} lockSize /> : txt('documentPreview.promptBar.send')}
                     </Button>
                 </div>
 
                 {isError && (
-                    <Text type="caption" className={Styles.errorText}>
+                    <Text type="caption" className={Styles.errorText} data-testid={TestIds.ai.promptError}>
                         {txt('documentPreview.promptBar.error')}
                     </Text>
                 )}
@@ -194,7 +199,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                             </Button>
                         </div>
                         <div className={Styles.resultContentWrapper}>
-                            <Text type="description" className={Styles.resultContent}>
+                            <Text type="description" className={Styles.resultContent} data-testid={TestIds.ai.answer}>
                                 {lastAnswer}
                             </Text>
                         </div>

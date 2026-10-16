@@ -1,3 +1,4 @@
+import { TestIds } from '../testids';
 import AIStatus from '../features/AIStatus';
 import Styles from './StepsHeader.module.css';
 
@@ -24,6 +25,7 @@ export default function StepsHeader({
                         <li key={step.title}>
                             <button
                                 type="button"
+                                data-testid={TestIds.steps.step}
                                 className={`${Styles.step} ${i === current ? Styles.active : ''} ${i < current ? Styles.done : ''}`}
                                 disabled={!step.enabled}
                                 aria-current={i === current ? 'step' : undefined}

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
   },
   "dependencies": {
     "@onepercentio/one-ui": "^1.4.0",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@playwright/mcp": "^0.0.83",
+    "@playwright/test": "^1.64.0-alpha-1790635538000",
     "@types/chroma-js": "^3.1.2",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.31",

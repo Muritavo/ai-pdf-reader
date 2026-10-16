@@ -37,6 +37,11 @@ async function readWordCount(file: File) {
     }
 }
 
+/** Rejects files that are not readable PDFs. Throws when the file can't be parsed */
+async function readValidWordCount(file: File) {
+    return countWords(await file.arrayBuffer());
+}
+
 async function hashFile(file: File) {
     const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
     return Array.from(new Uint8Array(digest))
@@ -104,6 +109,8 @@ export function ArticlesRepositoryProvider({ children }: { children: React.React
     }, []);
 
     const attachFullText = useCallback(async (articleKey: string, file: File) => {
+        // Nothing is stored when the file is not a readable PDF
+        const wordCount = await readValidWordCount(file);
         const hash = await hashFile(file);
         await storeFile(hash, file);
 
@@ -112,7 +119,7 @@ export function ArticlesRepositoryProvider({ children }: { children: React.React
             hash,
             name: file.name,
             size: file.size,
-            wordCount: await readWordCount(file),
+            wordCount,
             createdAt: new Date(),
             url: URL.createObjectURL(file),
         };

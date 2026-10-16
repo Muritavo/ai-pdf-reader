@@ -30,7 +30,8 @@ export async function extractPageTexts(
     const getPageText = async (pdf: PDFDocumentProxy, pageNo: number) => {
         const page = await pdf.getPage(pageNo);
         const tokenizedText = await page.getTextContent();
-        return tokenizedText.items.map(token => ('transform' in token ? token.str : undefined)).join('');
+        // Lines are kept apart, otherwise the last word of a line is glued to the first of the next one
+        return tokenizedText.items.map(token => ('transform' in token ? token.str + (token.hasEOL ? '\n' : '') : '')).join('');
     };
     const pdf = await loadPdf(pdfBytes);
 

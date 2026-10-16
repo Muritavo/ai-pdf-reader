@@ -6,6 +6,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain } from 'lucide-react';
 import { useAI } from '../../context/AIContext';
+import { TestIds } from '../../testids';
 import Styles from './AIStatus.module.css';
 
 export default function AIStatus() {
@@ -17,6 +18,8 @@ export default function AIStatus() {
         <>
             <button
                 type="button"
+                data-testid={TestIds.ai.statusButton}
+                data-status={status}
                 className={`${Styles.trigger} ${status === 'online' ? Styles.online : Styles.offline}`}
                 title={txt(`aiStatus.${status}`)}
                 aria-label={txt('aiStatus.title')}
@@ -25,20 +28,20 @@ export default function AIStatus() {
                 <Brain size={22} strokeWidth={1.75} />
             </button>
             <AdaptiveDialog open={open} onClose={() => setOpen(false)} onClickOut={() => setOpen(false)}>
-                <div className={Styles.dialog}>
+                <div className={Styles.dialog} data-testid={TestIds.ai.statusDialog}>
                     <Text type="subtitle">{txt('aiStatus.title')}</Text>
                     <dl className={Styles.details}>
                         <dt>
                             <Text type="caption">{txt('aiStatus.statusLabel')}</Text>
                         </dt>
-                        <dd className={status === 'online' ? Styles.online : Styles.offline}>
+                        <dd className={status === 'online' ? Styles.online : Styles.offline} data-testid={TestIds.ai.statusValue}>
                             {checking ? <Dots dotsCount={3} lockSize /> : txt(`aiStatus.${status}`)}
                         </dd>
                         <dt>
                             <Text type="caption">{txt('aiStatus.endpointLabel')}</Text>
                         </dt>
                         <dd>
-                            <code>{endpoint}</code>
+                            <code data-testid={TestIds.ai.endpoint}>{endpoint}</code>
                         </dd>
                         {model && (
                             <>
@@ -46,13 +49,13 @@ export default function AIStatus() {
                                     <Text type="caption">{txt('aiStatus.modelLabel')}</Text>
                                 </dt>
                                 <dd>
-                                    <code>{model}</code>
+                                    <code data-testid={TestIds.ai.model}>{model}</code>
                                 </dd>
                             </>
                         )}
                     </dl>
                     {status === 'offline' && (
-                        <Button variant="primary" onClick={reconnect} disabled={checking}>
+                        <Button variant="primary" onClick={reconnect} disabled={checking} data-testid={TestIds.ai.reconnect}>
                             {txt('aiStatus.reconnect')}
                         </Button>
                     )}
