@@ -23,56 +23,56 @@ function ArticleItem({
 
     return (
         <div className={Styles.articleSlot}>
-        <div
-            className={`${Styles.article} ${fullText ? Styles.withPdf : Styles.missingPdf} ${dragging ? Styles.dragging : ''}`}
-            onDragOver={e => {
-                e.preventDefault();
-                setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={e => {
-                e.preventDefault();
-                setDragging(false);
-                const file = e.dataTransfer.files.item(0);
-                if (file?.type === 'application/pdf') onAttach(file);
-            }}
-        >
-            <div className={Styles.articleInfo}>
-                <Text type="description" className={Styles.articleTitle}>
-                    {article.title}
-                </Text>
-                {meta && <Text type="caption">{meta}</Text>}
-                {fullText && (
-                    <Text type="caption" className={Styles.pdfName}>
-                        📄{' '}
-                        <a href={fullText.url} target="_blank" rel="noreferrer">
-                            {fullText.name}
-                        </a>
+            <div
+                className={`${Styles.article} ${fullText ? Styles.withPdf : Styles.missingPdf} ${dragging ? Styles.dragging : ''}`}
+                onDragOver={e => {
+                    e.preventDefault();
+                    setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={e => {
+                    e.preventDefault();
+                    setDragging(false);
+                    const file = e.dataTransfer.files.item(0);
+                    if (file?.type === 'application/pdf') onAttach(file);
+                }}
+            >
+                <div className={Styles.articleInfo}>
+                    <Text type="description" className={Styles.articleTitle}>
+                        {article.title}
                     </Text>
-                )}
-            </div>
-            <div className={Styles.articleActions}>
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="application/pdf"
-                    hidden
-                    onChange={e => {
-                        const file = e.target.files?.item(0);
-                        if (file) onAttach(file);
-                        e.target.value = '';
-                    }}
-                />
-                <Button variant={fullText ? 'transparent' : 'outline'} onClick={() => inputRef.current?.click()}>
-                    {fullText ? 'Substituir' : 'Enviar PDF'}
-                </Button>
-                {fullText && (
-                    <Button variant="transparent" onClick={onDetach}>
-                        Remover
+                    {meta && <Text type="caption">{meta}</Text>}
+                    {fullText && (
+                        <Text type="caption" className={Styles.pdfName}>
+                            📄{' '}
+                            <a href={fullText.url} target="_blank" rel="noreferrer">
+                                {fullText.name}
+                            </a>
+                        </Text>
+                    )}
+                </div>
+                <div className={Styles.articleActions}>
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        accept="application/pdf"
+                        hidden
+                        onChange={e => {
+                            const file = e.target.files?.item(0);
+                            if (file) onAttach(file);
+                            e.target.value = '';
+                        }}
+                    />
+                    <Button variant={fullText ? 'transparent' : 'outline'} onClick={() => inputRef.current?.click()}>
+                        {fullText ? 'Substituir' : 'Enviar PDF'}
                     </Button>
-                )}
+                    {fullText && (
+                        <Button variant="transparent" onClick={onDetach}>
+                            Remover
+                        </Button>
+                    )}
+                </div>
             </div>
-        </div>
         </div>
     );
 }
