@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
+import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import Styles from './Steps.module.css';
@@ -21,7 +22,8 @@ function ArticleItem({
     const meta = [article.year, article.journal].filter(Boolean).join(' · ');
 
     return (
-        <li
+        <div className={Styles.articleSlot}>
+        <div
             className={`${Styles.article} ${fullText ? Styles.withPdf : Styles.missingPdf} ${dragging ? Styles.dragging : ''}`}
             onDragOver={e => {
                 e.preventDefault();
@@ -70,7 +72,8 @@ function ArticleItem({
                     </Button>
                 )}
             </div>
-        </li>
+        </div>
+        </div>
     );
 }
 
@@ -83,18 +86,27 @@ export default function AssociateFullText() {
         const q = normalize(query.trim());
         return q ? articles.filter(a => normalize(a.title).includes(q)) : articles;
     }, [articles, query]);
-    const pending = visible.filter(a => !fullTexts[a.key]);
-    const uploaded = visible.filter(a => fullTexts[a.key]);
+    const visibleKeys = useMemo(() => new Set(visible.map(a => a.key)), [visible]);
+    const pending = articles.filter(a => !fullTexts[a.key]);
+    const uploaded = articles.filter(a => fullTexts[a.key]);
+    const uploadedVisible = uploaded.filter(a => visibleKeys.has(a.key)).length;
     const associated = articles.filter(a => fullTexts[a.key]).length;
 
+    // Articles missed by the search render an empty Fragment so the container animates the "out" state
     const renderItem = (article: Article) => (
-        <ArticleItem
-            key={article.key}
-            article={article}
-            fullText={fullTexts[article.key]}
-            onAttach={file => attachFullText(article.key, file)}
-            onDetach={() => detachFullText(article.key)}
-        />
+        <AdaptiveContainer key={article.key} containerElement="li" direction="v">
+            {visibleKeys.has(article.key) ? (
+                <ArticleItem
+                    key={article.key}
+                    article={article}
+                    fullText={fullTexts[article.key]}
+                    onAttach={file => attachFullText(article.key, file)}
+                    onDetach={() => detachFullText(article.key)}
+                />
+            ) : (
+                <Fragment key={`${article.key}-hidden`} />
+            )}
+        </AdaptiveContainer>
     );
 
     return (
@@ -120,9 +132,9 @@ export default function AssociateFullText() {
             <ul className={Styles.articleList}>
                 {visible.length === 0 && <Text type="description">Nenhum artigo encontrado.</Text>}
                 {pending.map(renderItem)}
-                {uploaded.length > 0 && (
+                {uploadedVisible > 0 && (
                     <li role="separator" className={Styles.divider}>
-                        <Text type="caption">Com texto completo · {uploaded.length}</Text>
+                        <Text type="caption">Com texto completo · {uploadedVisible}</Text>
                     </li>
                 )}
                 {uploaded.map(renderItem)}

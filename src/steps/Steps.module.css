@@ -37,10 +37,13 @@
 .articleList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
     list-style: none;
     margin: 8px 0 0;
     padding: 0;
+}
+
+.articleSlot {
+    padding-bottom: 10px;
 }
 
 .article {
