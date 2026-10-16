@@ -69,3 +69,10 @@
 .done .index {
     color: var(--success);
 }
+
+.aside {
+    position: absolute;
+    top: 50%;
+    right: 24px;
+    transform: translateY(-50%);
+}

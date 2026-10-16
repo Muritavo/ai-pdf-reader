@@ -36,6 +36,11 @@
   &:focus {
     box-shadow: 0 0 0 2px rgba($colorHighlight, 0.6);
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .iconButton {

@@ -9,14 +9,16 @@ export async function sha256(message: string): Promise<string> {
 const CACHE_PREFIX = 'cache-';
 
 /** Caches the (expensive) AI answers on localStorage, keyed by the hash of the arguments */
-export function wrapFunction<F extends (...args: string[]) => Promise<string>>(func: F) {
-    return (async (...args: string[]) => {
-        const cacheKey = `${CACHE_PREFIX}${await sha256(args.join(''))}`;
-        const cached = window.localStorage.getItem(cacheKey);
-        if (cached) return cached;
+export async function withCache(args: string[], produce: () => Promise<string>) {
+    const cacheKey = `${CACHE_PREFIX}${await sha256(args.join(''))}`;
+    const cached = window.localStorage.getItem(cacheKey);
+    if (cached) return cached;
 
-        const response = await func(...args);
-        window.localStorage.setItem(cacheKey, response);
-        return response;
-    }) as F;
+    const response = await produce();
+    window.localStorage.setItem(cacheKey, response);
+    return response;
+}
+
+export function wrapFunction<F extends (...args: string[]) => Promise<string>>(func: F) {
+    return ((...args: string[]) => withCache(args, () => func(...args))) as F;
 }

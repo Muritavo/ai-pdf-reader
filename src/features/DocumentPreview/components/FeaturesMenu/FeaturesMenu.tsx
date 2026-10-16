@@ -12,6 +12,8 @@ export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
 type FeaturesMenuProps = {
     addHighlight: (word: string) => void;
     fullText: FullText;
+    /** The AI backed actions are locked until the AI is online and the document warmed up */
+    aiReady: boolean;
     getDocumentCoordinates: () => { x: number; y: number };
     onMarkLocation: (x: number, y: number, word: string) => void;
 };
@@ -22,7 +24,7 @@ function extractSelectedWord(selectionText: string) {
 }
 
 export default forwardRef(function FeaturesMenu(
-    { addHighlight, fullText, getDocumentCoordinates, onMarkLocation }: FeaturesMenuProps,
+    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation }: FeaturesMenuProps,
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
@@ -88,6 +90,8 @@ export default forwardRef(function FeaturesMenu(
         {
             id: 'define-word',
             label: txt('documentPreview.menu.define'),
+            disabled: !aiReady,
+            hint: txt('aiWarmUp.locked'),
             onClick: async () => {
                 try {
                     const normalizedText = await getNormalizedText(fullText);
@@ -117,7 +121,14 @@ export default forwardRef(function FeaturesMenu(
         <div className={Styles.menu} onMouseUp={e => e.stopPropagation()} style={{ left: x, top: y }}>
             <div className={Styles.selectedWord}>{displayWord}</div>
             {menuItems.map(item => (
-                <AsyncInteractionButton key={item.id} variant="transparent" className={Styles.menuButton} action={item.onClick}>
+                <AsyncInteractionButton
+                    key={item.id}
+                    variant="transparent"
+                    className={Styles.menuButton}
+                    action={item.onClick}
+                    disabled={item.disabled}
+                    title={item.disabled ? item.hint : undefined}
+                >
                     {item.label}
                 </AsyncInteractionButton>
             ))}

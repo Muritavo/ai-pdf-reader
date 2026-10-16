@@ -8,6 +8,7 @@ import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStor
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain } from 'lucide-react';
 import type { FullText } from '../../models/Article';
+import { useWarmUp } from '../../context/AIContext';
 import { appendHighlightedText, useHighlightsForPDF } from '../../utils/highlight';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import DocumentPromptBar from './components/DocumentPromptBar';
@@ -30,6 +31,7 @@ type ClickPosition = {
 export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const { txt } = useShortIntl();
     const { hash } = fullText;
+    const warmUp = useWarmUp(fullText);
     const [pages, setPages] = useState<PageElement[]>([]);
     const [loading, setLoading] = useState(false);
     const [textLayers, setTextLayers] = useState<pdfjsLib.TextLayer[]>();
@@ -83,6 +85,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         indicator.classList.add(Styles.highlight);
         setTimeout(() => indicator.classList.remove(Styles.highlight), 2000);
     };
+
+    // Prepares the document for the AI as soon as it is available
+    useEffect(() => {
+        if (warmUp.status === 'online' && warmUp.state === 'idle') warmUp.start();
+    }, [warmUp.status, warmUp.state]);
 
     useEffect(() => {
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
@@ -230,6 +237,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 ref={menuRef}
                 addHighlight={addHighlight}
                 fullText={fullText}
+                aiReady={warmUp.ready}
                 getDocumentCoordinates={getDocumentCoordinates}
                 onMarkLocation={addPointOfInterest}
             />

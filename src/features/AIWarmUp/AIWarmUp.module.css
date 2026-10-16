@@ -1,0 +1,76 @@
+.container {
+    position: relative;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.container:disabled {
+    cursor: default;
+}
+
+.container:hover:not(:disabled) {
+    background: var(--surface-raised);
+}
+
+.ready {
+    color: var(--success);
+}
+
+.failed {
+    color: var(--danger);
+}
+
+.ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.track,
+.progress {
+    fill: none;
+    stroke-width: 3;
+}
+
+.track {
+    stroke: var(--border);
+}
+
+.progress {
+    stroke: var(--accent);
+    stroke-linecap: round;
+    transition: stroke-dasharray 200ms linear;
+}
+
+.brain {
+    position: relative;
+}
+
+.badge {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    padding: 2px;
+    box-sizing: content-box;
+    border-radius: 50%;
+    background: var(--surface);
+}
+
+.badgeFailed {
+    color: var(--danger);
+}
+
+.badgeReady {
+    color: var(--success);
+}

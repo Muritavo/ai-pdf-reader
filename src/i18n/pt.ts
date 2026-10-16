@@ -1,4 +1,21 @@
 export default {
+    aiWarmUp: {
+        offline: 'IA offline',
+        idle: 'Preparar documento para a IA',
+        running: 'Preparando documento para a IA ({progress}%)',
+        ready: 'Documento pronto para a IA',
+        error: 'Falha ao preparar o documento. Clique para tentar novamente',
+        locked: 'Disponível quando a IA estiver online e o documento preparado',
+    },
+    aiStatus: {
+        title: 'Status da IA',
+        statusLabel: 'Status',
+        endpointLabel: 'Endpoint',
+        modelLabel: 'Modelo',
+        online: 'Online',
+        offline: 'Offline',
+        reconnect: 'Reconectar',
+    },
     documentPreview: {
         menu: {
             searchOnGoogle: 'Pesquisar no Google',

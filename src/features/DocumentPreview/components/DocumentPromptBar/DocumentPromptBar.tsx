@@ -7,6 +7,8 @@ import { Clock, ExternalLink } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
+import AIWarmUp from '../../../AIWarmUp';
+import { useWarmUp } from '../../../../context/AIContext';
 import ResponseModal from '../ResponseModal/ResponseModal';
 import Styles from './DocumentPromptBar.module.scss';
 
@@ -35,6 +37,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
     const [showHistory, setShowHistory] = useState(false);
     const [showResponseModal, setShowResponseModal] = useState(false);
 
+    const { ready: aiReady } = useWarmUp(fullText);
     const storageKey = `${STORAGE_KEY_PREFIX}${fullText.hash}`;
 
     const saveHistory = useCallback(
@@ -65,7 +68,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
 
     const handleAsk = async () => {
         const prompt = promptText?.trim();
-        if (!prompt) return;
+        if (!prompt || !aiReady) return;
 
         setIsLoading(true);
         setIsError(false);
@@ -153,15 +156,18 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                     >
                         <Clock size={18} strokeWidth={1.5} />
                     </Button>
+                    <AIWarmUp fullText={fullText} />
                     <input
                         type="text"
                         value={promptText ?? ''}
                         onChange={e => setPromptText(e.target.value)}
                         onKeyDown={handleKeyDown}
                         className={Styles.promptInput}
+                        disabled={!aiReady}
+                        title={aiReady ? undefined : txt('aiWarmUp.locked')}
                         placeholder={txt('documentPreview.promptBar.placeholder')}
                     />
-                    <Button variant="primary" onClick={handleAsk} disabled={!promptText?.trim() || isLoading}>
+                    <Button variant="primary" onClick={handleAsk} disabled={!aiReady || !promptText?.trim() || isLoading}>
                         {isLoading ? <Dots dotsCount={5} lockSize /> : txt('documentPreview.promptBar.send')}
                     </Button>
                 </div>

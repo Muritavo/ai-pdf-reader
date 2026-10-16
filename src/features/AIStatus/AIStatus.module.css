@@ -1,0 +1,45 @@
+.trigger {
+    display: inline-grid;
+    place-items: center;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.trigger:hover {
+    background: var(--surface-raised);
+}
+
+.online {
+    color: var(--success);
+}
+
+.offline {
+    color: var(--danger);
+}
+
+.dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: min(420px, 80vw);
+    padding: 28px;
+}
+
+.details {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 10px 20px;
+    margin: 0;
+}
+
+.details dt,
+.details dd {
+    margin: 0;
+}
+
+.details dd {
+    font-weight: 600;
+}

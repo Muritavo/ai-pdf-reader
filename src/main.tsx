@@ -6,6 +6,7 @@ import OneUIProvider from '@onepercentio/one-ui/context/OneUIProvider';
 import BigFactory from '@onepercentio/one-ui/components/FileInput/View/BigFactory';
 import App from './App';
 import { ArticlesRepositoryProvider } from './context/ArticlesRepository';
+import { AIProvider } from './context/AIContext';
 import pt from './i18n/pt';
 import './index.css';
 
@@ -49,9 +50,11 @@ createRoot(document.getElementById('root')!).render(
             }}
         >
             <IntlProvider locale="pt-BR" messages={flatten(pt)}>
-                <ArticlesRepositoryProvider>
-                    <App />
-                </ArticlesRepositoryProvider>
+                <AIProvider>
+                    <ArticlesRepositoryProvider>
+                        <App />
+                    </ArticlesRepositoryProvider>
+                </AIProvider>
             </IntlProvider>
         </OneUIProvider>
     </StrictMode>,

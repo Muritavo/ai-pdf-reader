@@ -1,6 +1,7 @@
 const API_KEY = "stub";
-const API_URL = "http://localhost:9876/v1/chat/completions";
-const MODEL_STATUS_URL = "http://localhost:9876/v1/models/status";
+export const AI_ENDPOINT = "http://localhost:9876";
+const API_URL = `${AI_ENDPOINT}/v1/chat/completions`;
+const MODEL_STATUS_URL = `${AI_ENDPOINT}/v1/models/status`;
 import { wrapFunction } from "../utils/hash";
 
 const MODEL =
@@ -12,6 +13,8 @@ const MODEL =
 
 export async function callOpenAiApi(
   messages: { role: string; content: string }[],
+  /** Receives the amount of characters received so far while the answer streams */
+  onProgress?: (receivedCharacters: number) => void,
 ): Promise<string> {
   const response = await fetch(API_URL, {
     method: "POST",
@@ -58,6 +61,7 @@ export async function callOpenAiApi(
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               accumulated += content;
+              onProgress?.(accumulated.length);
             }
           } catch {
             // skip malformed JSON lines
