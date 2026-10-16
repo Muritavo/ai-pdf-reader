@@ -1,5 +1,6 @@
 export default {
     aiWarmUp: {
+        checking: 'Verificando a IA...',
         offline: 'IA offline',
         idle: 'Preparar documento para a IA',
         running: 'Preparando documento para a IA ({progress}%)',
@@ -13,6 +14,7 @@ export default {
         statusLabel: 'Status',
         endpointLabel: 'Endpoint',
         modelLabel: 'Modelo',
+        checking: 'Verificando...',
         online: 'Online',
         offline: 'Offline',
         reconnect: 'Reconectar',

@@ -20,6 +20,17 @@
     color: var(--danger);
 }
 
+.checking {
+    color: var(--text-muted);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
 .dialog {
     display: flex;
     flex-direction: column;

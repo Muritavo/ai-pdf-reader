@@ -33,6 +33,8 @@ export class MockAI {
     loadedModel: string | null = 'mock-model';
     /** Status code for the chat requests. Anything but 200 simulates a failure */
     chatStatus = 200;
+    /** Wait before answering the status of the models */
+    statusDelayMs = 0;
     /** Wait between the streamed chunks */
     chunkDelayMs = 0;
     private server?: Server;
@@ -75,6 +77,7 @@ export class MockAI {
         if (req.method === 'OPTIONS') return res.writeHead(204).end();
 
         if (req.method === 'GET' && req.url === '/v1/models/status') {
+            if (this.statusDelayMs) await sleep(this.statusDelayMs);
             res.setHeader('Content-Type', 'application/json');
             const models = this.loadedModel ? [{ id: this.loadedModel, loaded: true }] : [{ id: 'unloaded-model', loaded: false }];
             return res.end(JSON.stringify({ models }));

@@ -37,6 +37,7 @@ export const AIContext = createContext<AIContextShape>(null as any);
 export function AIProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AIStatus>('offline');
     const [model, setModel] = useState<string | null>(null);
+    const [hasChecked, setHasChecked] = useState(false);
     const [warmUps, setWarmUps] = useState<Record<string, WarmUp>>({});
     const reportedKey = useRef<Record<string, string>>({});
     const control = useAsyncControl({
@@ -49,10 +50,13 @@ export function AIProvider({ children }: { children: ReactNode }) {
 
     const reconnect = useCallback(
         () =>
-            control.checkStatus().catch(() => {
-                setModel(null);
-                setStatus('offline');
-            }),
+            control
+                .checkStatus()
+                .catch(() => {
+                    setModel(null);
+                    setStatus('offline');
+                })
+                .finally(() => setHasChecked(true)),
         [control.checkStatus],
     );
 
@@ -85,8 +89,8 @@ export function AIProvider({ children }: { children: ReactNode }) {
     );
 
     const value = useMemo(
-        () => ({ status, endpoint: AI_ENDPOINT, model, checking: control.loading, reconnect, warmUps, warmUp }),
-        [status, model, control.loading, reconnect, warmUps, warmUp],
+        () => ({ status, endpoint: AI_ENDPOINT, model, checking: control.loading || !hasChecked, reconnect, warmUps, warmUp }),
+        [status, model, control.loading, hasChecked, reconnect, warmUps, warmUp],
     );
 
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;
@@ -98,11 +102,12 @@ export function useAI() {
 
 /** Warm up state of a full text, and whether the AI features that depend on it can be used */
 export function useWarmUp(fullText: FullText) {
-    const { status, warmUps, warmUp } = useAI();
+    const { status, checking, warmUps, warmUp } = useAI();
     const current = warmUps[fullText.articleKey] ?? NOT_WARMED;
     return {
         ...current,
         status,
+        checking,
         ready: status === 'online' && current.state === 'done',
         start: () => warmUp(fullText),
     };

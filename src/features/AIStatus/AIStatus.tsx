@@ -20,8 +20,9 @@ export default function AIStatus() {
                 type="button"
                 data-testid={TestIds.ai.statusButton}
                 data-status={status}
-                className={`${Styles.trigger} ${status === 'online' ? Styles.online : Styles.offline}`}
-                title={txt(`aiStatus.${status}`)}
+                data-checking={checking}
+                className={`${Styles.trigger} ${checking ? Styles.checking : status === 'online' ? Styles.online : Styles.offline}`}
+                title={checking ? txt('aiStatus.checking') : txt(`aiStatus.${status}`)}
                 aria-label={txt('aiStatus.title')}
                 onClick={() => setOpen(true)}
             >

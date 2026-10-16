@@ -10,16 +10,19 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function AIWarmUp({ fullText }: { fullText: FullText }) {
     const { txt } = useShortIntl();
-    const { status, state, progress, generatedWords, ready, start } = useWarmUp(fullText);
+    const { status, checking, state, progress, generatedWords, ready, start } = useWarmUp(fullText);
 
-    const offline = status === 'offline';
-    const running = !offline && state === 'running';
-    const canStart = !offline && (state === 'idle' || state === 'error');
+    // While the server is being verified, it is not known to be offline yet
+    const offline = status === 'offline' && !checking;
+    const running = !offline && !checking && state === 'running';
+    const canStart = !offline && !checking && (state === 'idle' || state === 'error');
     const generated =
         running && generatedWords !== undefined
             ? txt('aiWarmUp.generatedWords', { count: generatedWords.toLocaleString('pt-BR') })
             : undefined;
-    const label = offline
+    const label = checking
+        ? txt('aiWarmUp.checking')
+        : offline
         ? txt('aiWarmUp.offline')
         : running
           ? [txt('aiWarmUp.running', { progress: String(Math.round(progress * 100)) }), generated].filter(Boolean).join(' · ')
@@ -34,7 +37,7 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
             <button
                 type="button"
                 data-testid={TestIds.ai.warmUp}
-                data-state={offline ? 'offline' : ready ? 'ready' : state}
+                data-state={checking ? 'checking' : offline ? 'offline' : ready ? 'ready' : state}
                 className={`${Styles.container} ${ready ? Styles.ready : ''} ${offline || state === 'error' ? Styles.failed : ''}`}
                 title={label}
                 aria-label={label}

@@ -34,6 +34,17 @@ async function ask(page: Page, prompt: string) {
 const closePreview = (page: Page) => page.mouse.click(2, 2);
 
 test.describe('the AI status', () => {
+    test('shows it is being checked, instead of offline, until the server answers', async ({ page, ai }) => {
+        ai.statusDelayMs = 1500;
+        await openApp(page);
+
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-checking', 'true');
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('title', 'Verificando...');
+
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-checking', 'false');
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
+    });
+
     test('is online when the server answers with a loaded model', async ({ page, ai }) => {
         await openApp(page);
 
