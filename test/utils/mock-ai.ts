@@ -33,6 +33,12 @@ export class MockAI {
     loadedModel: string | null = 'mock-model';
     /** Status code for the chat requests. Anything but 200 simulates a failure */
     chatStatus = 200;
+    /** When false, the models status endpoint is missing, like on servers that don't report the loaded model */
+    modelsStatusAvailable = true;
+    /** How many pings (plain requests to check the server is up) were received */
+    pings = 0;
+    /** Overrides the answer given to the questions. Receives the question */
+    askAnswer?: (prompt: string) => string;
     /** Wait before answering the status of the models */
     statusDelayMs = 0;
     /** Wait between the streamed chunks */
@@ -46,7 +52,7 @@ export class MockAI {
             case 'define':
                 return `Definição mock de ${request.word}`;
             case 'ask':
-                return `Resposta mock para: ${request.prompt}`;
+                return this.askAnswer?.(request.prompt) ?? `Resposta mock para: ${request.prompt}`;
         }
     }
 
@@ -76,7 +82,14 @@ export class MockAI {
         res.setHeader('Access-Control-Allow-Headers', '*');
         if (req.method === 'OPTIONS') return res.writeHead(204).end();
 
+        if (req.method === 'GET' && req.url === '/v1/models') {
+            this.pings += 1;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ data: [] }));
+        }
+
         if (req.method === 'GET' && req.url === '/v1/models/status') {
+            if (!this.modelsStatusAvailable) return res.writeHead(404).end();
             if (this.statusDelayMs) await sleep(this.statusDelayMs);
             res.setHeader('Content-Type', 'application/json');
             const models = this.loadedModel ? [{ id: this.loadedModel, loaded: true }] : [{ id: 'unloaded-model', loaded: false }];

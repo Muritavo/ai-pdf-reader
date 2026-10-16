@@ -10,6 +10,7 @@ import { getNormalizedText } from '../../../../utils/preprocessing';
 import AIWarmUp from '../../../AIWarmUp';
 import { useWarmUp } from '../../../../context/AIContext';
 import { TestIds } from '../../../../testids';
+import Markdown from '../../../../components/Markdown';
 import ResponseModal from '../ResponseModal/ResponseModal';
 import Styles from './DocumentPromptBar.module.scss';
 
@@ -191,6 +192,7 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                             </Text>
                             <Button
                                 variant="transparent"
+                                data-testid={TestIds.ai.openResponseModal}
                                 className={Styles.iconButton}
                                 onClick={() => setShowResponseModal(true)}
                                 title={txt('documentPreview.promptBar.openInModal')}
@@ -199,9 +201,9 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                             </Button>
                         </div>
                         <div className={Styles.resultContentWrapper}>
-                            <Text type="description" className={Styles.resultContent} data-testid={TestIds.ai.answer}>
+                            <Markdown className={Styles.resultContent} data-testid={TestIds.ai.answer}>
                                 {lastAnswer}
-                            </Text>
+                            </Markdown>
                         </div>
                     </div>
                 )}

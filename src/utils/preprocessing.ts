@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { organizeDocumentText } from '../services/ai-helper';
+import { isDocumentTextOrganized, organizeDocumentText } from '../services/ai-helper';
 import type { FullText } from '../models/Article';
 import { createProgressTracker, tokenize } from './progressTracker';
 
@@ -75,6 +75,19 @@ async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: Prepr
     });
     onProgress({ progress: 1 });
     return normalized;
+}
+
+/**
+ * Whether the document was already warmed up before, checked without the AI:
+ * the text is extracted again and looked up on the cache of the organized texts.
+ */
+export async function wasWarmedUpBefore(fullText: FullText): Promise<boolean> {
+    try {
+        const bytes = await (await fetch(fullText.url)).arrayBuffer();
+        return await isDocumentTextOrganized((await extractPageTexts(bytes)).join(' '));
+    } catch {
+        return false;
+    }
 }
 
 const normalizedTexts = new Map<string, Promise<string>>();

@@ -90,6 +90,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setTimeout(() => indicator.classList.remove(Styles.highlight), 2000);
     };
 
+    // A document warmed up before does not need to be warmed up again, which is found without the AI
+    useEffect(() => {
+        warmUp.checkWarmedUpBefore();
+    }, [fullText.hash]);
+
     useEffect(() => {
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
         window.addEventListener('mouseup', listener);

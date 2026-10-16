@@ -77,6 +77,43 @@ test.describe('the AI status', () => {
         await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
     });
 
+    test('does not ping the server when it reports its models', async ({ page, ai }) => {
+        await openApp(page);
+
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
+        expect(ai.pings).toBe(0);
+    });
+
+    test('falls back to a single ping when the models can not be read', async ({ page, ai }) => {
+        ai.modelsStatusAvailable = false;
+        await openApp(page);
+
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
+        expect(ai.pings).toBe(1);
+        await byId(page, TestIds.ai.statusButton).click();
+        await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Online');
+        // The model is unknown, so none is shown
+        await expect(byId(page, TestIds.ai.model)).toHaveCount(0);
+    });
+
+    test('is still usable when only the ping works', async ({ page, ai }) => {
+        ai.modelsStatusAvailable = false;
+        await openSamplePreview(page);
+
+        await warmUp(page);
+        await ask(page, 'Funciona sem o modelo carregado?');
+
+        expect(ai.requestsOfKind('ask')).toHaveLength(1);
+    });
+
+    test('is offline when neither the models nor the ping answer', async ({ page, ai }) => {
+        await ai.stop();
+        await openApp(page);
+
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'offline');
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-checking', 'false');
+    });
+
     test('is offline when the server is up but has no model loaded', async ({ page, ai }) => {
         ai.loadedModel = null;
         await openApp(page);
@@ -85,6 +122,8 @@ test.describe('the AI status', () => {
         await byId(page, TestIds.ai.statusButton).click();
         await expect(byId(page, TestIds.ai.model)).toHaveCount(0);
         await expect(byId(page, TestIds.ai.reconnect)).toBeVisible();
+        // The server answered about the models, so there is no need to ping it
+        expect(ai.pings).toBe(0);
     });
 });
 
@@ -134,15 +173,84 @@ test.describe('warming up a document', () => {
         await expect.poll(count).toBeGreaterThan(first);
     });
 
-    test('does not need the AI again for a document that was already warmed up', async ({ page, ai }) => {
+    test('recognizes a document warmed up before, without asking the AI again', async ({ page, ai }) => {
         await openSamplePreview(page);
         await warmUp(page);
 
         await page.reload();
         await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+
+        // No click needed, it is found on what was kept from the first time
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'ready');
+        await expect(promptInput(page)).toBeEnabled();
+        expect(ai.requestsOfKind('organize')).toHaveLength(1);
+    });
+
+    test('can ask about a document warmed up before, using what was kept', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await page.reload();
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'ready');
+
+        await ask(page, 'Pergunta depois de recarregar');
+
+        const [question] = ai.requestsOfKind('ask');
+        expect(question.context).toContain('# Texto organizado');
+        expect(ai.requestsOfKind('organize')).toHaveLength(1);
+    });
+
+    test('keeps a document that was not warmed up before waiting to be started', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await closePreview(page);
+        const other = articleCard(page, 'Article 2');
+        await attachPdf(other, pdfWithOtherText());
+
+        await openPreview(page, other, 1);
+        await page.waitForTimeout(500);
+
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'idle');
+        expect(ai.requestsOfKind('organize')).toHaveLength(1);
+    });
+
+    test('starts from scratch when what was kept is gone', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await page.evaluate(() => {
+            Object.keys(localStorage)
+                .filter(key => key.startsWith('cache-'))
+                .forEach(key => localStorage.removeItem(key));
+        });
+
+        await page.reload();
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await page.waitForTimeout(500);
+
         await expect(warmUpButton(page)).toHaveAttribute('data-state', 'idle');
         await warmUp(page);
+        expect(ai.requestsOfKind('organize')).toHaveLength(2);
+    });
 
+    test('is ready as soon as the AI is back, for a document warmed up before', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ai.stop();
+        await page.reload();
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'offline');
+        await closePreview(page);
+
+        await ai.start();
+        await byId(page, TestIds.ai.statusButton).click();
+        await byId(page, TestIds.ai.reconnect).click();
+        await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Online');
+        await closePreview(page);
+        await openPreview(page, card, SAMPLE_PAGES.length);
+
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'ready');
+        // Only the first warm up reached the AI
         expect(ai.requestsOfKind('organize')).toHaveLength(1);
     });
 
@@ -204,6 +312,83 @@ test.describe('asking questions', () => {
         expect(question.prompt).toBe('Qual é o objetivo do estudo?');
         expect(question.context).toContain('# Texto organizado');
         expect(question.context).toContain('Plasma samples were collected from women');
+    });
+
+    const MARKDOWN_ANSWER = [
+        '# Resumo',
+        '',
+        'Texto com **negrito** e `código`.',
+        '',
+        '- item um',
+        '- item dois',
+        '',
+        '| a | b |',
+        '|---|---|',
+        '| 1 | 2 |',
+        '',
+        '[um link](https://example.com)',
+        '',
+        '<script>window.__injected = true</script>',
+    ].join('\n');
+
+    test('formats the answer as markdown', async ({ page, ai }) => {
+        ai.askAnswer = () => MARKDOWN_ANSWER;
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await promptInput(page).fill('Resuma o documento');
+        await byId(page, TestIds.ai.promptSend).click();
+
+        const answer = byId(page, TestIds.ai.answer);
+        await expect(answer.locator('h1')).toHaveText('Resumo');
+        await expect(answer.locator('strong')).toHaveText('negrito');
+        await expect(answer.locator('code')).toHaveText('código');
+        await expect(answer.locator('li')).toHaveText(['item um', 'item dois']);
+        await expect(answer.locator('table td')).toHaveText(['1', '2']);
+        const link = answer.getByRole('link', { name: 'um link' });
+        await expect(link).toHaveAttribute('href', 'https://example.com');
+        await expect(link).toHaveAttribute('target', '_blank');
+        // The markdown symbols are not shown as text
+        await expect(answer).not.toContainText('**');
+        await expect(answer).not.toContainText('# Resumo');
+    });
+
+    test('does not run the HTML that comes in an answer', async ({ page, ai }) => {
+        ai.askAnswer = () => MARKDOWN_ANSWER;
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await promptInput(page).fill('Resuma o documento');
+        await byId(page, TestIds.ai.promptSend).click();
+        await expect(byId(page, TestIds.ai.answer).locator('h1')).toBeVisible();
+
+        await expect(byId(page, TestIds.ai.answer).locator('script')).toHaveCount(0);
+        expect(await page.evaluate(() => (window as unknown as { __injected?: boolean }).__injected)).toBeUndefined();
+    });
+
+    test('formats the answer on the response window too', async ({ page, ai }) => {
+        ai.askAnswer = () => MARKDOWN_ANSWER;
+        await openSamplePreview(page);
+        await warmUp(page);
+        await promptInput(page).fill('Resuma o documento');
+        await byId(page, TestIds.ai.promptSend).click();
+        await expect(byId(page, TestIds.ai.answer).locator('h1')).toBeVisible();
+
+        await byId(page, TestIds.ai.openResponseModal).click();
+
+        const modalAnswer = byId(page, TestIds.ai.responseModalAnswer);
+        await expect(modalAnswer.locator('h1')).toHaveText('Resumo');
+        await expect(modalAnswer.locator('li')).toHaveCount(2);
+        await expect(modalAnswer.locator('table')).toBeVisible();
+    });
+
+    test('keeps showing plain text answers as they are', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await ask(page, 'Pergunta simples');
+
+        await expect(byId(page, TestIds.ai.answer).locator('p')).toHaveText('Resposta mock para: Pergunta simples');
     });
 
     test('sends the question with Enter', async ({ page }) => {
@@ -334,6 +519,24 @@ test.describe('defining words', () => {
         expect(request.context).toContain('# Texto organizado');
         expect(request.context).toContain('Discussion about acetyl-proteomic profiles');
         await expect(byId(page, TestIds.menu.root)).toHaveCount(0);
+    });
+
+    test('starts with the same message as the questions, so the server can reuse its cache', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta para comparar');
+
+        await defineSelected(page, SAMPLE_WORD);
+
+        const [question] = ai.requestsOfKind('ask');
+        const [definition] = ai.requestsOfKind('define');
+        // The server only reuses what it processed before up to the first difference
+        for (const request of [question, definition]) {
+            expect(request.messages.map(message => message.role)).toEqual(['user', 'assistant', 'user']);
+        }
+        expect(definition.messages.slice(0, 2)).toEqual(question.messages.slice(0, 2));
+        expect(definition.messages[0].content).toContain(question.context);
+        expect(definition.messages[2].content).not.toBe(question.messages[2].content);
     });
 
     test('is locked until the document is warmed up, keeping the other actions', async ({ page }) => {

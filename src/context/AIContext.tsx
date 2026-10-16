@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import useAsyncControl from '@onepercentio/one-ui/hooks/useAsyncControl';
-import { AI_ENDPOINT, getLoadedModelId } from '../services/ai';
+import { AI_ENDPOINT, getLoadedModelId, pingServer } from '../services/ai';
 import type { FullText } from '../models/Article';
-import { getNormalizedText } from '../utils/preprocessing';
+import { getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
 
 export type AIStatus = 'offline' | 'online';
 
@@ -30,6 +30,8 @@ type AIContextShape = {
     /** The warm up state by article key */
     warmUps: Record<string, WarmUp>;
     warmUp: (fullText: FullText) => Promise<void>;
+    /** Marks the document as warmed up when it was before, without using the AI */
+    checkWarmedUpBefore: (fullText: FullText) => Promise<void>;
 };
 
 export const AIContext = createContext<AIContextShape>(null as any);
@@ -42,23 +44,33 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const reportedKey = useRef<Record<string, string>>({});
     const control = useAsyncControl({
         async checkStatus() {
-            const loadedModel = await getLoadedModelId();
-            setModel(loadedModel);
-            setStatus(loadedModel ? 'online' : 'offline');
+            try {
+                const loadedModel = await getLoadedModelId();
+                setModel(loadedModel);
+                setStatus(loadedModel ? 'online' : 'offline');
+            } catch {
+                // The models can't be known, so it falls back to checking if the server answers at all
+                setModel(null);
+                setStatus((await pingServer()) ? 'online' : 'offline');
+            }
         },
     });
 
-    const reconnect = useCallback(
-        () =>
-            control
-                .checkStatus()
-                .catch(() => {
-                    setModel(null);
-                    setStatus('offline');
-                })
-                .finally(() => setHasChecked(true)),
-        [control.checkStatus],
-    );
+    // A check already running is shared, instead of asking the server twice
+    const checkInFlight = useRef<Promise<void>>();
+    const reconnect = useCallback(() => {
+        checkInFlight.current ??= control
+            .checkStatus()
+            .catch(() => {
+                setModel(null);
+                setStatus('offline');
+            })
+            .finally(() => {
+                checkInFlight.current = undefined;
+                setHasChecked(true);
+            });
+        return checkInFlight.current;
+    }, [control.checkStatus]);
 
     useEffect(() => {
         reconnect();
@@ -67,6 +79,22 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const updateWarmUp = useCallback((articleKey: string, warmUp: WarmUp) => {
         setWarmUps(prev => ({ ...prev, [articleKey]: warmUp }));
     }, []);
+
+    const checkedBefore = useRef(new Set<string>());
+    const checkWarmedUpBefore = useCallback(
+        async (fullText: FullText) => {
+            if (checkedBefore.current.has(fullText.hash)) return;
+            checkedBefore.current.add(fullText.hash);
+            if (!(await wasWarmedUpBefore(fullText))) return;
+            // Does not override a warm up that started in the meantime
+            setWarmUps(prev =>
+                prev[fullText.articleKey]?.state === 'running'
+                    ? prev
+                    : { ...prev, [fullText.articleKey]: { state: 'done', progress: 1 } },
+            );
+        },
+        [],
+    );
 
     const warmUp = useCallback(
         async (fullText: FullText) => {
@@ -89,8 +117,8 @@ export function AIProvider({ children }: { children: ReactNode }) {
     );
 
     const value = useMemo(
-        () => ({ status, endpoint: AI_ENDPOINT, model, checking: control.loading || !hasChecked, reconnect, warmUps, warmUp }),
-        [status, model, control.loading, hasChecked, reconnect, warmUps, warmUp],
+        () => ({ status, endpoint: AI_ENDPOINT, model, checking: control.loading || !hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore }),
+        [status, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore],
     );
 
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;
@@ -102,7 +130,7 @@ export function useAI() {
 
 /** Warm up state of a full text, and whether the AI features that depend on it can be used */
 export function useWarmUp(fullText: FullText) {
-    const { status, checking, warmUps, warmUp } = useAI();
+    const { status, checking, warmUps, warmUp, checkWarmedUpBefore } = useAI();
     const current = warmUps[fullText.articleKey] ?? NOT_WARMED;
     return {
         ...current,
@@ -110,5 +138,6 @@ export function useWarmUp(fullText: FullText) {
         checking,
         ready: status === 'online' && current.state === 'done',
         start: () => warmUp(fullText),
+        checkWarmedUpBefore: () => checkWarmedUpBefore(fullText),
     };
 }

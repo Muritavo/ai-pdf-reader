@@ -1,6 +1,8 @@
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
+import Markdown from '../../../../components/Markdown';
+import { TestIds } from '../../../../testids';
 import Styles from './ResponseModal.module.scss';
 
 type ResponseModalProps = {
@@ -13,7 +15,7 @@ export default function ResponseModal({ prompt, answer, onClose }: ResponseModal
     const { txt } = useShortIntl();
 
     return (
-        <div className={Styles.modalOverlay} onClick={onClose}>
+        <div className={Styles.modalOverlay} onClick={onClose} data-testid={TestIds.ai.responseModal}>
             <div className={Styles.modalContent} onClick={e => e.stopPropagation()}>
                 <div className={Styles.modalHeader}>
                     <Text type="subtitle">{txt('documentPreview.responseModal.title')}</Text>
@@ -36,9 +38,9 @@ export default function ResponseModal({ prompt, answer, onClose }: ResponseModal
                         {txt('documentPreview.responseModal.answer')}
                     </Text>
                     <div className={Styles.answerContent}>
-                        <Text type="description" className={Styles.answerText}>
+                        <Markdown className={Styles.answerText} data-testid={TestIds.ai.responseModalAnswer}>
                             {answer}
-                        </Text>
+                        </Markdown>
                     </div>
                 </div>
             </div>

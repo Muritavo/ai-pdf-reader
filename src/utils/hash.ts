@@ -8,9 +8,16 @@ export async function sha256(message: string): Promise<string> {
 
 const CACHE_PREFIX = 'cache-';
 
+const cacheKeyOf = async (args: string[]) => `${CACHE_PREFIX}${await sha256(args.join(''))}`;
+
+/** Whether the answer for these arguments was already cached, so the AI is not needed */
+export async function isCached(args: string[]) {
+    return window.localStorage.getItem(await cacheKeyOf(args)) !== null;
+}
+
 /** Caches the (expensive) AI answers on localStorage, keyed by the hash of the arguments */
 export async function withCache(args: string[], produce: () => Promise<string>) {
-    const cacheKey = `${CACHE_PREFIX}${await sha256(args.join(''))}`;
+    const cacheKey = await cacheKeyOf(args);
     const cached = window.localStorage.getItem(cacheKey);
     if (cached) return cached;
 

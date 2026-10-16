@@ -1,4 +1,4 @@
-import { withCache } from "../utils/hash";
+import { isCached, withCache } from "../utils/hash";
 import { callOpenAiApi } from "./ai";
 
 /**
@@ -21,4 +21,9 @@ ${currentPageTextWithPositions}`;
       onProgress,
     ),
   );
+}
+
+/** Whether the organization of this text was done before, so it is available without the AI */
+export function isDocumentTextOrganized(currentPageTextWithPositions: string) {
+  return isCached([currentPageTextWithPositions]);
 }

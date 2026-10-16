@@ -1,12 +1,12 @@
 const API_KEY = "stub";
-export const AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://localhost:9876";
+export const AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://127.0.0.1:8000";
 const API_URL = `${AI_ENDPOINT}/v1/chat/completions`;
 const MODEL_STATUS_URL = `${AI_ENDPOINT}/v1/models/status`;
 import { wrapFunction } from "../utils/hash";
 
 const MODEL =
   // "gemma-4-26b-a4b-it-UD-MLX-4bit"
-  "UNKNOWN"
+  "mlx-community/Qwen3.8-27B-4bit"
 // "Ornith-1.0-9B-oQ4-fp16"
 // 'Ornith-1.0-9B-oQ4-fp16'
 // "Ornith-1.0-9B-mlx-4Bit"
@@ -23,7 +23,8 @@ export async function callOpenAiApi(
       Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: (await getLoadedModelId()) ?? MODEL,
+      // Servers that don't report the loaded model are still used, with the default model
+      model: (await getLoadedModelId().catch(() => null)) ?? MODEL,
       messages,
       stream: true,
       chat_template_kwargs: { enable_thinking: false },
@@ -92,17 +93,33 @@ async function _normalizePdfText(rawText: string): Promise<string> {
 }
 export const normalizePdfText = wrapFunction(_normalizePdfText);
 
-async function _defineWordInContext(
-  word: string,
-  context: string,
-): Promise<string> {
-  return callOpenAiApi([
+/**
+ * The start of every conversation about a document: the document, and the assistant acknowledging it.
+ * It must stay identical between the features (and start with nothing that changes), so the server
+ * can reuse the prompt it already processed (KV cache) and only handle the question that follows.
+ */
+function documentContextMessages(context: string) {
+  return [
     {
       role: "user",
       content: `Here is the context of the document:
 
 ${context}`,
     },
+    {
+      role: "assistant",
+      content:
+        "Understood. I have the document and will answer based on it. What would you like to know?",
+    },
+  ];
+}
+
+async function _defineWordInContext(
+  word: string,
+  context: string,
+): Promise<string> {
+  return callOpenAiApi([
+    ...documentContextMessages(context),
     {
       role: "user",
       content: `What does "${word}" mean in this context? Please provide a concise definition based on the context.`,
@@ -116,12 +133,7 @@ async function _askContext(
   context: string,
 ): Promise<string> {
   return callOpenAiApi([
-    {
-      role: "user",
-      content: `Here is the context from a document:
-
-${context}`,
-    },
+    ...documentContextMessages(context),
     {
       role: "user",
       content: prompt,
@@ -149,3 +161,19 @@ async function _getLoadedModelId(): Promise<string | null> {
   return loadedModel?.id ?? null;
 }
 export const getLoadedModelId = _getLoadedModelId;
+
+/**
+ * A single request to check the server is reachable, for when it does not report the loaded model.
+ * Any answer means it is up, even an error status. Only a failure to connect means it is not.
+ */
+export async function pingServer(): Promise<boolean> {
+  try {
+    await fetch(`${AI_ENDPOINT}/v1/models`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
