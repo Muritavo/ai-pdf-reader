@@ -54,5 +54,6 @@ export const TestIds = {
         historyToggle: 'history-toggle',
         historyItem: 'history-item',
         historyClear: 'history-clear',
+        historyRemove: 'history-remove',
     },
 } as const;

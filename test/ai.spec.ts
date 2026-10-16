@@ -415,6 +415,101 @@ test.describe('asking questions', () => {
         await expect(items.nth(1)).toContainText('Primeira pergunta');
     });
 
+    test('shows the remove button over the entry that is hovered', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await ask(page, 'Segunda pergunta');
+        await byId(page, TestIds.ai.historyToggle).click();
+        const [newest, oldest] = await byId(page, TestIds.ai.historyItem).all();
+
+        await expect(newest.getByTestId(TestIds.ai.historyRemove)).toHaveCSS('opacity', '0');
+        await newest.hover();
+
+        await expect(newest.getByTestId(TestIds.ai.historyRemove)).toHaveCSS('opacity', '1');
+        // Only the hovered entry shows it
+        await expect(oldest.getByTestId(TestIds.ai.historyRemove)).toHaveCSS('opacity', '0');
+    });
+
+    test('shows the remove button at the top right of the entry', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await byId(page, TestIds.ai.historyToggle).click();
+        const entry = byId(page, TestIds.ai.historyItem).first();
+        await entry.hover();
+
+        const entryBox = (await entry.boundingBox())!;
+        const removeBox = (await entry.getByTestId(TestIds.ai.historyRemove).boundingBox())!;
+
+        expect(entryBox.x + entryBox.width - (removeBox.x + removeBox.width)).toBeLessThan(12);
+        expect(removeBox.y - entryBox.y).toBeLessThan(12);
+    });
+
+    test('removes only that entry from the history', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await ask(page, 'Segunda pergunta');
+        await ask(page, 'Terceira pergunta');
+        await byId(page, TestIds.ai.historyToggle).click();
+        const items = byId(page, TestIds.ai.historyItem);
+        await expect(items).toHaveCount(3);
+
+        await items.filter({ hasText: 'Segunda pergunta' }).hover();
+        await items.filter({ hasText: 'Segunda pergunta' }).getByTestId(TestIds.ai.historyRemove).click();
+
+        await expect(items).toHaveCount(2);
+        await expect(items.nth(0)).toContainText('Terceira pergunta');
+        await expect(items.nth(1)).toContainText('Primeira pergunta');
+        // It does not bring the removed entry to the prompt, and the history stays open
+        await expect(promptInput(page)).toHaveValue('Terceira pergunta');
+        await expect(items.first()).toBeVisible();
+    });
+
+    test('keeps the entry removed after reloading', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await ask(page, 'Segunda pergunta');
+        await byId(page, TestIds.ai.historyToggle).click();
+        await byId(page, TestIds.ai.historyItem).filter({ hasText: 'Primeira pergunta' }).hover();
+        await byId(page, TestIds.ai.historyItem).filter({ hasText: 'Primeira pergunta' }).getByTestId(TestIds.ai.historyRemove).click();
+
+        await page.reload();
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(1);
+        await expect(byId(page, TestIds.ai.historyItem)).toContainText('Segunda pergunta');
+    });
+
+    test('shows the empty history after removing the last entry', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Única pergunta');
+        await byId(page, TestIds.ai.historyToggle).click();
+        await byId(page, TestIds.ai.historyItem).hover();
+
+        await byId(page, TestIds.ai.historyRemove).click();
+
+        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(0);
+        await expect(page.getByText('Nenhuma pergunta ainda')).toBeVisible();
+    });
+
+    test('can be removed with the keyboard', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta do teclado');
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await byId(page, TestIds.ai.historyRemove).focus();
+        await expect(byId(page, TestIds.ai.historyRemove)).toHaveCSS('opacity', '1');
+        await page.keyboard.press('Enter');
+
+        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(0);
+    });
+
     test('does not repeat a question asked again with the same wording', async ({ page, ai }) => {
         await openSamplePreview(page);
         await warmUp(page);

@@ -37,6 +37,7 @@ export default {
             historyTitle: 'Histórico de perguntas',
             noHistory: 'Nenhuma pergunta ainda',
             clearHistory: 'Limpar histórico',
+            removeEntry: 'Remover do histórico',
             openInModal: 'Abrir em janela',
         },
         responseModal: {

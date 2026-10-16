@@ -3,7 +3,7 @@ import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Clock, ExternalLink } from 'lucide-react';
+import { Clock, ExternalLink, Trash2 } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
@@ -139,6 +139,20 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                                         setShowHistory(false);
                                     }}
                                 >
+                                    <button
+                                        type="button"
+                                        className={Styles.historyItemRemove}
+                                        data-testid={TestIds.ai.historyRemove}
+                                        title={txt('documentPreview.promptBar.removeEntry')}
+                                        aria-label={txt('documentPreview.promptBar.removeEntry')}
+                                        onClick={e => {
+                                            // Removing does not bring the entry back to the prompt
+                                            e.stopPropagation();
+                                            saveHistory(history.filter(other => other !== entry));
+                                        }}
+                                    >
+                                        <Trash2 size={14} strokeWidth={1.75} />
+                                    </button>
                                     <Text type="caption" className={Styles.historyItemPrompt}>
                                         {entry.prompt}
                                     </Text>
