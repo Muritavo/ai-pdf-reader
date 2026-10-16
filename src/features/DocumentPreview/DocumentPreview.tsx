@@ -11,6 +11,7 @@ import { Brain } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import { appendHighlightedText, useHighlightsForPDF } from '../../utils/highlight';
+import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import DocumentPromptBar from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
@@ -183,6 +184,34 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             cancelled = true;
         };
     }, [pages, pdf]);
+
+    // Keeps how far the document was read, once every page is rendered and the height is known
+    useEffect(() => {
+        const box = previewBoxRef.current;
+        if (!box || !textLayers) return;
+        let frame = 0;
+        // Kept on the side, as a closed document can't be measured anymore
+        let reached = (box.scrollTop + box.clientHeight) / box.scrollHeight;
+        const record = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                reached = (box.scrollTop + box.clientHeight) / box.scrollHeight;
+                recordReadingProgress(hash, reached);
+            });
+        };
+        // Where the reader stopped, saved when leaving the document, or the page
+        const saveWhereStopped = () => saveLastOpening(hash, reached);
+        record();
+        box.addEventListener('scroll', record, { passive: true });
+        window.addEventListener('pagehide', saveWhereStopped);
+        return () => {
+            cancelAnimationFrame(frame);
+            box.removeEventListener('scroll', record);
+            window.removeEventListener('pagehide', saveWhereStopped);
+            // Only when the document was really left, not when this effect restarts with it still on the screen
+            if (!box.isConnected) saveWhereStopped();
+        };
+    }, [textLayers, hash]);
 
     useEffect(() => {
         if (!textLayers || !highlightRules?.length) return;

@@ -18,6 +18,8 @@ export const TestIds = {
         articleError: 'article-error',
         withPdfDivider: 'with-pdf-divider',
         progressCount: 'full-texts-count',
+        readProgress: 'read-progress',
+        lastOpening: 'read-last-opening',
     },
     preview: {
         box: 'pdf-preview',

@@ -6,6 +6,7 @@ import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
+import { isReadToTheEnd, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
@@ -25,6 +26,9 @@ function ArticleItem({
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
     const [attachError, setAttachError] = useState<string>();
+    const readProgress = useReadingProgress(fullText?.hash);
+    const readToTheEnd = isReadToTheEnd(readProgress);
+    const lastOpening = useLastOpening(fullText?.hash);
     const attach = async (file: File) => {
         setAttachError(undefined);
         try {
@@ -69,6 +73,37 @@ function ArticleItem({
                                 </span>
                             )}
                         </Text>
+                    )}
+                    {fullText && readProgress > 0 && (
+                        <>
+                            <Text
+                                type="caption"
+                                className={`${Styles.readProgress} ${readToTheEnd ? Styles.readComplete : ''}`}
+                                data-testid={TestIds.fullTexts.readProgress}
+                                data-complete={readToTheEnd}
+                                data-progress={Math.round(readProgress * 100)}
+                            >
+                                {readToTheEnd ? '✓ Lido até o fim' : `${Math.round(readProgress * 100)}% lido`}
+                            </Text>
+                            <div className={Styles.readBar} aria-hidden>
+                                <div className={Styles.readBarFill} style={{ width: `${readProgress * 100}%` }} />
+                            </div>
+                        </>
+                    )}
+                    {fullText && lastOpening !== undefined && (
+                        <>
+                            <Text
+                                type="caption"
+                                className={Styles.lastOpening}
+                                data-testid={TestIds.fullTexts.lastOpening}
+                                data-progress={Math.round(lastOpening * 100)}
+                            >
+                                {Math.round(lastOpening * 100)}% na última abertura
+                            </Text>
+                            <div className={Styles.readBar} aria-hidden>
+                                <div className={Styles.lastOpeningFill} style={{ width: `${lastOpening * 100}%` }} />
+                            </div>
+                        </>
                     )}
                     {attachError && (
                         <Text type="caption" className={Styles.error} role="alert" data-testid={TestIds.fullTexts.articleError}>

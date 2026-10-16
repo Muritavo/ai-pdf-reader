@@ -1,0 +1,214 @@
+import { test, expect } from './utils/fixtures';
+import { articleCard, attachPdf, attachValidPdf, byId, openPreview, startWithReferences } from './utils/app';
+import { buildCsv, sampleArticles, STANDARD_COLUMNS } from './utils/csv';
+import { pdfFile, SAMPLE_PAGES, samplePdf } from './utils/pdf';
+import { TestIds } from '../src/testids';
+import type { Page } from '@playwright/test';
+
+const readProgress = (page: Page, title = 'Article 1') => articleCard(page, title).getByTestId(TestIds.fullTexts.readProgress);
+const lastOpening = (page: Page, title = 'Article 1') => articleCard(page, title).getByTestId(TestIds.fullTexts.lastOpening);
+const lastOpeningPercent = async (page: Page) => Number(await lastOpening(page).getAttribute('data-progress'));
+
+/** Leaves the document by clicking outside it, and waits for it to be gone */
+async function closePreview(page: Page) {
+    await page.mouse.click(2, 2);
+    await expect(byId(page, TestIds.preview.box)).toHaveCount(0);
+}
+
+const shownPercent = async (page: Page) => Number(await readProgress(page).getAttribute('data-progress'));
+
+/** Scrolls the document like a reader, to a point from 0 (top) to 1 (bottom) */
+const scrollTo = (page: Page, point: number) =>
+    byId(page, TestIds.preview.box).evaluate((box, point) => {
+        box.scrollTo(0, (box.scrollHeight - box.clientHeight) * point);
+    }, point);
+
+/** How much the reader has reached, as the box shows it right now */
+const reached = (page: Page) =>
+    byId(page, TestIds.preview.box).evaluate(box => ((box.scrollTop + box.clientHeight) / box.scrollHeight) * 100);
+
+test.beforeEach(async ({ page }) => {
+    await startWithReferences(page, buildCsv(STANDARD_COLUMNS, sampleArticles(2)));
+    await attachValidPdf(articleCard(page, 'Article 1'), samplePdf());
+});
+
+test.describe('reading progress', () => {
+    test('is not shown before the document is opened', async ({ page }) => {
+        await expect(readProgress(page)).toHaveCount(0);
+    });
+
+    test('shows what was reached just by opening the document', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'false');
+        await expect(readProgress(page)).toContainText('% lido');
+        // Only the start of the first page is on the screen
+        expect(await shownPercent(page)).toBeGreaterThan(0);
+        expect(await shownPercent(page)).toBeLessThan(50);
+    });
+
+    test('follows the scrolling', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+
+        await scrollTo(page, 0.5);
+
+        const expected = await reached(page);
+        await expect.poll(() => shownPercent(page)).toBeGreaterThanOrEqual(Math.round(expected) - 1);
+        await expect.poll(() => shownPercent(page)).toBeLessThanOrEqual(Math.round(expected) + 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'false');
+    });
+
+    test('shows the document was read to the end', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+
+        await scrollTo(page, 1);
+
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await expect(readProgress(page)).toHaveText('✓ Lido até o fim');
+    });
+
+    test('keeps the furthest point when scrolling back', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.6);
+        // Reaching 60% of the scroll, plus the screen that is shown, is past the middle of the document
+        await expect.poll(() => shownPercent(page)).toBeGreaterThan(55);
+        const furthest = await shownPercent(page);
+
+        await scrollTo(page, 0);
+        await page.waitForTimeout(300);
+
+        expect(await shownPercent(page)).toBe(furthest);
+    });
+
+    test('keeps that the document was read to the end after scrolling back and reloading', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await scrollTo(page, 0);
+
+        await page.reload();
+
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+    });
+
+    test('keeps the progress of each document on its own', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await page.mouse.click(2, 2);
+        const second = articleCard(page, 'Article 2');
+        await attachValidPdf(second, pdfFile('other.pdf', [['Another document'], ['With two pages']]));
+
+        await expect(readProgress(page, 'Article 2')).toHaveCount(0);
+        await openPreview(page, second, 2);
+
+        await expect(readProgress(page, 'Article 2')).toHaveAttribute('data-complete', 'false');
+        await expect(readProgress(page, 'Article 1')).toHaveAttribute('data-complete', 'true');
+    });
+
+    test('is not shown for an article without a PDF', async ({ page }) => {
+        await expect(readProgress(page, 'Article 2')).toHaveCount(0);
+    });
+
+    test('does not count a PDF that was replaced by another document as read', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await page.mouse.click(2, 2);
+
+        await attachPdf(card, pdfFile('replacement.pdf', [['A new document'], ['Not read yet']]));
+
+        await expect(card).toContainText('replacement.pdf');
+        await expect(readProgress(page)).toHaveCount(0);
+    });
+});
+
+test.describe('progress at the last opening', () => {
+    test('is not shown before the document was left', async ({ page }) => {
+        await expect(lastOpening(page)).toHaveCount(0);
+
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+
+        // It is the end of an opening, so it waits for the document to be left
+        await expect(lastOpening(page)).toHaveCount(0);
+    });
+
+    test('shows where the reader stopped when the document is left', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+        await expect.poll(() => shownPercent(page)).toBeGreaterThan(40);
+        const stoppedAt = Math.round(await reached(page));
+
+        await closePreview(page);
+
+        await expect(lastOpening(page)).toContainText('% na última abertura');
+        expect(Math.abs((await lastOpeningPercent(page)) - stoppedAt)).toBeLessThanOrEqual(1);
+    });
+
+    test('goes back when the reader stops earlier, while the furthest point stays', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await closePreview(page);
+        expect(await lastOpeningPercent(page)).toBeGreaterThanOrEqual(99);
+
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0);
+        await closePreview(page);
+
+        // Stopped near the top this time, and yet the document was read to the end before
+        expect(await lastOpeningPercent(page)).toBeLessThan(50);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+    });
+
+    test('keeps the previous value while the document is open again', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0.4);
+        await closePreview(page);
+        const previous = await lastOpeningPercent(page);
+
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+
+        expect(await lastOpeningPercent(page)).toBe(previous);
+    });
+
+    test('is kept after reloading', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+        await closePreview(page);
+        const stoppedAt = await lastOpeningPercent(page);
+
+        await page.reload();
+
+        expect(await lastOpeningPercent(page)).toBe(stoppedAt);
+    });
+
+    test('saves where the reader stopped when the page is left with the document open', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+        await expect.poll(() => shownPercent(page)).toBeGreaterThan(40);
+        const stoppedAt = Math.round(await reached(page));
+
+        await page.reload();
+
+        expect(Math.abs((await lastOpeningPercent(page)) - stoppedAt)).toBeLessThanOrEqual(1);
+    });
+
+    test('is not shown for a PDF that was replaced', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await closePreview(page);
+        await expect(lastOpening(page)).toBeVisible();
+
+        await attachPdf(card, pdfFile('replacement.pdf', [['A new document'], ['Not read yet']]));
+
+        await expect(card).toContainText('replacement.pdf');
+        await expect(lastOpening(page)).toHaveCount(0);
+    });
+});
