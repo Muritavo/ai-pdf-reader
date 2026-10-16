@@ -135,3 +135,33 @@
     transform: translate(50%, -50%) scale(3) translateX(2px);
   }
 }
+.wordPulse {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+  animation: pulseOutline 1.8s ease-out;
+}
+
+@keyframes pulseOutline {
+  0% {
+    outline-color: #fff;
+    outline-offset: 6px;
+  }
+  100% {
+    outline-color: transparent;
+    outline-offset: 1px;
+  }
+}
+
+.poiFocus {
+  animation: poiFocus 1.8s ease-out;
+}
+
+@keyframes poiFocus {
+  0%,
+  40% {
+    transform: translate(50%, -50%) scale(2);
+  }
+  100% {
+    transform: translate(50%, -50%) scale(1);
+  }
+}

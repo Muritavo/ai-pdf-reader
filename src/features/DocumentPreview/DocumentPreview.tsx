@@ -10,9 +10,10 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
-import { appendHighlightedText, useHighlightsForPDF } from '../../utils/highlight';
+import { appendHighlightedText, occurrencesOf, useHighlightsForPDF, wordOfOccurrence } from '../../utils/highlight';
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
+import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
 import DocumentPromptBar from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
 import Styles from './DocumentPreview.module.scss';
@@ -40,7 +41,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [pages, setPages] = useState<PageElement[]>([]);
     const [loading, setLoading] = useState(false);
     const [textLayers, setTextLayers] = useState<pdfjsLib.TextLayer[]>();
-    const { addHighlight, highlightRules } = useHighlightsForPDF(hash);
+    const { addHighlight, removeHighlight, highlightRules } = useHighlightsForPDF(hash);
+    // The page of each occurrence of every highlighted text, found once they are drawn
+    const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
+    const [focusedMarker, setFocusedMarker] = useState<number>();
+    const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
@@ -80,8 +85,65 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     };
 
     const addPointOfInterest = (x: number, y: number, word?: string) => {
-        clickCounterRef.current += 1;
-        setPointsOfInterest(prev => [...prev, { x, y, key: clickCounterRef.current, word }]);
+        // Continues after the ones that were saved, as the key is how a marker is told apart
+        clickCounterRef.current = Math.max(clickCounterRef.current, lastClick?.key ?? 0, ...pointsOfInterest.map(poi => poi.key)) + 1;
+        const key = clickCounterRef.current;
+        setPointsOfInterest(prev => [...prev, { x, y, key, word }]);
+    };
+
+    /** The 1 based page that holds a position of the document, given as a percentage of its height */
+    function pageAt(yPercent: number) {
+        const box = previewBoxRef.current;
+        if (!box) return 1;
+        const position = (box.scrollHeight * yPercent) / 100;
+        const wrappers = [...box.querySelectorAll<HTMLElement>(`[data-testid="${TestIds.preview.page}"]`)];
+        const index = wrappers.findIndex(wrapper => position < wrapper.offsetTop + wrapper.offsetHeight);
+        return (index === -1 ? wrappers.length : index + 1) || 1;
+    }
+
+    const getMarkers = (): MarkerItem[] =>
+        [...pointsOfInterest]
+            .sort((a, b) => a.y - b.y)
+            .map(poi => ({ key: poi.key, word: poi.word, page: pageAt(poi.y) }));
+
+    /** Scrolls the document so something that is at `top` pixels of it stays in the middle of the screen */
+    function scrollToMiddle(top: number) {
+        const box = previewBoxRef.current!;
+        box.scrollTo({ top: top - box.clientHeight / 2, behavior: 'smooth' });
+    }
+
+    const goToMarker = (key: number) => {
+        const poi = pointsOfInterest.find(other => other.key === key);
+        if (!poi) return;
+        scrollToMiddle((previewBoxRef.current!.scrollHeight * poi.y) / 100);
+        setFocusedMarker(key);
+        window.setTimeout(() => setFocusedMarker(current => (current === key ? undefined : current)), 1800);
+    };
+
+    /** Goes to the next occurrence of the highlighted text each time, coming back to the first after the last */
+    const goToHighlight = (normalizedWord: string) => {
+        const box = previewBoxRef.current!;
+        const boxTop = box.getBoundingClientRect().top;
+        // An occurrence can be in more than one piece, when other highlights cut it
+        const occurrences = new Map<string, { marks: HTMLElement[]; top: number }>();
+        for (const mark of box.querySelectorAll<HTMLElement>('mark')) {
+            for (const token of occurrencesOf(mark)) {
+                if (wordOfOccurrence(token) !== normalizedWord) continue;
+                const top = mark.getBoundingClientRect().top - boxTop + box.scrollTop;
+                const found = occurrences.get(token);
+                if (found) found.marks.push(mark);
+                else occurrences.set(token, { marks: [mark], top });
+            }
+        }
+        const ordered = [...occurrences.values()].sort((a, b) => a.top - b.top);
+        if (!ordered.length) return;
+        const next = ((highlightCursor.current[normalizedWord] ?? -1) + 1) % ordered.length;
+        highlightCursor.current[normalizedWord] = next;
+        scrollToMiddle(ordered[next].top);
+        for (const mark of ordered[next].marks) {
+            mark.classList.add(Styles.wordPulse);
+            window.setTimeout(() => mark.classList.remove(Styles.wordPulse), 1800);
+        }
     };
 
     const highlightClickIndicator = () => {
@@ -214,13 +276,37 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     }, [textLayers, hash]);
 
     useEffect(() => {
-        if (!textLayers || !highlightRules?.length) return;
-        for (const textLayer of textLayers) {
+        if (!textLayers || !highlightRules) return;
+        // Drawn even with no rules, so what was removed stops being highlighted
+        textLayers.forEach((textLayer, layerIndex) => {
             textLayer.textDivs.forEach((textDiv, index) => {
                 const text = textLayer.textContentItemsStr[index];
-                if (text) appendHighlightedText(textDiv, text, highlightRules, Styles.wordHighlight, TestIds.preview.highlight);
+                if (text) {
+                    appendHighlightedText(
+                        textDiv,
+                        text,
+                        highlightRules,
+                        Styles.wordHighlight,
+                        TestIds.preview.highlight,
+                        `${layerIndex}-${index}`,
+                    );
+                }
+            });
+        });
+        highlightCursor.current = {};
+        // The page of every occurrence, counted once even when it is in more than one piece
+        const found: Record<string, number[]> = {};
+        const counted = new Set<string>();
+        for (const page of pages) {
+            page.textLayerRef.current?.querySelectorAll<HTMLElement>('mark').forEach(mark => {
+                for (const token of occurrencesOf(mark)) {
+                    if (counted.has(token)) continue;
+                    counted.add(token);
+                    (found[wordOfOccurrence(token)] ??= []).push(page.id);
+                }
             });
         }
+        setHighlightPages(found);
     }, [highlightRules, textLayers]);
 
     const scrollHeight = previewBoxRef.current?.scrollHeight ?? 0;
@@ -275,7 +361,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     <div
                         key={poi.key}
                         data-testid={TestIds.preview.pointOfInterest}
-                        className={Styles.poiIndicator}
+                        className={`${Styles.poiIndicator} ${focusedMarker === poi.key ? Styles.poiFocus : ''}`}
                         title={poi.word}
                         style={{ left: `${poi.x}%`, top: `${scrollHeight * (poi.y / 100)}px` }}
                     >
@@ -283,6 +369,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     </div>
                 ))}
             </div>
+            <AnnotationsToolbar
+                highlights={(highlightRules ?? []).map(rule => ({
+                    normalizedWord: rule.normalizedWord,
+                    word: rule.word,
+                    color: rule.color,
+                    pages: highlightPages[rule.normalizedWord] ?? [],
+                }))}
+                getMarkers={getMarkers}
+                onGoToHighlight={goToHighlight}
+                onRemoveHighlight={removeHighlight}
+                onGoToMarker={goToMarker}
+                onRemoveMarker={key => setPointsOfInterest(prev => prev.filter(poi => poi.key !== key))}
+            />
             <FeaturesMenu
                 ref={menuRef}
                 addHighlight={addHighlight}

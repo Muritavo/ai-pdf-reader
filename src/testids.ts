@@ -34,6 +34,18 @@ export const TestIds = {
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
     },
+    annotations: {
+        highlightsButton: 'highlights-button',
+        markersButton: 'markers-button',
+        highlightsPanel: 'highlights-panel',
+        markersPanel: 'markers-panel',
+        highlightItem: 'highlight-item',
+        highlightGoTo: 'highlight-goto',
+        highlightRemove: 'highlight-remove',
+        markerItem: 'marker-item',
+        markerGoTo: 'marker-goto',
+        markerRemove: 'marker-remove',
+    },
     menu: {
         root: 'features-menu',
         searchOnGoogle: 'menu-search-on-google',

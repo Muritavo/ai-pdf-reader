@@ -1,4 +1,16 @@
 export default {
+    annotations: {
+        highlights: 'Destaques',
+        markers: 'Marcadores',
+        noHighlights: 'Nenhum destaque ainda',
+        noMarkers: 'Nenhum marcador ainda',
+        pages: 'p. {pages}',
+        occurrences: '{count, plural, one {# ocorrência} other {# ocorrências}}',
+        notFound: 'Não encontrado no texto',
+        markerWithoutText: 'Marcador',
+        goTo: 'Ir para',
+        remove: 'Remover',
+    },
     aiWarmUp: {
         checking: 'Verificando a IA...',
         offline: 'IA offline',
