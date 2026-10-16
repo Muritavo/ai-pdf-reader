@@ -15,6 +15,8 @@ export type FullText = {
     hash: string;
     name: string;
     size: number;
+    /** The amount of words on the text extracted from the PDF, when it could be read */
+    wordCount?: number;
     createdAt: Date;
     url: string;
 };

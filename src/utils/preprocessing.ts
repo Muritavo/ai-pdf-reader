@@ -2,45 +2,77 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { organizeDocumentText } from '../services/ai-helper';
 import type { FullText } from '../models/Article';
+import { createProgressTracker, tokenize } from './progressTracker';
+
+export type PreprocessingProgress = {
+    /** From 0 to 1 */
+    progress: number;
+    /** The page being reached by the AI, available once the normalization starts */
+    page?: number;
+};
 
 /** Share of the progress taken by extracting the text from the pages. The rest is the AI normalization */
 const EXTRACTION_WEIGHT = 0.3;
-/** The normalized markdown is expected to be slightly bigger than the extracted text */
-const EXPECTED_GROWTH = 1.1;
 
-async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: number) => void): Promise<string> {
+async function loadPdf(pdfBytes: ArrayBuffer) {
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+    return pdfjsLib.getDocument({ data: pdfBytes }).promise;
+}
+
+/** The raw text of each page, as extracted from the PDF */
+export async function extractPageTexts(
+    pdfBytes: ArrayBuffer,
+    onPageExtracted: (extractedPages: number, totalPages: number) => void = () => {},
+): Promise<string[]> {
     const getPageText = async (pdf: PDFDocumentProxy, pageNo: number) => {
         const page = await pdf.getPage(pageNo);
         const tokenizedText = await page.getTextContent();
         return tokenizedText.items.map(token => ('transform' in token ? token.str : undefined)).join('');
     };
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-    const pdf = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+    const pdf = await loadPdf(pdfBytes);
 
     let extractedPages = 0;
-    const pageTexts = await Promise.all(
+    return Promise.all(
         Array.from({ length: pdf.numPages }, async (_, i) => {
             const text = await getPageText(pdf, i + 1);
             extractedPages += 1;
-            onProgress((extractedPages / pdf.numPages) * EXTRACTION_WEIGHT);
+            onPageExtracted(extractedPages, pdf.numPages);
             return text;
         }),
     );
+}
 
-    const extractedText = pageTexts.join(' ');
-    const expectedLength = extractedText.length * EXPECTED_GROWTH;
-    const normalized = await organizeDocumentText(extractedText, receivedCharacters =>
-        onProgress(EXTRACTION_WEIGHT + (1 - EXTRACTION_WEIGHT) * Math.min(0.99, receivedCharacters / expectedLength)),
+export async function countWords(pdfBytes: ArrayBuffer) {
+    return tokenize((await extractPageTexts(pdfBytes)).join(' ')).length;
+}
+
+async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: PreprocessingProgress) => void): Promise<string> {
+    const pageTexts = await extractPageTexts(pdfBytes, (extractedPages, totalPages) =>
+        onProgress({ progress: (extractedPages / totalPages) * EXTRACTION_WEIGHT }),
     );
-    onProgress(1);
+
+    const tracker = createProgressTracker(pageTexts);
+    let received = '';
+    const normalized = await organizeDocumentText(pageTexts.join(' '), chunk => {
+        received += chunk;
+        const tracked = tracker.track(received);
+        onProgress({
+            progress: EXTRACTION_WEIGHT + (1 - EXTRACTION_WEIGHT) * Math.min(0.99, tracked.progress),
+            page: tracked.page,
+        });
+    });
+    onProgress({ progress: 1 });
     return normalized;
 }
 
 const normalizedTexts = new Map<string, Promise<string>>();
 
 /** The AI organized text of a full text, processed only when first needed and shared afterwards */
-export function getNormalizedText(fullText: FullText, onProgress: (progress: number) => void = () => {}): Promise<string> {
+export function getNormalizedText(
+    fullText: FullText,
+    onProgress: (progress: PreprocessingProgress) => void = () => {},
+): Promise<string> {
     const cached = normalizedTexts.get(fullText.hash);
     if (cached) return cached;
 

@@ -65,6 +65,14 @@
   }
 }
 
+.readingPage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  z-index: 1;
+}
+
 .wordHighlight {
   border-radius: 4px;
   color: transparent;

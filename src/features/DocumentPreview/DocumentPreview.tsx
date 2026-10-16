@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 're
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import Text from '@onepercentio/one-ui/components/Text';
+import PixelatedScan from '@onepercentio/one-ui/components/PixelatedScan';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
@@ -15,6 +16,8 @@ import DocumentPromptBar from './components/DocumentPromptBar';
 import Styles from './DocumentPreview.module.scss';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+const SCAN_COLOR = '#7c9cff';
 
 type PageElement = {
     id: number;
@@ -213,6 +216,15 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     <div key={page.id} className={Styles.pageWrapper}>
                         <canvas ref={page.canvasRef} />
                         <div ref={page.textLayerRef} className={Styles.textLayer} onClick={handleTextLayerClick} />
+                        {warmUp.state === 'running' && warmUp.page === page.id && (
+                            <div className={Styles.readingPage}>
+                                <PixelatedScan
+                                    key={textLayers ? 'rendered' : 'rendering'}
+                                    squaresByLine={24}
+                                    color={SCAN_COLOR}
+                                />
+                            </div>
+                        )}
                     </div>
                 ))}
                 {lastClick && (

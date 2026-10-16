@@ -11,6 +11,8 @@ export type WarmUp = {
     state: 'idle' | 'running' | 'done' | 'error';
     /** From 0 to 1 */
     progress: number;
+    /** The page the AI is currently reading, while running */
+    page?: number;
 };
 
 const NOT_WARMED: WarmUp = { state: 'idle', progress: 0 };
@@ -34,7 +36,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AIStatus>('offline');
     const [model, setModel] = useState<string | null>(null);
     const [warmUps, setWarmUps] = useState<Record<string, WarmUp>>({});
-    const reportedPercent = useRef<Record<string, number>>({});
+    const reportedKey = useRef<Record<string, string>>({});
     const control = useAsyncControl({
         async checkStatus() {
             const loadedModel = await getLoadedModelId();
@@ -63,14 +65,14 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const warmUp = useCallback(
         async (fullText: FullText) => {
             const { articleKey } = fullText;
-            reportedPercent.current[articleKey] = 0;
+            reportedKey.current[articleKey] = '';
             updateWarmUp(articleKey, { state: 'running', progress: 0 });
             try {
-                await getNormalizedText(fullText, progress => {
-                    const percent = Math.round(progress * 100);
-                    if (percent === reportedPercent.current[articleKey]) return;
-                    reportedPercent.current[articleKey] = percent;
-                    updateWarmUp(articleKey, { state: 'running', progress });
+                await getNormalizedText(fullText, ({ progress, page }) => {
+                    const reported = `${Math.round(progress * 100)}-${page}`;
+                    if (reported === reportedKey.current[articleKey]) return;
+                    reportedKey.current[articleKey] = reported;
+                    updateWarmUp(articleKey, { state: 'running', progress, page });
                 });
                 updateWarmUp(articleKey, { state: 'done', progress: 1 });
             } catch {

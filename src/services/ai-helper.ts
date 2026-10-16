@@ -6,7 +6,7 @@ import { callOpenAiApi } from "./ai";
  */
 export function organizeDocumentText(
   currentPageTextWithPositions: string,
-  onProgress?: (receivedCharacters: number) => void,
+  onProgress?: (chunk: string) => void,
 ): Promise<string> {
   const prompt = `Organize this into a contiguous organized text as markdown syntax.
 

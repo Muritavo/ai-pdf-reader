@@ -13,8 +13,8 @@ const MODEL =
 
 export async function callOpenAiApi(
   messages: { role: string; content: string }[],
-  /** Receives the amount of characters received so far while the answer streams */
-  onProgress?: (receivedCharacters: number) => void,
+  /** Receives each piece of the answer as it streams */
+  onProgress?: (chunk: string) => void,
 ): Promise<string> {
   const response = await fetch(API_URL, {
     method: "POST",
@@ -61,7 +61,7 @@ export async function callOpenAiApi(
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               accumulated += content;
-              onProgress?.(accumulated.length);
+              onProgress?.(content);
             }
           } catch {
             // skip malformed JSON lines

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { del, get, set } from 'idb-keyval';
 import type { Article, FullText } from '../models/Article';
+import { countWords } from '../utils/preprocessing';
 
 type StoredFullText = Omit<FullText, 'url' | 'createdAt'> & { createdAt: string };
 
@@ -25,6 +26,15 @@ async function storeFile(hash: string, file: File) {
 
 async function restoreFile(hash: string) {
     return (await get(hash)) as File | undefined;
+}
+
+async function readWordCount(file: File) {
+    try {
+        return await countWords(await file.arrayBuffer());
+    } catch (e) {
+        console.error('Failed to read the text of the file', e);
+        return undefined;
+    }
 }
 
 async function hashFile(file: File) {
@@ -61,6 +71,7 @@ async function loadFullTexts(): Promise<Record<string, FullText>> {
                 if (!file) return undefined;
                 return {
                     ...item,
+                    wordCount: item.wordCount ?? (await readWordCount(file)),
                     createdAt: new Date(item.createdAt),
                     url: URL.createObjectURL(file),
                 } satisfies FullText;
@@ -101,6 +112,7 @@ export function ArticlesRepositoryProvider({ children }: { children: React.React
             hash,
             name: file.name,
             size: file.size,
+            wordCount: await readWordCount(file),
             createdAt: new Date(),
             url: URL.createObjectURL(file),
         };

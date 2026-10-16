@@ -50,6 +50,12 @@ function ArticleItem({
                     {fullText && (
                         <Text type="caption" className={Styles.pdfName}>
                             📄 {fullText.name}
+                            {fullText.wordCount !== undefined && (
+                                <span className={Styles.wordCount}>
+                                    {' · '}
+                                    {fullText.wordCount.toLocaleString('pt-BR')} palavras
+                                </span>
+                            )}
                         </Text>
                     )}
                 </div>
