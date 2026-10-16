@@ -7,8 +7,9 @@ import { useArticlesRepository } from './context/ArticlesRepository';
 
 export default function App() {
     const { articles } = useArticlesRepository();
-    const [current, setCurrent] = useState(0);
     const hasArticles = articles.length > 0;
+    // Articles are restored synchronously, so a returning user lands straight on step 2
+    const [current, setCurrent] = useState(hasArticles ? 1 : 0);
 
     const steps: Step[] = [
         { title: 'Adicionar referências', enabled: true },
