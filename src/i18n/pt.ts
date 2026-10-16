@@ -3,6 +3,7 @@ export default {
         offline: 'IA offline',
         idle: 'Preparar documento para a IA',
         running: 'Preparando documento para a IA ({progress}%)',
+        generatedWords: '{count} palavras geradas',
         ready: 'Documento pronto para a IA',
         error: 'Falha ao preparar o documento. Clique para tentar novamente',
         locked: 'Disponível quando a IA estiver online e o documento preparado',

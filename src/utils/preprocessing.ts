@@ -9,6 +9,8 @@ export type PreprocessingProgress = {
     progress: number;
     /** The page being reached by the AI, available once the normalization starts */
     page?: number;
+    /** How many words the AI has generated so far */
+    generatedWords?: number;
 };
 
 /** Share of the progress taken by extracting the text from the pages. The rest is the AI normalization */
@@ -54,12 +56,20 @@ async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: Prepr
 
     const tracker = createProgressTracker(pageTexts);
     let received = '';
+    let generatedWords = 0;
+    let insideWord = false;
     const normalized = await organizeDocumentText(pageTexts.join(' '), chunk => {
         received += chunk;
+        for (const character of chunk) {
+            const isSpace = /\s/.test(character);
+            if (!isSpace && !insideWord) generatedWords += 1;
+            insideWord = !isSpace;
+        }
         const tracked = tracker.track(received);
         onProgress({
             progress: EXTRACTION_WEIGHT + (1 - EXTRACTION_WEIGHT) * Math.min(0.99, tracked.progress),
             page: tracked.page,
+            generatedWords,
         });
     });
     onProgress({ progress: 1 });

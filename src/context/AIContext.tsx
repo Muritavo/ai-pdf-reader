@@ -13,6 +13,8 @@ export type WarmUp = {
     progress: number;
     /** The page the AI is currently reading, while running */
     page?: number;
+    /** How many words the AI has generated so far, while running */
+    generatedWords?: number;
 };
 
 const NOT_WARMED: WarmUp = { state: 'idle', progress: 0 };
@@ -68,11 +70,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
             reportedKey.current[articleKey] = '';
             updateWarmUp(articleKey, { state: 'running', progress: 0 });
             try {
-                await getNormalizedText(fullText, ({ progress, page }) => {
-                    const reported = `${Math.round(progress * 100)}-${page}`;
+                await getNormalizedText(fullText, ({ progress, page, generatedWords }) => {
+                    const reported = `${Math.round(progress * 100)}-${page}-${generatedWords}`;
                     if (reported === reportedKey.current[articleKey]) return;
                     reportedKey.current[articleKey] = reported;
-                    updateWarmUp(articleKey, { state: 'running', progress, page });
+                    updateWarmUp(articleKey, { state: 'running', progress, page, generatedWords });
                 });
                 updateWarmUp(articleKey, { state: 'done', progress: 1 });
             } catch {
