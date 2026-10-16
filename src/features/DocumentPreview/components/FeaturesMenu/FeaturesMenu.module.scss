@@ -1,0 +1,37 @@
+@use "../../../../styles/variables.scss" as *;
+
+.menu {
+  background: rgba($colorPanel, 0.98);
+  border: 1px solid rgba($colorBorder, 0.7);
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  padding: 10px;
+  position: fixed;
+  z-index: 10000;
+}
+
+.selectedWord {
+  border-bottom: 1px solid rgba($colorBorder, 0.45);
+  color: $colorMuted;
+  font-size: 0.85rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  padding: 4px 8px 10px;
+}
+
+.menuButton {
+  text-align: left;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+
+  &:hover {
+    background: rgba($colorHighlight, 0.14);
+  }
+}

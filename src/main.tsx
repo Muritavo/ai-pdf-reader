@@ -1,9 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { IntlProvider } from 'react-intl';
+import { flatten } from '@onepercentio/one-ui/utils/flatten';
 import OneUIProvider from '@onepercentio/one-ui/context/OneUIProvider';
 import BigFactory from '@onepercentio/one-ui/components/FileInput/View/BigFactory';
 import App from './App';
 import { ArticlesRepositoryProvider } from './context/ArticlesRepository';
+import pt from './i18n/pt';
 import './index.css';
 
 const UploadIcon = () => (
@@ -33,6 +36,11 @@ createRoot(document.getElementById('root')!).render(
                             transparent: 'btn btn-transparent',
                         },
                     },
+                    adaptiveDialog: {
+                        variant: { default: 'dialog-default' },
+                        backdropClassName: 'dialog-backdrop',
+                        dialogClassName: 'dialog-surface',
+                    },
                     fileInput: {
                         View: BigFactory(UploadIcon),
                         button: { variant: 'primary' },
@@ -40,9 +48,11 @@ createRoot(document.getElementById('root')!).render(
                 },
             }}
         >
-            <ArticlesRepositoryProvider>
-                <App />
-            </ArticlesRepositoryProvider>
+            <IntlProvider locale="pt-BR" messages={flatten(pt)}>
+                <ArticlesRepositoryProvider>
+                    <App />
+                </ArticlesRepositoryProvider>
+            </IntlProvider>
         </OneUIProvider>
     </StrictMode>,
 );

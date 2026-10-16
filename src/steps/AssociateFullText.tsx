@@ -1,9 +1,11 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
+import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
+import DocumentPreview from '../features/DocumentPreview';
 import Styles from './Steps.module.css';
 
 function ArticleItem({
@@ -11,11 +13,13 @@ function ArticleItem({
     fullText,
     onAttach,
     onDetach,
+    onOpen,
 }: {
     article: Article;
     fullText?: FullText;
     onAttach: (file: File) => void;
     onDetach: () => void;
+    onOpen: () => void;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
@@ -29,6 +33,7 @@ function ArticleItem({
                     e.preventDefault();
                     setDragging(true);
                 }}
+                onClick={fullText ? onOpen : undefined}
                 onDragLeave={() => setDragging(false)}
                 onDrop={e => {
                     e.preventDefault();
@@ -44,14 +49,11 @@ function ArticleItem({
                     {meta && <Text type="caption">{meta}</Text>}
                     {fullText && (
                         <Text type="caption" className={Styles.pdfName}>
-                            📄{' '}
-                            <a href={fullText.url} target="_blank" rel="noreferrer">
-                                {fullText.name}
-                            </a>
+                            📄 {fullText.name}
                         </Text>
                     )}
                 </div>
-                <div className={Styles.articleActions}>
+                <div className={Styles.articleActions} onClick={e => e.stopPropagation()}>
                     <input
                         ref={inputRef}
                         type="file"
@@ -82,6 +84,9 @@ const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '
 export default function AssociateFullText() {
     const { articles, fullTexts, attachFullText, detachFullText } = useArticlesRepository();
     const [query, setQuery] = useState('');
+    const [previewKey, setPreviewKey] = useState<string>();
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const previewFullText = previewKey ? fullTexts[previewKey] : undefined;
     const visible = useMemo(() => {
         const q = normalize(query.trim());
         return q ? articles.filter(a => normalize(a.title).includes(q)) : articles;
@@ -102,6 +107,10 @@ export default function AssociateFullText() {
                     fullText={fullTexts[article.key]}
                     onAttach={file => attachFullText(article.key, file)}
                     onDetach={() => detachFullText(article.key)}
+                    onOpen={() => {
+                        setPreviewKey(article.key);
+                        setPreviewOpen(true);
+                    }}
                 />
             ) : (
                 <Fragment key={`${article.key}-hidden`} />
@@ -139,6 +148,14 @@ export default function AssociateFullText() {
                 )}
                 {uploaded.map(renderItem)}
             </ul>
+            <AdaptiveDialog
+                open={previewOpen && !!previewFullText}
+                onClose={() => setPreviewOpen(false)}
+                onClickOut={() => setPreviewOpen(false)}
+                onClosed={() => setPreviewKey(undefined)}
+            >
+                {previewFullText && <DocumentPreview key={previewFullText.hash} fullText={previewFullText} />}
+            </AdaptiveDialog>
         </section>
     );
 }

@@ -1,0 +1,129 @@
+@use "../../styles/variables.scss" as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, 92vw);
+  height: min(860px, 88vh);
+  position: relative;
+}
+
+.loaderOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.previewBox {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  user-select: none;
+  position: relative;
+
+  canvas {
+    user-select: none;
+  }
+
+  .pageWrapper {
+    position: relative;
+    user-select: none;
+
+    > :last-child {
+      user-select: none;
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      white-space: pre;
+      transform-origin: 0 0;
+
+      & span {
+        font-size: calc(var(--font-height));
+        transform: scaleX(calc(var(--scale-x)));
+      }
+
+      & span,
+      & br {
+        color: transparent;
+        cursor: text;
+        left: 0;
+        position: absolute;
+        top: 0;
+        transform-origin: 0 0;
+        user-select: text;
+      }
+
+      & span::selection,
+      & br::selection {
+        background: rgba($colorHighlight, 0.28);
+      }
+    }
+  }
+}
+
+.wordHighlight {
+  border-radius: 4px;
+  color: transparent;
+  padding: 0 1px;
+}
+
+.clickIndicator {
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  background: rgba($colorHighlight, 0.35);
+  border: 2px solid $colorHighlight;
+  position: absolute;
+  pointer-events: none;
+  transform: translate(50%, -50%);
+  z-index: 2;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid rgba($colorHighlight, 0.15);
+    pointer-events: none;
+  }
+
+  &.highlight {
+    animation: highlightVibrate 2s ease-out;
+  }
+}
+
+.poiIndicator {
+  position: absolute;
+  transform: translate(50%, -50%);
+  z-index: 3;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+  background-color: #824b03;
+  padding: 4px;
+  border-radius: 12px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+    transform: translate(50%, -50%) scale(1.2);
+  }
+}
+
+@keyframes highlightVibrate {
+  0%, 100% {
+    transform: translate(50%, -50%) scale(3);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translate(50%, -50%) scale(3) translateX(-2px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translate(50%, -50%) scale(3) translateX(2px);
+  }
+}

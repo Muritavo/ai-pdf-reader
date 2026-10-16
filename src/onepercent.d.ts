@@ -6,13 +6,9 @@ declare global {
             TextColors: 'primary' | 'muted';
             ButtonVariants: 'primary' | 'outline' | 'transparent';
             SpacingVariants: 'small' | 'large';
+            AdaptiveDialogVariants: 'default';
         };
     }
-}
-
-declare module '*.module.css' {
-    const classes: Record<string, string>;
-    export default classes;
 }
 
 export {};

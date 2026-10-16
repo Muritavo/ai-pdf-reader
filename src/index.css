@@ -115,3 +115,16 @@ code {
     color: var(--text);
     background: var(--surface-raised);
 }
+
+/* one-ui adaptive dialog */
+.dialog-backdrop {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.dialog-surface {
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 14px;
+    overflow: hidden;
+}

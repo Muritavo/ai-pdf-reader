@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   resolve: { dedupe: ['react', 'react-dom'] },
   optimizeDeps: {
-    include: ['@onepercentio/one-ui/components/AdaptiveContainer'],
+    include: ['@onepercentio/one-ui/components/AdaptiveContainer', '@onepercentio/one-ui/components/AdaptiveDialog'],
   },
 });
