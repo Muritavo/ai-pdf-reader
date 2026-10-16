@@ -212,3 +212,96 @@ test.describe('progress at the last opening', () => {
         await expect(lastOpening(page)).toHaveCount(0);
     });
 });
+
+test.describe('both progress on the same bar', () => {
+    const bar = (page: Page) => articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readBar);
+    const furthestFill = (page: Page) => articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readBarProgress);
+    const lastOpeningFill = (page: Page) => articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readBarLastOpening);
+    const readLine = (page: Page) => articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readLine);
+
+    test('draws the last opening in red over the furthest point in blue, on a single bar', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0.8);
+        await expect.poll(() => shownPercent(page)).toBeGreaterThan(70);
+        await closePreview(page);
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0);
+        await expect.poll(() => reached(page)).toBeLessThan(40);
+        await closePreview(page);
+
+        await expect(card.getByTestId(TestIds.fullTexts.readBar)).toHaveCount(1);
+        const [track, blue, red] = await Promise.all([bar(page).boundingBox(), furthestFill(page).boundingBox(), lastOpeningFill(page).boundingBox()]);
+        // Both start together at the same place, one over the other
+        expect(red!.x).toBeCloseTo(blue!.x, 0);
+        expect(red!.y).toBeCloseTo(blue!.y, 0);
+        expect(red!.height).toBeCloseTo(blue!.height, 0);
+        // The last opening is behind the furthest point, so the blue shows beyond the red
+        await expect.poll(async () => (await lastOpeningFill(page).boundingBox())!.width).toBeLessThan(blue!.width);
+        // The bars animate to their values, so they are measured once they get there
+        await expect
+            .poll(async () => (await furthestFill(page).boundingBox())!.width / track!.width)
+            .toBeCloseTo((await shownPercent(page)) / 100, 1);
+        await expect
+            .poll(async () => (await lastOpeningFill(page).boundingBox())!.width / track!.width)
+            .toBeCloseTo((await lastOpeningPercent(page)) / 100, 1);
+    });
+
+    test('has the red one on top, so it is seen where both are', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await closePreview(page);
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0.3);
+        await closePreview(page);
+
+        const topmost = await lastOpeningFill(page).evaluate(red => {
+            const { left, top, width, height } = red.getBoundingClientRect();
+            return document.elementFromPoint(left + width / 2, top + height / 2)?.getAttribute('data-testid');
+        });
+        expect(topmost).toBe(TestIds.fullTexts.readBarLastOpening);
+        // And the colors are the ones of each
+        await expect(lastOpeningFill(page)).toHaveCSS('background-color', 'rgb(255, 107, 107)');
+        await expect(furthestFill(page)).toHaveCSS('background-color', 'rgb(76, 195, 138)');
+    });
+
+    test('reads the last opening text, then the progress text, on the same line', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+        await closePreview(page);
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 0.9);
+        await expect.poll(() => shownPercent(page)).toBeGreaterThan(80);
+        await closePreview(page);
+
+        await expect(readLine(page)).toHaveText(/^\d+% na última abertura\s*\/\s*\d+% lido$/);
+        const [last, progress] = await Promise.all([lastOpening(page).boundingBox(), readProgress(page).boundingBox()]);
+        expect(last!.x).toBeLessThan(progress!.x);
+        expect(last!.y).toBeCloseTo(progress!.y, 0);
+        await expect(lastOpening(page)).toHaveCSS('color', 'rgb(255, 107, 107)');
+        await expect(readProgress(page)).toHaveCSS('color', 'rgb(124, 156, 255)');
+    });
+
+    test('reads the last opening text with the end of the document when it was read to the end', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await openPreview(page, card, SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'true');
+        await scrollTo(page, 0.2);
+        await closePreview(page);
+
+        await expect(readLine(page)).toHaveText(/^\d+% na última abertura\s*\/\s*✓ Lido até o fim$/);
+    });
+
+    test('shows only the progress, without the last opening, while the document is still on its first opening', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await scrollTo(page, 0.5);
+
+        await expect(readLine(page)).toHaveText(/^\d+% lido$/);
+        await expect(lastOpeningFill(page)).toHaveCount(0);
+        await expect(furthestFill(page)).toHaveCount(1);
+    });
+});

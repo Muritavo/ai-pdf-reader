@@ -74,34 +74,50 @@ function ArticleItem({
                             )}
                         </Text>
                     )}
-                    {fullText && readProgress > 0 && (
+                    {fullText && (readProgress > 0 || lastOpening !== undefined) && (
                         <>
-                            <Text
-                                type="caption"
-                                className={`${Styles.readProgress} ${readToTheEnd ? Styles.readComplete : ''}`}
-                                data-testid={TestIds.fullTexts.readProgress}
-                                data-complete={readToTheEnd}
-                                data-progress={Math.round(readProgress * 100)}
-                            >
-                                {readToTheEnd ? '✓ Lido até o fim' : `${Math.round(readProgress * 100)}% lido`}
-                            </Text>
-                            <div className={Styles.readBar} aria-hidden>
-                                <div className={Styles.readBarFill} style={{ width: `${readProgress * 100}%` }} />
+                            <div className={Styles.readLine} data-testid={TestIds.fullTexts.readLine}>
+                                {lastOpening !== undefined && (
+                                    <Text
+                                        type="caption"
+                                        className={Styles.lastOpening}
+                                        data-testid={TestIds.fullTexts.lastOpening}
+                                        data-progress={Math.round(lastOpening * 100)}
+                                    >
+                                        {Math.round(lastOpening * 100)}% na última abertura
+                                    </Text>
+                                )}
+                                {lastOpening !== undefined && readProgress > 0 && (
+                                    <Text type="caption" className={Styles.readSeparator} aria-hidden>
+                                        /
+                                    </Text>
+                                )}
+                                {readProgress > 0 && (
+                                    <Text
+                                        type="caption"
+                                        className={`${Styles.readProgress} ${readToTheEnd ? Styles.readComplete : ''}`}
+                                        data-testid={TestIds.fullTexts.readProgress}
+                                        data-complete={readToTheEnd}
+                                        data-progress={Math.round(readProgress * 100)}
+                                    >
+                                        {readToTheEnd ? '✓ Lido até o fim' : `${Math.round(readProgress * 100)}% lido`}
+                                    </Text>
+                                )}
                             </div>
-                        </>
-                    )}
-                    {fullText && lastOpening !== undefined && (
-                        <>
-                            <Text
-                                type="caption"
-                                className={Styles.lastOpening}
-                                data-testid={TestIds.fullTexts.lastOpening}
-                                data-progress={Math.round(lastOpening * 100)}
-                            >
-                                {Math.round(lastOpening * 100)}% na última abertura
-                            </Text>
-                            <div className={Styles.readBar} aria-hidden>
-                                <div className={Styles.lastOpeningFill} style={{ width: `${lastOpening * 100}%` }} />
+                            {/* The furthest point, with where the reader stopped the last time drawn over it */}
+                            <div className={Styles.readBar} data-testid={TestIds.fullTexts.readBar} aria-hidden>
+                                <div
+                                    className={`${Styles.readBarFill} ${readToTheEnd ? Styles.readBarComplete : ''}`}
+                                    data-testid={TestIds.fullTexts.readBarProgress}
+                                    style={{ width: `${readProgress * 100}%` }}
+                                />
+                                {lastOpening !== undefined && (
+                                    <div
+                                        className={Styles.lastOpeningFill}
+                                        data-testid={TestIds.fullTexts.readBarLastOpening}
+                                        style={{ width: `${lastOpening * 100}%` }}
+                                    />
+                                )}
                             </div>
                         </>
                     )}
@@ -154,6 +170,7 @@ export default function AssociateFullText() {
     const pending = articles.filter(a => !fullTexts[a.key]);
     const uploaded = articles.filter(a => fullTexts[a.key]);
     const uploadedVisible = uploaded.filter(a => visibleKeys.has(a.key)).length;
+    const pendingVisible = pending.filter(a => visibleKeys.has(a.key)).length;
     const associated = articles.filter(a => fullTexts[a.key]).length;
 
     // Articles missed by the search render an empty Fragment so the container animates the "out" state
@@ -200,13 +217,13 @@ export default function AssociateFullText() {
 
             <ul className={Styles.articleList} data-testid={TestIds.fullTexts.list}>
                 {visible.length === 0 && <Text type="description">Nenhum artigo encontrado.</Text>}
-                {pending.map(renderItem)}
-                {uploadedVisible > 0 && (
-                    <li role="separator" className={Styles.divider} data-testid={TestIds.fullTexts.withPdfDivider}>
-                        <Text type="caption">Com texto completo · {uploadedVisible}</Text>
+                {uploaded.map(renderItem)}
+                {uploadedVisible > 0 && pendingVisible > 0 && (
+                    <li role="separator" className={Styles.divider} data-testid={TestIds.fullTexts.pendingDivider}>
+                        <Text type="caption">Sem texto completo · {pendingVisible}</Text>
                     </li>
                 )}
-                {uploaded.map(renderItem)}
+                {pending.map(renderItem)}
             </ul>
             <AdaptiveDialog
                 open={previewOpen && !!previewFullText}

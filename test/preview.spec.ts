@@ -21,14 +21,46 @@ test.describe('associating the full text', () => {
         await expect(byId(page, TestIds.fullTexts.progressCount)).toContainText('1 de 3');
     });
 
-    test('moves the articles with a PDF to the end, below a divider', async ({ page }) => {
-        await expect(byId(page, TestIds.fullTexts.withPdfDivider)).toHaveCount(0);
+    test('lists the articles with a PDF first, and the ones still without it last, below a divider', async ({ page }) => {
+        await expect(byId(page, TestIds.fullTexts.pendingDivider)).toHaveCount(0);
 
-        await attachPdf(articleCard(page, 'Article 1'), samplePdf());
+        await attachValidPdf(articleCard(page, 'Article 2'), samplePdf());
 
-        await expect(byId(page, TestIds.fullTexts.withPdfDivider)).toBeVisible();
-        await expect(articleCards(page).last()).toContainText('Article 1');
+        await expect(byId(page, TestIds.fullTexts.pendingDivider)).toBeVisible();
+        await expect(byId(page, TestIds.fullTexts.pendingDivider)).toContainText('Sem texto completo · 2');
         await expect(articleCards(page).first()).toContainText('Article 2');
+        await expect(articleCards(page).first()).toHaveAttribute('data-state', 'with-pdf');
+        await expect(articleCards(page).nth(1)).toContainText('Article 1');
+        await expect(articleCards(page).last()).toContainText('Article 3');
+        // The divider is between the two sections
+        const [firstBox, dividerBox, lastBox] = await Promise.all([
+            articleCards(page).first().boundingBox(),
+            byId(page, TestIds.fullTexts.pendingDivider).boundingBox(),
+            articleCards(page).last().boundingBox(),
+        ]);
+        expect(firstBox!.y).toBeLessThan(dividerBox!.y);
+        expect(dividerBox!.y).toBeLessThan(lastBox!.y);
+    });
+
+    test('has no divider when every article has its PDF', async ({ page }) => {
+        for (const title of ['Article 1', 'Article 2', 'Article 3']) {
+            await attachValidPdf(articleCard(page, title), samplePdf());
+        }
+
+        await expect(articleCards(page).and(page.locator('[data-state="with-pdf"]'))).toHaveCount(3);
+        await expect(byId(page, TestIds.fullTexts.pendingDivider)).toHaveCount(0);
+    });
+
+    test('puts an article back among the ones without a PDF when its PDF is removed', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await attachValidPdf(card, samplePdf());
+        await expect(articleCards(page).first()).toContainText('Article 1');
+
+        await card.getByRole('button', { name: 'Remover' }).click();
+
+        await expect(card).toHaveAttribute('data-state', 'missing-pdf');
+        await expect(byId(page, TestIds.fullTexts.pendingDivider)).toHaveCount(0);
+        await expect(articleCards(page).first()).toContainText('Article 1');
     });
 
     test('can replace and remove the PDF of an article', async ({ page }) => {

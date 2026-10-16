@@ -141,41 +141,57 @@
     opacity: 0.8;
 }
 
-.readProgress {
+.readLine {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+}
+
+.readSeparator {
+    opacity: 0.6;
+}
+
+/* Under .readLine to win over the color the caption text gets from the theme */
+.readLine .readProgress {
     font-variant-numeric: tabular-nums;
 }
 
-.readComplete {
-    color: var(--success);
+.readLine .readComplete {
+}
+
+.readLine .lastOpening {
+    font-variant-numeric: tabular-nums;
 }
 
 .readBar {
-    height: 3px;
+    position: relative;
+    height: 4px;
     margin-top: 2px;
     border-radius: 2px;
     background: var(--surface-raised);
     overflow: hidden;
 }
 
-.readBarFill {
-    height: 100%;
+.readBarFill,
+.lastOpeningFill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
     border-radius: 2px;
-    background: var(--accent);
     transition: width 200ms ease;
 }
 
-.readComplete + .readBar .readBarFill {
+.readBarFill {
+    background: var(--accent);
+}
+
+.readBarComplete {
     background: var(--success);
 }
 
-.lastOpening {
-    color: var(--danger);
-    font-variant-numeric: tabular-nums;
-}
-
+/* Over the furthest point, so both can be seen */
 .lastOpeningFill {
-    height: 100%;
-    border-radius: 2px;
     background: var(--danger);
-    transition: width 200ms ease;
 }
