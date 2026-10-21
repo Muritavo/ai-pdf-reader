@@ -91,6 +91,19 @@ test.describe('opening the preview', () => {
         await expect(byId(page, TestIds.preview.textLayer).last()).toContainText('Conclusion of the study');
     });
 
+    test('takes 90% of the height of the screen, without a limit for big screens', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await attachPdf(card, samplePdf());
+
+        for (const height of [720, 1200]) {
+            await page.setViewportSize({ width: 1280, height });
+            if (height === 720) await openPreview(page, card, SAMPLE_PAGES.length);
+            await expect
+                .poll(async () => (await page.locator('.dialog-surface').boundingBox())!.height)
+                .toBeCloseTo(height * 0.9, 0);
+        }
+    });
+
     test('opens the PDF of the clicked article only', async ({ page }) => {
         await attachValidPdf(articleCard(page, 'Article 1'), pdfFile('one.pdf', [['First document text']]));
         await attachValidPdf(articleCard(page, 'Article 2'), pdfFile('two.pdf', [['Second document text']]));

@@ -21,6 +21,7 @@ export const TestIds = {
         readProgress: 'read-progress',
         lastOpening: 'read-last-opening',
         readLine: 'read-line',
+        readReset: 'read-reset',
         readBar: 'read-bar',
         readBarProgress: 'read-bar-progress',
         readBarLastOpening: 'read-bar-last-opening',

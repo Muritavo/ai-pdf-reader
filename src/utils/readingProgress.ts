@@ -38,6 +38,13 @@ export function saveLastOpening(hash: string, progress: number) {
     window.dispatchEvent(new Event(CHANGED_EVENT));
 }
 
+/** Forgets how far the document was read, both the furthest point and where it stopped the last time */
+export function resetReadingProgress(hash: string) {
+    window.localStorage.removeItem(keyOf(hash));
+    window.localStorage.removeItem(lastOpeningKeyOf(hash));
+    window.dispatchEvent(new Event(CHANGED_EVENT));
+}
+
 function subscribe(onChange: () => void) {
     window.addEventListener(CHANGED_EVENT, onChange);
     window.addEventListener('storage', onChange);

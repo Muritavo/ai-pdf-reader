@@ -303,3 +303,91 @@ test.describe('both progress on the same bar', () => {
         await expect(furthestFill(page)).toHaveCount(1);
     });
 });
+
+test.describe('resetting the reading', () => {
+    const resetButton = (page: Page, title = 'Article 1') => articleCard(page, title).getByTestId(TestIds.fullTexts.readReset);
+
+    /** Reads the document to the end and leaves it, so both the progress and the last opening are kept */
+    async function readToTheEndAndLeave(page: Page, title = 'Article 1') {
+        await openPreview(page, articleCard(page, title), SAMPLE_PAGES.length);
+        await scrollTo(page, 1);
+        await expect(readProgress(page, title)).toHaveAttribute('data-complete', 'true');
+        await closePreview(page);
+        await expect(lastOpening(page, title)).toBeVisible();
+    }
+
+    test('is not offered before the document was read', async ({ page }) => {
+        await expect(resetButton(page)).toHaveCount(0);
+    });
+
+    test('forgets the progress and the last opening of the document', async ({ page }) => {
+        await readToTheEndAndLeave(page);
+
+        await resetButton(page).click();
+
+        await expect(readProgress(page)).toHaveCount(0);
+        await expect(lastOpening(page)).toHaveCount(0);
+        await expect(articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readBar)).toHaveCount(0);
+        await expect(resetButton(page)).toHaveCount(0);
+    });
+
+    test('does not open the document', async ({ page }) => {
+        await readToTheEndAndLeave(page);
+
+        await resetButton(page).click();
+
+        await expect(byId(page, TestIds.preview.box)).toHaveCount(0);
+    });
+
+    test('keeps the document reset after reloading', async ({ page }) => {
+        await readToTheEndAndLeave(page);
+        await resetButton(page).click();
+
+        await page.reload();
+
+        await expect(articleCard(page, 'Article 1')).toHaveAttribute('data-state', 'with-pdf');
+        await expect(readProgress(page)).toHaveCount(0);
+        await expect(lastOpening(page)).toHaveCount(0);
+    });
+
+    test('is at the start of the line, so it does not move with the texts', async ({ page }) => {
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        const line = articleCard(page, 'Article 1').getByTestId(TestIds.fullTexts.readLine);
+        const lineBox = (await line.boundingBox())!;
+        const first = (await resetButton(page).boundingBox())!;
+        expect(Math.abs(first.x - lineBox.x)).toBeLessThan(2);
+
+        // The texts change (the last opening appears before the progress), the button stays
+        await scrollTo(page, 1);
+        await closePreview(page);
+        await expect(lastOpening(page)).toBeVisible();
+        const after = (await resetButton(page).boundingBox())!;
+        expect(after.x).toBeCloseTo(first.x, 0);
+    });
+
+    test('starts counting again from where the document is read next', async ({ page }) => {
+        await readToTheEndAndLeave(page);
+        await resetButton(page).click();
+
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+
+        await expect(readProgress(page)).toHaveAttribute('data-complete', 'false');
+        expect(await shownPercent(page)).toBeLessThan(50);
+        // The last opening comes back only when the document is left again
+        await expect(lastOpening(page)).toHaveCount(0);
+    });
+
+    test('resets only that document', async ({ page }) => {
+        const other = articleCard(page, 'Article 2');
+        // Another document, as the same PDF on two articles shares its reading
+        await attachValidPdf(other, pdfFile('other.pdf', SAMPLE_PAGES.map(lines => lines.map(line => `${line} again`))));
+        await readToTheEndAndLeave(page, 'Article 1');
+        await readToTheEndAndLeave(page, 'Article 2');
+
+        await resetButton(page, 'Article 1').click();
+
+        await expect(readProgress(page, 'Article 1')).toHaveCount(0);
+        await expect(readProgress(page, 'Article 2')).toHaveAttribute('data-complete', 'true');
+        await expect(lastOpening(page, 'Article 2')).toBeVisible();
+    });
+});

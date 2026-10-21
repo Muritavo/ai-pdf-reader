@@ -1,12 +1,13 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
+import { RotateCcw } from 'lucide-react';
 import Button from '@onepercentio/one-ui/components/Button';
 import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
-import { isReadToTheEnd, useLastOpening, useReadingProgress } from '../utils/readingProgress';
+import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
@@ -77,6 +78,21 @@ function ArticleItem({
                     {fullText && (readProgress > 0 || lastOpening !== undefined) && (
                         <>
                             <div className={Styles.readLine} data-testid={TestIds.fullTexts.readLine}>
+                                {/* First, so it stays at the same place whatever the texts after it say */}
+                                <button
+                                    type="button"
+                                    className={Styles.readReset}
+                                    data-testid={TestIds.fullTexts.readReset}
+                                    title="Zerar leitura"
+                                    aria-label="Zerar leitura"
+                                    onClick={e => {
+                                        // Resetting does not open the document
+                                        e.stopPropagation();
+                                        resetReadingProgress(fullText.hash);
+                                    }}
+                                >
+                                    <RotateCcw size={13} strokeWidth={2} />
+                                </button>
                                 {lastOpening !== undefined && (
                                     <Text
                                         type="caption"

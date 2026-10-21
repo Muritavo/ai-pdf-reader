@@ -152,6 +152,23 @@
     opacity: 0.6;
 }
 
+.readReset {
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    padding: 3px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.readReset:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+
 /* Under .readLine to win over the color the caption text gets from the theme */
 .readLine .readProgress {
     font-variant-numeric: tabular-nums;
