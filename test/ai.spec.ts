@@ -874,7 +874,8 @@ function pdfWithOtherText() {
 }
 
 test.describe('finding the reference of a passage', () => {
-    const PASSAGE = 'The proteome changes after menopause';
+    // More than 5 words, as the action is only offered for a passage
+    const PASSAGE = 'Plasma samples were collected from women';
     const referenceModal = (page: Page) => byId(page, TestIds.ai.referenceModal);
     const referenceAnswer = (page: Page) => byId(page, TestIds.ai.referenceModalAnswer);
 

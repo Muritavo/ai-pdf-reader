@@ -11,6 +11,22 @@ import AsyncInteractionButton from '../../../../components/AsyncInteractionButto
 
 export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
 
+type MenuItem = {
+    id: string;
+    testId: string;
+    label: string;
+    onClick: () => Promise<void>;
+    disabled?: boolean;
+    hint?: string;
+    /** The action is only offered for a selection with at least this many words, as a statement and not a term */
+    minWords?: number;
+    /** The action is only offered for a selection with at most this many words, as a term and not a statement */
+    maxWords?: number;
+};
+
+/** More than 5 words: a passage, about which it makes sense to ask or look for a reference */
+const PASSAGE_MIN_WORDS = 6;
+
 const MAX_MENU_HEIGHT = 340;
 /** Enough for the selected text and a couple of actions, even close to the bottom of the screen */
 const MIN_MENU_HEIGHT = 180;
@@ -78,10 +94,12 @@ export default forwardRef(function FeaturesMenu(
         setWord(undefined);
     }
 
-    const menuItems = [
+    const menuItems: MenuItem[] = [
         {
             id: 'search-on-google',
             testId: TestIds.menu.searchOnGoogle,
+            // Less than 5 words: a term, that a search finds
+            maxWords: 4,
             label: txt('documentPreview.menu.searchOnGoogle'),
             onClick: async () => {
                 window.open(
@@ -124,6 +142,7 @@ export default forwardRef(function FeaturesMenu(
             id: 'ask-about',
             testId: TestIds.menu.askAbout,
             label: txt('documentPreview.menu.askAbout'),
+            minWords: PASSAGE_MIN_WORDS,
             disabled: !aiReady,
             hint: txt('aiWarmUp.locked'),
             onClick: async () => {
@@ -135,6 +154,7 @@ export default forwardRef(function FeaturesMenu(
             id: 'find-reference',
             testId: TestIds.menu.reference,
             label: txt('documentPreview.menu.reference'),
+            minWords: PASSAGE_MIN_WORDS,
             disabled: !aiReady,
             hint: txt('aiWarmUp.locked'),
             // A failure is left to the button, that offers to try again with the passage still selected
@@ -147,6 +167,9 @@ export default forwardRef(function FeaturesMenu(
         {
             id: 'mark-this-location',
             testId: TestIds.menu.markLocation,
+            // A single word, as the place is where the selection starts
+            minWords: 1,
+            maxWords: 1,
             label: txt('documentPreview.menu.markLocation'),
             onClick: async () => {
                 const coords = getDocumentCoordinates();
@@ -156,6 +179,7 @@ export default forwardRef(function FeaturesMenu(
         },
     ];
 
+    const selectedWords = word.split(/\s+/).filter(Boolean).length;
     const displayWord = word.length > 120 ? `${word.slice(0, 25)}...${word.slice(-25)}` : word;
 
     // Rendered on the body so it stays above the dialog and positioned by viewport coordinates
@@ -169,19 +193,25 @@ export default forwardRef(function FeaturesMenu(
         >
             <div className={Styles.selectedWord}>{displayWord}</div>
             <div className={Styles.actions} data-testid={TestIds.menu.actions}>
-                {menuItems.map(item => (
-                    <AsyncInteractionButton
-                        key={item.id}
-                        data-testid={item.testId}
-                        variant="transparent"
-                        className={Styles.menuButton}
-                        action={item.onClick}
-                        disabled={item.disabled}
-                        title={item.disabled ? item.hint : undefined}
-                    >
-                        {item.label}
-                    </AsyncInteractionButton>
-                ))}
+                {menuItems
+                    .filter(
+                        item =>
+                            (item.minWords === undefined || selectedWords >= item.minWords) &&
+                            (item.maxWords === undefined || selectedWords <= item.maxWords),
+                    )
+                    .map(item => (
+                        <AsyncInteractionButton
+                            key={item.id}
+                            data-testid={item.testId}
+                            variant="transparent"
+                            className={Styles.menuButton}
+                            action={item.onClick}
+                            disabled={item.disabled}
+                            title={item.disabled ? item.hint : undefined}
+                        >
+                            {item.label}
+                        </AsyncInteractionButton>
+                    ))}
                 {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
                 <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
             </div>
