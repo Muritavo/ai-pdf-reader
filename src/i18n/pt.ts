@@ -58,6 +58,7 @@ export default {
             passage: 'Trecho selecionado',
             found: 'Referência encontrada',
             notFound: 'Nenhuma referência encontrada para este trecho no documento.',
+            searchOnGoogle: 'Pesquisar no Google',
         },
         responseModal: {
             close: 'Fechar',

@@ -972,6 +972,74 @@ test.describe('finding the reference of a passage', () => {
         expect(ai.requestsOfKind('reference')).toHaveLength(1);
     });
 
+    /** Clicks a search of the window and returns what was searched on Google */
+    async function searchedFor(page: Page, button: ReturnType<typeof byId>) {
+        const [tab] = await Promise.all([page.context().waitForEvent('page'), button.click()]);
+        const url = new URL(tab.url());
+        expect(url.hostname).toBe('www.google.com');
+        expect(url.pathname).toBe('/search');
+        return url.searchParams.get('q');
+    }
+
+    test('searches the reference found on Google', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await findReference(page);
+
+        const search = byId(page, TestIds.ai.referenceSearch);
+        await expect(search).toHaveCount(1);
+        await expect(search).toHaveText('Pesquisar no Google');
+
+        expect(await searchedFor(page, search)).toBe(`Referência mock para: ${PASSAGE}`);
+        // The window stays open, to search the others or read it again
+        await expect(referenceModal(page)).toBeVisible();
+    });
+
+    test('offers a search for each reference found', async ({ page, ai }) => {
+        ai.referenceAnswer = () => '- Smith J. Proteomics of aging. 2019.\n- Lee K. Menopause and plasma. 2021.';
+        await openSamplePreview(page);
+        await warmUp(page);
+        await findReference(page);
+
+        const searches = byId(page, TestIds.ai.referenceSearch);
+        await expect(searches).toHaveCount(2);
+        await expect(searches.nth(0)).toContainText('Smith J.');
+        await expect(searches.nth(1)).toContainText('Lee K.');
+
+        expect(await searchedFor(page, searches.nth(1))).toBe('Lee K. Menopause and plasma. 2021.');
+    });
+
+    test('searches the reference as plain text, without the formatting of the answer', async ({ page, ai }) => {
+        ai.referenceAnswer = () => '1. **Smith J.** _Proteomics of aging_. [Cell](https://example.com). `2019`.';
+        await openSamplePreview(page);
+        await warmUp(page);
+        await findReference(page);
+
+        expect(await searchedFor(page, byId(page, TestIds.ai.referenceSearch))).toBe('Smith J. Proteomics of aging. Cell. 2019.');
+    });
+
+    test('does not offer a search when no reference was found', async ({ page, ai }) => {
+        ai.referenceAnswer = () => 'NOT_FOUND';
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await findReference(page);
+
+        await expect(referenceAnswer(page)).toContainText('Nenhuma referência encontrada');
+        await expect(byId(page, TestIds.ai.referenceSearch)).toHaveCount(0);
+    });
+
+    test('does not offer a search on the answers to the questions', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta qualquer');
+
+        await byId(page, TestIds.ai.openResponseModal).click();
+
+        await expect(byId(page, TestIds.ai.responseModal)).toBeVisible();
+        await expect(byId(page, TestIds.ai.referenceSearch)).toHaveCount(0);
+    });
+
     test('offers to try again when the AI fails, keeping the passage selected', async ({ page, ai }) => {
         await openSamplePreview(page);
         await warmUp(page);

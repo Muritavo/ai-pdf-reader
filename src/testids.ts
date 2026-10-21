@@ -73,6 +73,7 @@ export const TestIds = {
         responseModalAnswer: 'response-modal-answer',
         referenceModal: 'reference-modal',
         referenceModalAnswer: 'reference-modal-answer',
+        referenceSearch: 'reference-search',
         historyToggle: 'history-toggle',
         historyItem: 'history-item',
         historyClear: 'history-clear',

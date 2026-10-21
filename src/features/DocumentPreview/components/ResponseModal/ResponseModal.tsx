@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
@@ -12,9 +13,11 @@ type ResponseModalProps = {
     /** The texts of the window, when it shows something else than an answer to a question */
     labels?: { title: string; prompt: string; answer: string };
     testIds?: { modal: string; answer: string };
+    /** Shown after the answer, for what can be done with it */
+    actions?: ReactNode;
 };
 
-export default function ResponseModal({ prompt, answer, onClose, labels, testIds }: ResponseModalProps) {
+export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions }: ResponseModalProps) {
     const { txt } = useShortIntl();
 
     return (
@@ -45,6 +48,7 @@ export default function ResponseModal({ prompt, answer, onClose, labels, testIds
                             {answer}
                         </Markdown>
                     </div>
+                    {actions && <div className={Styles.actions}>{actions}</div>}
                 </div>
             </div>
         </div>

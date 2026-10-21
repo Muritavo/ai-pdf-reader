@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Brain } from 'lucide-react';
+import { Brain, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import { highlightTextLayer, occurrencesOf, useHighlightsForPDF, wordOfOccurrence } from '../../utils/highlight';
@@ -16,6 +16,9 @@ import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
 import ResponseModal from './components/ResponseModal/ResponseModal';
 import { REFERENCE_NOT_FOUND } from '../../services/ai';
+import { googleSearchUrl, referencesOf } from '../../utils/references';
+import ResponseModalStyles from './components/ResponseModal/ResponseModal.module.scss';
+import Button from '@onepercentio/one-ui/components/Button';
 import DocumentPromptBar from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
 import Styles from './DocumentPreview.module.scss';
@@ -416,6 +419,27 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         answer: txt('documentPreview.referenceModal.found'),
                     }}
                     testIds={{ modal: TestIds.ai.referenceModal, answer: TestIds.ai.referenceModalAnswer }}
+                    actions={
+                        reference.answer.includes(REFERENCE_NOT_FOUND)
+                            ? undefined
+                            : referencesOf(reference.answer).map(found => (
+                                  <Button
+                                      key={found}
+                                      variant="outline"
+                                      className={ResponseModalStyles.search}
+                                      data-testid={TestIds.ai.referenceSearch}
+                                      data-query={found}
+                                      title={found}
+                                      onClick={() => window.open(googleSearchUrl(found), '_blank', 'noopener,noreferrer')}
+                                  >
+                                      <Search size={14} strokeWidth={2} aria-hidden />
+                                      <span className={ResponseModalStyles.searchText}>
+                                          {txt('documentPreview.referenceModal.searchOnGoogle')}
+                                          {referencesOf(reference.answer).length > 1 && `: ${found}`}
+                                      </span>
+                                  </Button>
+                              ))
+                    }
                 />
             )}
             <DocumentPromptBar fullText={fullText} />
