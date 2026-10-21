@@ -71,8 +71,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
     // The images of each page, recorded while drawing it, and the one a question is being written about
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
-    // `y` is where it was clicked, as a fraction of the page, so the question opens where the reader is looking
-    const [askingImage, setAskingImage] = useState<{ page: number; index: number; y: number }>();
+    const [askingImage, setAskingImage] = useState<{ page: number; index: number }>();
     const [imageAnswer, setImageAnswer] = useState<{ question: string; answer: string; image: string }>();
     const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
@@ -434,8 +433,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                                 onClick={e => {
                                     e.stopPropagation();
-                                    const pageBox = e.currentTarget.parentElement!.getBoundingClientRect();
-                                    setAskingImage({ page: page.id, index, y: (e.clientY - pageBox.top) / pageBox.height });
+                                    setAskingImage({ page: page.id, index });
                                 }}
                             >
                                 <span className={Styles.imageBoxHint}>
@@ -445,12 +443,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         ))}
                         {askingImage?.page === page.id && imageBoxes[page.id]?.[askingImage.index] && (
                             <ImageQuestion
-                                key={`${askingImage.index}-${askingImage.y}`}
+                                key={askingImage.index}
                                 aiReady={warmUp.ready}
                                 style={{
                                     left: `${(imageBoxes[page.id][askingImage.index].left + imageBoxes[page.id][askingImage.index].width / 2) * 100}%`,
-                                    // At the height of the click, as a tall figure may not have its middle on the screen
-                                    top: `${askingImage.y * 100}%`,
+                                    // At the bottom of the image, inside it (and moved up into what is seen, when it is a tall one)
+                                    top: `${(imageBoxes[page.id][askingImage.index].top + imageBoxes[page.id][askingImage.index].height) * 100}%`,
                                 }}
                                 onClose={() => setAskingImage(undefined)}
                                 onSend={async question => {

@@ -8,8 +8,8 @@
   border-radius: 12px;
   background: rgba($colorPanel, 0.96);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  // Centered on the point given by its position
-  transform: translate(-50%, -50%);
+  // Centered across the point given by its position, ending right above it
+  transform: translate(-50%, -100%);
   user-select: auto;
 }
 
