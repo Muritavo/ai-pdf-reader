@@ -22,6 +22,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const SCAN_COLOR = '#7c9cff';
 
+/** The most pixels a page is drawn with, so a big screen and a long document don't run out of memory */
+const MAX_CANVAS_PIXELS = 4096 * 4096;
+
 type PageElement = {
     id: number;
     canvasRef: RefObject<HTMLCanvasElement>;
@@ -210,9 +213,22 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             const context = canvas?.getContext('2d');
             if (!canvas || !textLayerContainer || !context) return;
 
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            await page.render({ canvas, canvasContext: context, viewport }).promise;
+            // Drawn with every pixel of the screen (2 for each CSS pixel on a Retina one), so the page is sharp.
+            // Kept under a limit, as every page is drawn at once
+            const pixelRatio = Math.min(
+                window.devicePixelRatio || 1,
+                Math.sqrt(MAX_CANVAS_PIXELS / (viewport.width * viewport.height)),
+            );
+            canvas.width = Math.floor(viewport.width * pixelRatio);
+            canvas.height = Math.floor(viewport.height * pixelRatio);
+            canvas.style.width = `${Math.floor(viewport.width)}px`;
+            canvas.style.height = `${Math.floor(viewport.height)}px`;
+            await page.render({
+                canvas,
+                canvasContext: context,
+                viewport,
+                transform: pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : undefined,
+            }).promise;
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({

@@ -172,3 +172,71 @@ test.describe('sad paths of the PDF upload', () => {
         await expect(card).toHaveAttribute('data-state', 'with-pdf');
     });
 });
+
+test.describe('rendering quality', () => {
+    /** The size of the drawing of each page, and the size it takes on the screen */
+    const canvasSizes = (page: Parameters<typeof byId>[0]) =>
+        byId(page, TestIds.preview.canvas).evaluateAll(canvases =>
+            (canvases as HTMLCanvasElement[]).map(canvas => ({
+                bitmap: canvas.width,
+                shown: canvas.getBoundingClientRect().width,
+            })),
+        );
+
+    test.describe('on a screen with twice the pixels', () => {
+        test.use({ deviceScaleFactor: 2 });
+
+        test('draws the pages with every pixel of the screen, at the same size on it', async ({ page }) => {
+            const card = articleCard(page, 'Article 1');
+            await attachValidPdf(card, samplePdf());
+
+            await openPreview(page, card, SAMPLE_PAGES.length);
+
+            const boxWidth = await byId(page, TestIds.preview.box).evaluate(box => box.clientWidth);
+            for (const { bitmap, shown } of await canvasSizes(page)) {
+                expect(shown).toBeCloseTo(boxWidth, -1);
+                expect(bitmap).toBeCloseTo(shown * 2, -1);
+            }
+        });
+
+        test('keeps the text over the page where it is drawn', async ({ page }) => {
+            const card = articleCard(page, 'Article 1');
+            await attachValidPdf(card, samplePdf());
+            await openPreview(page, card, SAMPLE_PAGES.length);
+
+            const [canvas, layer] = await Promise.all([
+                byId(page, TestIds.preview.canvas).first().boundingBox(),
+                byId(page, TestIds.preview.textLayer).first().boundingBox(),
+            ]);
+            expect(layer!.width).toBeCloseTo(canvas!.width, -1);
+            expect(layer!.height).toBeCloseTo(canvas!.height, -1);
+        });
+    });
+
+    test('draws the pages with one pixel for each one of the screen on a regular screen', async ({ page }) => {
+        const card = articleCard(page, 'Article 1');
+        await attachValidPdf(card, samplePdf());
+
+        await openPreview(page, card, SAMPLE_PAGES.length);
+
+        for (const { bitmap, shown } of await canvasSizes(page)) {
+            expect(bitmap).toBeCloseTo(shown, -1);
+        }
+    });
+
+    test.describe('on a screen with a lot of pixels', () => {
+        test.use({ deviceScaleFactor: 8 });
+
+        test('limits how many pixels a page is drawn with', async ({ page }) => {
+            const card = articleCard(page, 'Article 1');
+            await attachValidPdf(card, samplePdf());
+
+            await openPreview(page, card, SAMPLE_PAGES.length);
+
+            const sizes = await byId(page, TestIds.preview.canvas).evaluateAll(canvases =>
+                (canvases as HTMLCanvasElement[]).map(canvas => canvas.width * canvas.height),
+            );
+            for (const pixels of sizes) expect(pixels).toBeLessThanOrEqual(4096 * 4096);
+        });
+    });
+});
