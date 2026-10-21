@@ -33,7 +33,8 @@
     position: relative;
     user-select: none;
 
-    > :last-child {
+    // By its class, as the scan of the warm up is put after it on the page while it runs
+    > .textLayer {
       user-select: none;
       position: absolute;
       inset: 0;

@@ -94,9 +94,21 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
         }
     };
 
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') handleAsk();
+    // Enter sends the question, while Shift+Enter breaks the line (as does Enter while composing an accent)
+    const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+        e.preventDefault();
+        handleAsk();
     };
+
+    // The field grows with the lines of the question, up to a limit, and shrinks back when they are gone
+    const promptField = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => {
+        const field = promptField.current;
+        if (!field) return;
+        field.style.height = 'auto';
+        field.style.height = `${field.scrollHeight}px`;
+    }, [promptText]);
 
     return (
         <>
@@ -184,8 +196,9 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                         <Clock size={18} strokeWidth={1.5} />
                     </Button>
                     <AIWarmUp fullText={fullText} />
-                    <input
-                        type="text"
+                    <textarea
+                        ref={promptField}
+                        rows={1}
                         data-testid={TestIds.ai.promptInput}
                         value={promptText ?? ''}
                         onChange={e => setPromptText(e.target.value)}

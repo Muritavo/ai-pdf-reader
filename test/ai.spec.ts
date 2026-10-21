@@ -161,6 +161,21 @@ test.describe('warming up a document', () => {
         expect(organize.text).toContain('Conclusion of the study');
     });
 
+    test('keeps the text of the page hidden under the scan of the page being read', async ({ page, ai }) => {
+        ai.chunkDelayMs = 150;
+        await openSamplePreview(page);
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
+
+        await warmUpButton(page).click();
+        const scanned = byId(page, TestIds.preview.page).filter({ has: page.locator('[class*="readingPage"]') });
+        await expect(scanned).toHaveCount(1);
+
+        // The text layer stays over the page, with its text not drawn, as it is only there to be selected
+        const layer = scanned.getByTestId(TestIds.preview.textLayer);
+        await expect(layer).toHaveCSS('position', 'absolute');
+        await expect(layer.locator('span').first()).toHaveCSS('color', 'rgba(0, 0, 0, 0)');
+    });
+
     test('reports how many words were generated while it runs', async ({ page, ai }) => {
         ai.chunkDelayMs = 80;
         await openSamplePreview(page);
@@ -382,6 +397,96 @@ test.describe('asking questions', () => {
         await expect(modalAnswer.locator('table')).toBeVisible();
     });
 
+    /** Asks a question answered with `answer`, and returns where the answer is shown */
+    async function askAnswered(page: Page, ai: Parameters<Parameters<typeof test>[2]>[0]['ai'], answer: string) {
+        ai.askAnswer = () => answer;
+        await openSamplePreview(page);
+        await warmUp(page);
+        await promptInput(page).fill('Qual a concentração?');
+        await byId(page, TestIds.ai.promptSend).click();
+        const shown = byId(page, TestIds.ai.answer);
+        await expect(shown).toBeVisible();
+        return shown;
+    }
+
+    /** The text a reader sees, without the copy of the formula kept for screen readers */
+    const visibleText = (answer: ReturnType<typeof byId>) =>
+        answer.evaluate(element => {
+            const copy = element.cloneNode(true) as HTMLElement;
+            copy.querySelectorAll('.katex-mathml').forEach(hidden => hidden.remove());
+            return copy.textContent!.replace(/\s+/g, ' ').trim();
+        });
+
+    test('renders an inline formula in LaTeX', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'A média foi de $24.9\\,\\mu g/m^3$ no período.');
+
+        const formula = answer.locator('.katex');
+        await expect(formula).toHaveCount(1);
+        // The source of the formula is kept as it was written, with its thin space
+        await expect(formula.locator('annotation')).toHaveText('24.9\\,\\mu g/m^3');
+        await expect(formula.locator('.msupsub')).toHaveCount(1);
+        const text = await visibleText(answer);
+        expect(text).toContain('μ');
+        expect(text).toContain('24.9');
+        // None of the LaTeX is shown as text, and the thin space is not a comma
+        expect(text).not.toContain('$');
+        expect(text).not.toContain('\\mu');
+        expect(text).not.toContain(',');
+        expect(text).toMatch(/^A média foi de .+ no período\.$/);
+    });
+
+    test('renders a formula block in LaTeX, on a line of its own', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'A integral é:\n\n$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\nComo esperado.');
+
+        const block = answer.locator('.katex-display');
+        await expect(block).toHaveCount(1);
+        await expect(block.locator('annotation')).toHaveText('\\int_0^1 x^2\\,dx = \\frac{1}{3}');
+        await expect(block.locator('.mfrac')).toHaveCount(1);
+        const text = await visibleText(answer);
+        expect(text).toContain('A integral é:');
+        expect(text).toContain('Como esperado.');
+        expect(text).not.toContain('$$');
+        expect(text).not.toContain('\\frac');
+    });
+
+    test('keeps money amounts with dollars as text', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'O kit custa $5 e o frete $10, total de $15.');
+
+        await expect(answer.locator('.katex')).toHaveCount(0);
+        expect(await visibleText(answer)).toBe('O kit custa $5 e o frete $10, total de $15.');
+    });
+
+    test('renders formulas and money amounts in the same answer', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'Custa $5 por amostra de $x^2$ gramas.');
+
+        await expect(answer.locator('.katex')).toHaveCount(1);
+        await expect(answer.locator('.katex annotation')).toHaveText('x^2');
+        expect(await visibleText(answer)).toContain('Custa $5 por amostra de');
+    });
+
+    test('keeps dollars inside code as they are', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'Use `$x^2$` para escrever.');
+
+        await expect(answer.locator('.katex')).toHaveCount(0);
+        await expect(answer.locator('code')).toHaveText('$x^2$');
+    });
+
+    test('shows a formula that can not be read without breaking the rest of the answer', async ({ page, ai }) => {
+        const answer = await askAnswered(page, ai, 'Antes $\\frac{1}{$ e depois.');
+
+        expect(await visibleText(answer)).toContain('Antes');
+        expect(await visibleText(answer)).toContain('e depois.');
+        await expect(answer.locator('.katex-error')).toHaveCount(1);
+    });
+
+    test('renders the formulas on the response window too', async ({ page, ai }) => {
+        await askAnswered(page, ai, 'A média foi de $24.9\\,\\mu g/m^3$.');
+
+        await byId(page, TestIds.ai.openResponseModal).click();
+
+        await expect(byId(page, TestIds.ai.responseModalAnswer).locator('.katex annotation')).toHaveText('24.9\\,\\mu g/m^3');
+    });
+
     test('keeps showing plain text answers as they are', async ({ page }) => {
         await openSamplePreview(page);
         await warmUp(page);
@@ -399,6 +504,50 @@ test.describe('asking questions', () => {
         await promptInput(page).press('Enter');
 
         await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Pergunta com enter');
+    });
+
+    test('breaks the line with Shift+Enter, without sending the question', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        const height = (await promptInput(page).boundingBox())!.height;
+
+        await promptInput(page).fill('Primeira linha');
+        await promptInput(page).press('Shift+Enter');
+        await promptInput(page).pressSequentially('Segunda linha');
+
+        await expect(promptInput(page)).toHaveValue('Primeira linha\nSegunda linha');
+        expect(ai.requestsOfKind('ask')).toHaveLength(0);
+        await expect(byId(page, TestIds.ai.answer)).toHaveCount(0);
+        // The field grows to show the new line
+        await expect.poll(async () => (await promptInput(page).boundingBox())!.height).toBeGreaterThan(height);
+    });
+
+    test('sends the question with its lines with Enter', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await promptInput(page).fill('Primeira linha');
+        await promptInput(page).press('Shift+Enter');
+        await promptInput(page).pressSequentially('Segunda linha');
+
+        await promptInput(page).press('Enter');
+
+        await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Primeira linha');
+        const [question] = ai.requestsOfKind('ask');
+        expect(question.prompt).toBe('Primeira linha\nSegunda linha');
+        // Enter does not leave a line break behind in the field
+        await expect(promptInput(page)).toHaveValue('Primeira linha\nSegunda linha');
+    });
+
+    test('shrinks the field back when the lines are erased', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        const height = (await promptInput(page).boundingBox())!.height;
+        await promptInput(page).fill('Um\nDois\nTrês');
+        await expect.poll(async () => (await promptInput(page).boundingBox())!.height).toBeGreaterThan(height);
+
+        await promptInput(page).fill('Um');
+
+        await expect.poll(async () => (await promptInput(page).boundingBox())!.height).toBeCloseTo(height, 0);
     });
 
     test('lists the previous questions, newest first', async ({ page }) => {

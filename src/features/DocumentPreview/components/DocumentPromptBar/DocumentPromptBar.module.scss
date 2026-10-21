@@ -20,6 +20,10 @@
 .promptInput {
   flex: 1;
   min-width: 200px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
   border: 0;
   border-radius: 8px;
   font: inherit;

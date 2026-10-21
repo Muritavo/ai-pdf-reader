@@ -99,3 +99,15 @@
     border-top: 1px solid var(--border);
     margin: 1em 0;
 }
+
+/* A long formula scrolls on its own, instead of making the whole answer wider */
+.markdown :global(.katex-display) {
+    margin: 0.8em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 0;
+}
+
+.markdown :global(.katex) {
+    font-size: 1.05em;
+}
