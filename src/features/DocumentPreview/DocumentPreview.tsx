@@ -10,7 +10,7 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
-import { appendHighlightedText, occurrencesOf, useHighlightsForPDF, wordOfOccurrence } from '../../utils/highlight';
+import { highlightTextLayer, occurrencesOf, useHighlightsForPDF, wordOfOccurrence } from '../../utils/highlight';
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
@@ -279,19 +279,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         if (!textLayers || !highlightRules) return;
         // Drawn even with no rules, so what was removed stops being highlighted
         textLayers.forEach((textLayer, layerIndex) => {
-            textLayer.textDivs.forEach((textDiv, index) => {
-                const text = textLayer.textContentItemsStr[index];
-                if (text) {
-                    appendHighlightedText(
-                        textDiv,
-                        text,
-                        highlightRules,
-                        Styles.wordHighlight,
-                        TestIds.preview.highlight,
-                        `${layerIndex}-${index}`,
-                    );
-                }
-            });
+            const pieces = textLayer.textDivs
+                .map((element, index) => ({ element, text: textLayer.textContentItemsStr[index] }))
+                .filter(piece => piece.text);
+            highlightTextLayer(pieces, highlightRules, Styles.wordHighlight, TestIds.preview.highlight, `${layerIndex}`);
         });
         highlightCursor.current = {};
         // The page of every occurrence, counted once even when it is in more than one piece

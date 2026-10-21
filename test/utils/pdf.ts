@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 const escapeText = (text: string) => text.replace(/[\\()]/g, '\\$&');
 
 /**
@@ -59,3 +61,13 @@ export const SAMPLE_WORD = 'proteome';
 export const SAMPLE_WORD_OCCURRENCES = 4;
 export const sampleWordCount = SAMPLE_PAGES.flat().join(' ').split(/\s+/).length;
 export const samplePdf = () => pdfFile('sample.pdf', SAMPLE_PAGES);
+
+/**
+ * The fixture with texts broken across lines: "This document has a" / "broken line",
+ * "And even" / (an empty line) / "a line that breaks with a space", and "...the text is bro-" / "ken with a -."
+ */
+export const brokenLinePdf = (): UploadableFile => ({
+    name: 'broken-lines.pdf',
+    mimeType: 'application/pdf',
+    buffer: readFileSync(new URL('../fixtures/BrokenLineExample.pdf', import.meta.url)),
+});

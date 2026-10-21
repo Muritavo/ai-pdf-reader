@@ -2,8 +2,8 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './utils/fixtures';
 import { articleCard, attachValidPdf, byId, openPreview, startWithReferences } from './utils/app';
 import { buildCsv, sampleArticles, STANDARD_COLUMNS } from './utils/csv';
-import { SAMPLE_PAGES, SAMPLE_WORD, SAMPLE_WORD_OCCURRENCES, samplePdf } from './utils/pdf';
-import { centerOf, selectWord } from './utils/pdf-interactions';
+import { brokenLinePdf, pdfFile, SAMPLE_PAGES, SAMPLE_WORD, SAMPLE_WORD_OCCURRENCES, samplePdf } from './utils/pdf';
+import { centerOf, selectAcross, selectWord } from './utils/pdf-interactions';
 import { TestIds } from '../src/testids';
 
 const ids = TestIds.annotations;
@@ -548,5 +548,129 @@ test.describe('highlights over each other', () => {
         await expect(highlightItems(page)).toHaveCount(1);
         await expect(byId(page, TestIds.preview.highlight)).toHaveCount(1);
         await expect(byId(page, TestIds.preview.highlight)).toHaveText(PHRASE);
+    });
+});
+
+test.describe('highlights across lines', () => {
+    /** Leaves the sample document and opens another one, on the second article */
+    async function openOther(page: Page, file: Parameters<typeof attachValidPdf>[1], pages: number) {
+        await page.mouse.click(2, 2);
+        await expect(byId(page, TestIds.preview.box)).toHaveCount(0);
+        const card = articleCard(page, 'Article 2');
+        await attachValidPdf(card, file);
+        await openPreview(page, card, pages);
+    }
+
+    /** The pieces of each occurrence of a highlighted text, in the order of the document */
+    const piecesOf = (page: Page, normalizedWord: string) =>
+        byId(page, TestIds.preview.highlight).evaluateAll((marks, word) => {
+            const occurrences = new Map<string, string[]>();
+            for (const mark of marks as HTMLElement[]) {
+                for (const token of mark.dataset.occurrences!.split(' ')) {
+                    if (decodeURIComponent(token.split('~')[0]) !== word) continue;
+                    occurrences.set(token, [...(occurrences.get(token) ?? []), mark.textContent!]);
+                }
+            }
+            return [...occurrences.values()];
+        }, normalizedWord);
+
+    test('highlights a text that goes on to the next line', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+
+        await selectAcross(page, { line: 'This document has a', word: 'a' }, { line: 'broken line', word: 'line' });
+        await byId(page, TestIds.menu.highlight).click();
+
+        // One occurrence, in a piece on each line
+        expect(await piecesOf(page, 'a broken line')).toEqual([['a', 'broken line']]);
+        await openHighlights(page);
+        await expect(highlightItem(page, 'a broken line')).toHaveAttribute('data-count', '1');
+        await expect(highlightItem(page, 'a broken line')).toHaveAttribute('data-pages', '1');
+    });
+
+    test('highlights a text that goes on after an empty line', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+
+        await selectAcross(page, { line: 'And even', word: 'even' }, { line: 'a line that breaks', word: 'line' });
+        await byId(page, TestIds.menu.highlight).click();
+
+        expect(await piecesOf(page, 'even a line')).toEqual([['even', 'a line']]);
+    });
+
+    test('finds a word cut by a hyphen at the end of a line', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+
+        await selectWord(page, 'broken');
+        await byId(page, TestIds.menu.highlight).click();
+
+        // Once whole, and once as "bro-" at the end of a line with "ken" on the next one
+        expect(await piecesOf(page, 'broken')).toEqual([['broken'], ['bro-', 'ken']]);
+        await openHighlights(page);
+        await expect(highlightItem(page, 'broken')).toHaveAttribute('data-count', '2');
+    });
+
+    test('highlights a word cut by a hyphen when it is selected across the lines', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+
+        await selectAcross(page, { line: 'the text is bro-', word: 'bro' }, { line: 'ken with', word: 'ken' });
+        await byId(page, TestIds.menu.highlight).click();
+
+        // It is the word without the hyphen, so the whole one is found too
+        expect(await piecesOf(page, 'broken')).toEqual([['broken'], ['bro-', 'ken']]);
+    });
+
+    test('finds a text written on a single line also where it goes on to the next one', async ({ page }) => {
+        await openOther(page, pdfFile('quick.pdf', [['The quick brown', 'fox jumps over', 'and the quick brown fox runs']]), 1);
+
+        await selectWord(page, 'quick brown fox');
+        await byId(page, TestIds.menu.highlight).click();
+
+        expect(await piecesOf(page, 'quick brown fox')).toEqual([['quick brown', 'fox'], ['quick brown fox']]);
+        await openHighlights(page);
+        await expect(highlightItem(page, 'quick brown fox')).toHaveAttribute('data-count', '2');
+    });
+
+    test('goes to a text across lines outlining every piece of it', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+        await selectAcross(page, { line: 'This document has a', word: 'a' }, { line: 'broken line', word: 'line' });
+        await byId(page, TestIds.menu.highlight).click();
+        await openHighlights(page);
+
+        await byId(page, ids.highlightGoTo).click();
+
+        await expect(page.locator('mark[class*="wordPulse"]')).toHaveText(['a', 'broken line']);
+    });
+
+    test('removes every piece of a text across lines', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+        await selectAcross(page, { line: 'This document has a', word: 'a' }, { line: 'broken line', word: 'line' });
+        await byId(page, TestIds.menu.highlight).click();
+        await openHighlights(page);
+
+        await byId(page, ids.highlightRemove).click();
+
+        await expect(byId(page, TestIds.preview.highlight)).toHaveCount(0);
+        await expect(byId(page, TestIds.preview.textLayer)).toContainText('This document has a');
+    });
+
+    test('keeps the lines as they are, without joining their words', async ({ page }) => {
+        await openOther(page, brokenLinePdf(), 1);
+
+        // "a" ends a line and "broken" starts the next one, they are not the word "abroken"
+        await selectAcross(page, { line: 'This document has a', word: 'a' }, { line: 'broken line', word: 'broken' });
+        await byId(page, TestIds.menu.highlight).click();
+
+        expect(await piecesOf(page, 'a broken')).toEqual([['a', 'broken']]);
+        await expect(byId(page, TestIds.preview.textLayer)).toContainText('This document has a');
+        await expect(byId(page, TestIds.preview.textLayer)).toContainText('broken line');
+    });
+
+    test('does not find a text that only goes on in the next page', async ({ page }) => {
+        await openOther(page, pdfFile('pages.pdf', [['the quick brown dog', 'and a quick'], ['brown cat']]), 2);
+
+        await selectWord(page, 'quick brown');
+        await byId(page, TestIds.menu.highlight).click();
+
+        // Each page is a text of its own
+        expect(await piecesOf(page, 'quick brown')).toEqual([['quick brown']]);
     });
 });

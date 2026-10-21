@@ -52,6 +52,42 @@ export async function selectWord(page: Page, word: string, occurrence = 0, whole
     await expect(byId(page, TestIds.menu.root)).toBeVisible();
 }
 
+/**
+ * Selects from a word of one line to a word of another one, like dragging the mouse across lines,
+ * and releases the mouse over the preview. The start is the last time `start.word` is on its line.
+ */
+export async function selectAcross(page: Page, start: { line: string; word: string }, end: { line: string; word: string }) {
+    await page.evaluate(
+        ({ start, end, ids }) => {
+            const lines = [...document.querySelectorAll<HTMLElement>(`[data-testid="${ids.textLayer}"] span`)];
+            const pointIn = (line: HTMLElement, offset: number) => {
+                const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+                let passed = 0;
+                for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+                    if (offset <= passed + node.length) return { node, offset: offset - passed };
+                    passed += node.length;
+                }
+                throw new Error('Offset out of the line');
+            };
+            const startLine = lines.find(line => line.textContent!.includes(start.line));
+            const endLine = lines.find(line => line !== startLine && line.textContent!.includes(end.line));
+            if (!startLine || !endLine) throw new Error(`Could not find the lines "${start.line}" and "${end.line}"`);
+            const from = pointIn(startLine, startLine.textContent!.lastIndexOf(start.word));
+            const to = pointIn(endLine, endLine.textContent!.indexOf(end.word) + end.word.length);
+            startLine.scrollIntoView({ block: 'center' });
+            const range = document.createRange();
+            range.setStart(from.node, from.offset);
+            range.setEnd(to.node, to.offset);
+            const selection = window.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.querySelector(`[data-testid="${ids.box}"]`)!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        },
+        { start, end, ids: { textLayer: TestIds.preview.textLayer, box: TestIds.preview.box } },
+    );
+    await expect(byId(page, TestIds.menu.root)).toBeVisible();
+}
+
 /** The page rectangle of the current selection */
 export const selectionRect = (page: Page) =>
     page.evaluate(() => {
