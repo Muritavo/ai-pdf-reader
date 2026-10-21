@@ -6,6 +6,7 @@ type ChatMessage = { role: string; content: string };
 export type AIRequest =
     | { kind: 'organize'; messages: ChatMessage[]; text: string }
     | { kind: 'define'; messages: ChatMessage[]; word: string; context: string }
+    | { kind: 'reference'; messages: ChatMessage[]; passage: string; context: string }
     | { kind: 'ask'; messages: ChatMessage[]; prompt: string; context: string };
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -18,6 +19,8 @@ function classify(messages: ChatMessage[]): AIRequest {
     const context = messages[0].content.split('\n\n').slice(1).join('\n\n');
     const define = last.match(/^What does "(.*)" mean in this context/);
     if (define) return { kind: 'define', messages, word: define[1], context };
+    const reference = last.match(/^Find the bibliographic reference[\s\S]*?"""([\s\S]*?)"""/);
+    if (reference) return { kind: 'reference', messages, passage: reference[1], context };
     return { kind: 'ask', messages, prompt: last, context };
 }
 
@@ -37,6 +40,8 @@ export class MockAI {
     modelsStatusAvailable = true;
     /** How many pings (plain requests to check the server is up) were received */
     pings = 0;
+    /** Overrides the answer given when a reference is looked for. Receives the selected passage */
+    referenceAnswer?: (passage: string) => string;
     /** Overrides the answer given to the questions. Receives the question */
     askAnswer?: (prompt: string) => string;
     /** Wait before answering the status of the models */
@@ -51,6 +56,8 @@ export class MockAI {
                 return `# Texto organizado\n\n${request.text}`;
             case 'define':
                 return `Definição mock de ${request.word}`;
+            case 'reference':
+                return this.referenceAnswer?.(request.passage) ?? `- Referência mock para: ${request.passage}`;
             case 'ask':
                 return this.askAnswer?.(request.prompt) ?? `Resposta mock para: ${request.prompt}`;
         }

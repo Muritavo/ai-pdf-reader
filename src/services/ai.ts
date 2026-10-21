@@ -128,6 +128,27 @@ async function _defineWordInContext(
 }
 export const defineWordInContext = wrapFunction(_defineWordInContext);
 
+/** What the model answers when the passage cites nothing it could find on the document */
+export const REFERENCE_NOT_FOUND = "NOT_FOUND";
+
+async function _findReferenceInContext(
+  passage: string,
+  context: string,
+): Promise<string> {
+  return callOpenAiApi([
+    ...documentContextMessages(context),
+    {
+      role: "user",
+      content: `Find the bibliographic reference(s) that the following passage of the document cites, or is based on, using the reference list of the document.
+
+Passage: """${passage}"""
+
+Answer only with each reference entry as it is written in the reference list of the document, one per line, in markdown. If the passage cites no reference, or it can't be found on the reference list, answer exactly ${REFERENCE_NOT_FOUND}.`,
+    },
+  ]);
+}
+export const findReferenceInContext = wrapFunction(_findReferenceInContext);
+
 async function _askContext(
   prompt: string,
   context: string,

@@ -38,6 +38,7 @@ export default {
             highlightInstances: 'Destacar ocorrências',
             define: 'Definir',
             markLocation: 'Marcar este local',
+            reference: 'Referência',
             tryAgain: 'Tentar novamente',
         },
         promptBar: {
@@ -52,7 +53,14 @@ export default {
             removeEntry: 'Remover do histórico',
             openInModal: 'Abrir em janela',
         },
+        referenceModal: {
+            title: 'Referência',
+            passage: 'Trecho selecionado',
+            found: 'Referência encontrada',
+            notFound: 'Nenhuma referência encontrada para este trecho no documento.',
+        },
         responseModal: {
+            close: 'Fechar',
             title: 'Ver resposta',
             prompt: 'Pergunta',
             answer: 'Resposta',

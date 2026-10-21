@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import Styles from './FeaturesMenu.module.scss';
 import type { FullText } from '../../../../models/Article';
-import { defineWordInContext } from '../../../../services/ai';
+import { defineWordInContext, findReferenceInContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
 import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
@@ -17,6 +17,8 @@ type FeaturesMenuProps = {
     aiReady: boolean;
     getDocumentCoordinates: () => { x: number; y: number };
     onMarkLocation: (x: number, y: number, word: string) => void;
+    /** Shows the reference found for the selected passage */
+    onReferenceFound: (passage: string, answer: string) => void;
 };
 
 function extractSelectedWord(selectionText: string) {
@@ -25,7 +27,7 @@ function extractSelectedWord(selectionText: string) {
 }
 
 export default forwardRef(function FeaturesMenu(
-    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation }: FeaturesMenuProps,
+    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound }: FeaturesMenuProps,
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
@@ -105,6 +107,19 @@ export default forwardRef(function FeaturesMenu(
                 } finally {
                     dismiss();
                 }
+            },
+        },
+        {
+            id: 'find-reference',
+            testId: TestIds.menu.reference,
+            label: txt('documentPreview.menu.reference'),
+            disabled: !aiReady,
+            hint: txt('aiWarmUp.locked'),
+            // A failure is left to the button, that offers to try again with the passage still selected
+            onClick: async () => {
+                const normalizedText = await getNormalizedText(fullText);
+                onReferenceFound(word, await findReferenceInContext(word, normalizedText));
+                dismiss();
             },
         },
         {

@@ -864,3 +864,126 @@ test.describe('defining words', () => {
 function pdfWithOtherText() {
     return pdfFile('other.pdf', [['A completely different document about lipids']]);
 }
+
+test.describe('finding the reference of a passage', () => {
+    const PASSAGE = 'The proteome changes after menopause';
+    const referenceModal = (page: Page) => byId(page, TestIds.ai.referenceModal);
+    const referenceAnswer = (page: Page) => byId(page, TestIds.ai.referenceModalAnswer);
+
+    async function findReference(page: Page, passage = PASSAGE) {
+        await selectWord(page, passage);
+        await byId(page, TestIds.menu.reference).click();
+    }
+
+    test('is locked until the document is warmed up', async ({ page }) => {
+        await openSamplePreview(page);
+
+        await selectWord(page, PASSAGE);
+
+        await expect(byId(page, TestIds.menu.reference)).toBeDisabled();
+        await expect(byId(page, TestIds.menu.reference)).toHaveAttribute('title', /preparado/);
+    });
+
+    test('is locked when the AI is offline', async ({ page, ai }) => {
+        await ai.stop();
+        await openSamplePreview(page);
+
+        await selectWord(page, PASSAGE);
+
+        await expect(byId(page, TestIds.menu.reference)).toBeDisabled();
+    });
+
+    test('shows the reference found for the selected passage', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await findReference(page);
+
+        await expect(referenceModal(page)).toBeVisible();
+        await expect(referenceModal(page)).toContainText('Referência');
+        await expect(referenceModal(page)).toContainText('Trecho selecionado');
+        await expect(referenceModal(page)).toContainText(PASSAGE);
+        // Formatted as markdown, like the other answers
+        await expect(referenceAnswer(page).locator('li')).toHaveText(`Referência mock para: ${PASSAGE}`);
+        await expect(byId(page, TestIds.menu.root)).toHaveCount(0);
+    });
+
+    test('looks for it with the organized text of the document, after the same start as the other features', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta para comparar');
+
+        await findReference(page);
+        await expect(referenceModal(page)).toBeVisible();
+
+        const [request] = ai.requestsOfKind('reference');
+        const [question] = ai.requestsOfKind('ask');
+        expect(request.passage).toBe(PASSAGE);
+        expect(request.context).toContain('# Texto organizado');
+        // The server can reuse what it processed for the question
+        expect(request.messages.slice(0, 2)).toEqual(question.messages.slice(0, 2));
+    });
+
+    test('lists every reference found', async ({ page, ai }) => {
+        ai.referenceAnswer = () => '- Smith J. Proteomics of aging. 2019.\n- Lee K. Menopause and plasma. 2021.';
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await findReference(page);
+
+        await expect(referenceAnswer(page).locator('li')).toHaveText(['Smith J. Proteomics of aging. 2019.', 'Lee K. Menopause and plasma. 2021.']);
+    });
+
+    test('tells when the passage cites no reference of the document', async ({ page, ai }) => {
+        ai.referenceAnswer = () => 'NOT_FOUND';
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await findReference(page);
+
+        await expect(referenceAnswer(page)).toHaveText('Nenhuma referência encontrada para este trecho no documento.');
+        await expect(referenceAnswer(page)).not.toContainText('NOT_FOUND');
+    });
+
+    test('closes with its button and by clicking out of it', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await findReference(page);
+
+        await referenceModal(page).getByRole('button', { name: 'Fechar' }).click();
+        await expect(referenceModal(page)).toHaveCount(0);
+
+        await findReference(page);
+        await referenceModal(page).click({ position: { x: 5, y: 5 } });
+        await expect(referenceModal(page)).toHaveCount(0);
+        // The document stays open
+        await expect(byId(page, TestIds.preview.box)).toBeVisible();
+    });
+
+    test('does not ask the AI again for the same passage', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await findReference(page);
+        await referenceModal(page).getByRole('button', { name: 'Fechar' }).click();
+
+        await findReference(page);
+
+        await expect(referenceAnswer(page)).toContainText(PASSAGE);
+        expect(ai.requestsOfKind('reference')).toHaveLength(1);
+    });
+
+    test('offers to try again when the AI fails, keeping the passage selected', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        ai.chatStatus = 500;
+
+        await findReference(page);
+
+        await expect(byId(page, TestIds.menu.reference)).toHaveText('Tentar novamente');
+        await expect(referenceModal(page)).toHaveCount(0);
+
+        ai.chatStatus = 200;
+        await byId(page, TestIds.menu.reference).click();
+        await expect(referenceModal(page)).toBeVisible();
+    });
+});

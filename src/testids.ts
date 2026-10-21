@@ -53,6 +53,7 @@ export const TestIds = {
         highlight: 'menu-highlight',
         define: 'menu-define',
         markLocation: 'menu-mark-location',
+        reference: 'menu-reference',
     },
     ai: {
         statusButton: 'ai-status-button',
@@ -70,6 +71,8 @@ export const TestIds = {
         openResponseModal: 'open-response-modal',
         responseModal: 'response-modal',
         responseModalAnswer: 'response-modal-answer',
+        referenceModal: 'reference-modal',
+        referenceModalAnswer: 'reference-modal-answer',
         historyToggle: 'history-toggle',
         historyItem: 'history-item',
         historyClear: 'history-clear',

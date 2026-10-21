@@ -14,6 +14,8 @@ import { highlightTextLayer, occurrencesOf, useHighlightsForPDF, wordOfOccurrenc
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
+import ResponseModal from './components/ResponseModal/ResponseModal';
+import { REFERENCE_NOT_FOUND } from '../../services/ai';
 import DocumentPromptBar from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
 import Styles from './DocumentPreview.module.scss';
@@ -48,6 +50,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     // The page of each occurrence of every highlighted text, found once they are drawn
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
+    const [reference, setReference] = useState<{ passage: string; answer: string }>();
     const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
@@ -396,7 +399,25 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 aiReady={warmUp.ready}
                 getDocumentCoordinates={getDocumentCoordinates}
                 onMarkLocation={addPointOfInterest}
+                onReferenceFound={(passage, answer) => setReference({ passage, answer })}
             />
+            {reference && (
+                <ResponseModal
+                    prompt={reference.passage}
+                    answer={
+                        reference.answer.includes(REFERENCE_NOT_FOUND)
+                            ? txt('documentPreview.referenceModal.notFound')
+                            : reference.answer
+                    }
+                    onClose={() => setReference(undefined)}
+                    labels={{
+                        title: txt('documentPreview.referenceModal.title'),
+                        prompt: txt('documentPreview.referenceModal.passage'),
+                        answer: txt('documentPreview.referenceModal.found'),
+                    }}
+                    testIds={{ modal: TestIds.ai.referenceModal, answer: TestIds.ai.referenceModalAnswer }}
+                />
+            )}
             <DocumentPromptBar fullText={fullText} />
         </div>
     );
