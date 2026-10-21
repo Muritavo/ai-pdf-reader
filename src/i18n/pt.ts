@@ -1,4 +1,13 @@
 export default {
+    imageQuestion: {
+        open: 'Perguntar sobre esta imagem',
+        placeholder: 'Pergunte algo sobre esta imagem...',
+        send: 'Enviar',
+        close: 'Fechar',
+        failed: 'Não foi possível responder. O modelo carregado precisa aceitar imagens.',
+        title: 'Pergunta sobre a imagem',
+        image: 'A imagem da pergunta',
+    },
     documentActions: {
         methodFlowchart: {
             label: 'Fluxograma do método',

@@ -83,3 +83,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.media {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+
+  img {
+    max-width: 100%;
+    max-height: 30vh;
+    border-radius: 8px;
+    background: #fff;
+  }
+}

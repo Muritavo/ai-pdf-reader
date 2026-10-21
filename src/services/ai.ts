@@ -11,8 +11,11 @@ const MODEL =
 // 'Ornith-1.0-9B-oQ4-fp16'
 // "Ornith-1.0-9B-mlx-4Bit"
 
+/** A part of a message, for the models that read images too */
+type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
 export async function callOpenAiApi(
-  messages: { role: string; content: string }[],
+  messages: { role: string; content: string | ContentPart[] }[],
   /** Receives each piece of the answer as it streams */
   onProgress?: (chunk: string) => void,
 ): Promise<string> {
@@ -148,6 +151,25 @@ Answer only with each reference entry as it is written in the reference list of 
   ]);
 }
 export const findReferenceInContext = wrapFunction(_findReferenceInContext);
+
+async function _askAboutImage(
+  question: string,
+  imageDataUrl: string,
+  context: string,
+): Promise<string> {
+  return callOpenAiApi([
+    ...documentContextMessages(context),
+    {
+      role: "user",
+      content: [
+        { type: "text", text: `This image is a figure of the document. ${question}` },
+        { type: "image_url", image_url: { url: imageDataUrl } },
+      ],
+    },
+  ]);
+}
+/** Kept by the question, the image and the document, so asking the same again is instant */
+export const askAboutImage = wrapFunction(_askAboutImage);
 
 async function _askContext(
   prompt: string,

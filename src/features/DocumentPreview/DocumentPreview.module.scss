@@ -225,3 +225,39 @@
   -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>");
   mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>");
 }
+
+// An image of the page: a question can be asked about it
+.imageBox {
+  position: absolute;
+  z-index: 2;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: 2px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.15s, background 0.15s;
+
+  &:hover {
+    outline-color: rgba(124, 156, 255, 0.85);
+    background: rgba(124, 156, 255, 0.06);
+  }
+}
+
+// A subtle sign on the corner that it can be asked about, clear on hover
+.imageBoxHint {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(23, 26, 33, 0.75);
+  color: #e6e8ee;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+
+  .imageBox:hover & {
+    opacity: 1;
+  }
+}

@@ -40,6 +40,12 @@ export const TestIds = {
         lastClickMarker: 'last-click-marker',
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
+        imageBox: 'image-box',
+        imageQuestion: 'image-question',
+        imageQuestionInput: 'image-question-input',
+        imageQuestionSend: 'image-question-send',
+        imageAnswerModal: 'image-answer-modal',
+        imageAnswer: 'image-answer',
         definedTerm: 'defined-term',
     },
     documentActions: {

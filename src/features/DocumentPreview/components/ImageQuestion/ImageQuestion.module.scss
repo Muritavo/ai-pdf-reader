@@ -1,0 +1,88 @@
+@use "../../../../styles/variables.scss" as *;
+
+.box {
+  position: absolute;
+  z-index: 6;
+  width: min(360px, 90%);
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba($colorPanel, 0.96);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  // Centered on the point given by its position
+  transform: translate(-50%, -50%);
+  user-select: auto;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: $colorSurface;
+  color: $colorText;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  outline: none;
+  user-select: text;
+
+  &:focus {
+    box-shadow: 0 0 0 2px rgba($colorHighlight, 0.6);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.send,
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.send {
+  background: $colorHighlight;
+  color: $colorBackground;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.close {
+  background: transparent;
+  color: $colorMuted;
+
+  &:hover {
+    color: $colorText;
+    background: $colorSurface;
+  }
+}
+
+.error {
+  margin: 6px 2px 0;
+  color: $colorDanger;
+  font-size: 0.8rem;
+}

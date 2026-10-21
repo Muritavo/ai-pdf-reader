@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Brain, Search } from 'lucide-react';
+import { Brain, MessageCircleQuestion, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -22,8 +22,12 @@ import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgr
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
+import ImageQuestion from './components/ImageQuestion';
+import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { unwrapMarkdownFence } from '../../utils/markdownFence';
+import { getNormalizedText } from '../../utils/preprocessing';
 import ResponseModal from './components/ResponseModal/ResponseModal';
-import { REFERENCE_NOT_FOUND } from '../../services/ai';
+import { askAboutImage, REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
 import ResponseModalStyles from './components/ResponseModal/ResponseModal.module.scss';
 import Button from '@onepercentio/one-ui/components/Button';
@@ -65,6 +69,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
+    // The images of each page, recorded while drawing it, and the one a question is being written about
+    const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
+    // `y` is where it was clicked, as a fraction of the page, so the question opens where the reader is looking
+    const [askingImage, setAskingImage] = useState<{ page: number; index: number; y: number }>();
+    const [imageAnswer, setImageAnswer] = useState<{ question: string; answer: string; image: string }>();
     const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const promptBarRef = useRef<DocumentPromptBarHandle>(null);
@@ -266,12 +275,17 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             canvas.height = Math.floor(viewport.height * pixelRatio);
             canvas.style.width = `${Math.floor(viewport.width)}px`;
             canvas.style.height = `${Math.floor(viewport.height)}px`;
-            await page.render({
+            const drawing = page.render({
                 canvas,
                 canvasContext: context,
                 viewport,
                 transform: pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : undefined,
-            }).promise;
+                // Where each image is drawn, so a question can be asked about it
+                recordImages: true,
+            });
+            await drawing.promise;
+            // Kept by pdf.js on the page: the getter of the render task reads a field it never sets
+            setImageBoxes(current => ({ ...current, [pageNum]: imageBoxesOf(page.imageCoordinates) }));
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({
@@ -406,6 +420,48 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                             className={Styles.textLayer}
                             onClick={handleTextLayerClick}
                         />
+                        {(imageBoxes[page.id] ?? []).map((box, index) => (
+                            <div
+                                key={index}
+                                className={Styles.imageBox}
+                                data-testid={TestIds.preview.imageBox}
+                                title={txt('imageQuestion.open')}
+                                style={{
+                                    left: `${box.left * 100}%`,
+                                    top: `${box.top * 100}%`,
+                                    width: `${box.width * 100}%`,
+                                    height: `${box.height * 100}%`,
+                                }}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    const pageBox = e.currentTarget.parentElement!.getBoundingClientRect();
+                                    setAskingImage({ page: page.id, index, y: (e.clientY - pageBox.top) / pageBox.height });
+                                }}
+                            >
+                                <span className={Styles.imageBoxHint}>
+                                    <MessageCircleQuestion size={14} strokeWidth={1.75} />
+                                </span>
+                            </div>
+                        ))}
+                        {askingImage?.page === page.id && imageBoxes[page.id]?.[askingImage.index] && (
+                            <ImageQuestion
+                                key={`${askingImage.index}-${askingImage.y}`}
+                                aiReady={warmUp.ready}
+                                style={{
+                                    left: `${(imageBoxes[page.id][askingImage.index].left + imageBoxes[page.id][askingImage.index].width / 2) * 100}%`,
+                                    // At the height of the click, as a tall figure may not have its middle on the screen
+                                    top: `${askingImage.y * 100}%`,
+                                }}
+                                onClose={() => setAskingImage(undefined)}
+                                onSend={async question => {
+                                    const box = imageBoxes[page.id][askingImage.index];
+                                    const image = cropImage(page.canvasRef.current!, box);
+                                    const answer = await askAboutImage(question, image, await getNormalizedText(fullText));
+                                    setImageAnswer({ question, answer: unwrapMarkdownFence(answer), image });
+                                    setAskingImage(undefined);
+                                }}
+                            />
+                        )}
                         {warmUp.state === 'running' && warmUp.page === page.id && (
                             <div className={Styles.readingPage}>
                                 <PixelatedScan
@@ -462,6 +518,20 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 onDefined={addDefinition}
                 onAskAbout={statement => promptBarRef.current?.askAbout(statement)}
             />
+            {imageAnswer && (
+                <ResponseModal
+                    prompt={imageAnswer.question}
+                    answer={imageAnswer.answer}
+                    onClose={() => setImageAnswer(undefined)}
+                    media={<img src={imageAnswer.image} alt={txt('imageQuestion.image')} />}
+                    labels={{
+                        title: txt('imageQuestion.title'),
+                        prompt: txt('documentPreview.responseModal.prompt'),
+                        answer: txt('documentPreview.responseModal.answer'),
+                    }}
+                    testIds={{ modal: TestIds.preview.imageAnswerModal, answer: TestIds.preview.imageAnswer }}
+                />
+            )}
             {reference && (
                 <ResponseModal
                     prompt={reference.passage}

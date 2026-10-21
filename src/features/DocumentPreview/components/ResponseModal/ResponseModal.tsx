@@ -15,9 +15,11 @@ type ResponseModalProps = {
     testIds?: { modal: string; answer: string };
     /** Shown after the answer, for what can be done with it */
     actions?: ReactNode;
+    /** Shown with the question, as the image it was about */
+    media?: ReactNode;
 };
 
-export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions }: ResponseModalProps) {
+export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions, media }: ResponseModalProps) {
     const { txt } = useShortIntl();
 
     return (
@@ -31,6 +33,7 @@ export default function ResponseModal({ prompt, answer, onClose, labels, testIds
                 </div>
 
                 <div className={Styles.promptSection}>
+                    {media && <div className={Styles.media}>{media}</div>}
                     <Text type="caption" className={Styles.sectionLabel}>
                         {labels?.prompt ?? txt('documentPreview.responseModal.prompt')}
                     </Text>
