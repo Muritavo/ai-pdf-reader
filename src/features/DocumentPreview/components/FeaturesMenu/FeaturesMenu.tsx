@@ -17,6 +17,8 @@ type FeaturesMenuProps = {
     aiReady: boolean;
     getDocumentCoordinates: () => { x: number; y: number };
     onMarkLocation: (x: number, y: number, word: string) => void;
+    /** Keeps the definition of an excerpt, so every place it is on is marked */
+    onDefined: (word: string, definition: string) => void;
     /** Shows the reference found for the selected passage */
     onReferenceFound: (passage: string, answer: string) => void;
 };
@@ -27,7 +29,7 @@ function extractSelectedWord(selectionText: string) {
 }
 
 export default forwardRef(function FeaturesMenu(
-    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound }: FeaturesMenuProps,
+    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound, onDefined }: FeaturesMenuProps,
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
@@ -101,7 +103,9 @@ export default forwardRef(function FeaturesMenu(
             onClick: async () => {
                 try {
                     const normalizedText = await getNormalizedText(fullText);
-                    alert(await defineWordInContext(word, normalizedText));
+                    const definition = await defineWordInContext(word, normalizedText);
+                    onDefined(word, definition);
+                    alert(definition);
                 } catch (error) {
                     alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
                 } finally {

@@ -34,6 +34,7 @@ export const TestIds = {
         lastClickMarker: 'last-click-marker',
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
+        definedTerm: 'defined-term',
     },
     annotations: {
         highlightsButton: 'highlights-button',

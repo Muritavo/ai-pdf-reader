@@ -10,7 +10,14 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
-import { highlightTextLayer, occurrencesOf, useHighlightsForPDF, wordOfOccurrence } from '../../utils/highlight';
+import {
+    definitionsOf,
+    highlightTextLayer,
+    occurrencesOf,
+    useDefinitionsForPDF,
+    useHighlightsForPDF,
+    wordOfOccurrence,
+} from '../../utils/highlight';
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
@@ -50,6 +57,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [loading, setLoading] = useState(false);
     const [textLayers, setTextLayers] = useState<pdfjsLib.TextLayer[]>();
     const { addHighlight, removeHighlight, highlightRules } = useHighlightsForPDF(hash);
+    const { addDefinition, removeDefinitions, definitionRules } = useDefinitionsForPDF(hash);
+    // While Ctrl is held, a click on a defined excerpt removes its definition
+    const [removingDefinitions, setRemovingDefinitions] = useState(false);
     // The page of each occurrence of every highlighted text, found once they are drawn
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
@@ -160,6 +170,31 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         if (!indicator) return;
         indicator.classList.add(Styles.highlight);
         setTimeout(() => indicator.classList.remove(Styles.highlight), 2000);
+    };
+
+    useEffect(() => {
+        const follow = (e: KeyboardEvent) => setRemovingDefinitions(e.ctrlKey);
+        // Released out of the window, as by changing to another one, it would stay held
+        const release = () => setRemovingDefinitions(false);
+        window.addEventListener('keydown', follow);
+        window.addEventListener('keyup', follow);
+        window.addEventListener('blur', release);
+        return () => {
+            window.removeEventListener('keydown', follow);
+            window.removeEventListener('keyup', follow);
+            window.removeEventListener('blur', release);
+        };
+    }, []);
+
+    /** Removes the definitions of the defined excerpt under a Ctrl click. True when there was one */
+    const removeDefinitionAt = (event: MouseEvent) => {
+        if (!event.ctrlKey) return false;
+        const mark = (event.target as HTMLElement).closest<HTMLElement>('mark[data-defined]');
+        if (!mark) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        removeDefinitions(definitionsOf(mark));
+        return true;
     };
 
     // A document warmed up before does not need to be warmed up again, which is found without the AI
@@ -300,13 +335,25 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     }, [textLayers, hash]);
 
     useEffect(() => {
-        if (!textLayers || !highlightRules) return;
+        if (!textLayers || !highlightRules || !definitionRules) return;
         // Drawn even with no rules, so what was removed stops being highlighted
         textLayers.forEach((textLayer, layerIndex) => {
             const pieces = textLayer.textDivs
                 .map((element, index) => ({ element, text: textLayer.textContentItemsStr[index] }))
                 .filter(piece => piece.text);
-            highlightTextLayer(pieces, highlightRules, Styles.wordHighlight, TestIds.preview.highlight, `${layerIndex}`);
+            highlightTextLayer(
+                pieces,
+                highlightRules,
+                definitionRules,
+                {
+                    highlightClassName: Styles.wordHighlight,
+                    definedClassName: Styles.definedTerm,
+                    definedEndClassName: Styles.definedTermEnd,
+                    highlightTestId: TestIds.preview.highlight,
+                    definedTestId: TestIds.preview.definedTerm,
+                },
+                `${layerIndex}`,
+            );
         });
         highlightCursor.current = {};
         // The page of every occurrence, counted once even when it is in more than one piece
@@ -322,7 +369,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
         }
         setHighlightPages(found);
-    }, [highlightRules, textLayers]);
+    }, [highlightRules, definitionRules, textLayers]);
 
     const scrollHeight = previewBoxRef.current?.scrollHeight ?? 0;
 
@@ -336,7 +383,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             <div
                 ref={previewBoxRef}
                 data-testid={TestIds.preview.box}
-                className={Styles.previewBox}
+                className={`${Styles.previewBox} ${removingDefinitions ? Styles.removingDefinitions : ''}`}
+                // Captured first, so the click does not move the last click marker too
+                onClickCapture={removeDefinitionAt}
+                // On macOS, Ctrl + click is the right click
+                onContextMenu={removeDefinitionAt}
                 onMouseUp={() => window.setTimeout(() => menuRef.current?.openMenu(), 0)}
             >
                 {!pdf && (
@@ -405,6 +456,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 getDocumentCoordinates={getDocumentCoordinates}
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
+                onDefined={addDefinition}
             />
             {reference && (
                 <ResponseModal

@@ -175,3 +175,53 @@
     transform: translate(-50%, -50%) scale(1);
   }
 }
+
+// An excerpt that was defined: subtle, as it is a hint and not a highlight
+.definedTerm {
+  position: relative;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--defined-color, #7c9cff);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+  cursor: help;
+}
+
+// A small book over the end of each defined excerpt
+.definedTermEnd::after {
+  content: "";
+  position: absolute;
+  top: -0.55em;
+  right: -0.35em;
+  width: 0.6em;
+  height: 0.6em;
+  background-color: var(--defined-color, #7c9cff);
+  // The book-open icon of lucide
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 7v14'/><path d='M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 7v14'/><path d='M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z'/></svg>") center / contain no-repeat;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+// Over a highlight, it keeps its color, with the underline and the icon over it
+.wordHighlight.definedTerm {
+  border-radius: 4px;
+}
+
+// While Ctrl is held, a click removes the definition: everything defined turns red, with a cross
+.removingDefinitions .definedTerm {
+  // Set as is, as each piece brings its own color inline
+  text-decoration-color: #e5383b;
+  text-decoration-style: solid;
+  cursor: pointer;
+}
+
+.removingDefinitions .definedTermEnd::after {
+  background-color: #e5383b;
+  opacity: 1;
+  // The x icon of lucide
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M18 6 6 18'/><path d='m6 6 12 12'/></svg>");
+}

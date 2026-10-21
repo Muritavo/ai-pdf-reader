@@ -3,11 +3,21 @@ import seedrandom from 'seedrandom';
 import { useEffect, useState } from 'react';
 
 const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
+const DEFINITION_STORAGE_KEY = 'pdf-ai-reader/definitions';
 
 export type HighlightRule = {
     color: string;
     normalizedWord: string;
     word: string;
+};
+
+/** An excerpt the AI defined, marked on every place it is on the document */
+export type DefinitionRule = {
+    normalizedWord: string;
+    word: string;
+    definition: string;
+    /** Of the underline and the icon. Each definition gets its own */
+    color: string;
 };
 
 type HighlightMatch = { color: string; end: number; start: number; word: string };
@@ -31,6 +41,12 @@ function createHighlightColor(normalizedWord: string) {
         .rgb(Math.round(random() * 255), Math.round(random() * 255), Math.round(random() * 255))
         .alpha(0.55)
         .css();
+}
+
+/** A random color, strong enough to be seen on the underline and the icon */
+function createDefinitionColor(normalizedWord: string) {
+    const random = seedrandom(normalizedWord, { entropy: true });
+    return chroma.hsl(random() * 360, 0.75, 0.55).css();
 }
 
 export function useHighlightsForPDF(hash?: string) {
@@ -58,6 +74,39 @@ export function useHighlightsForPDF(hash?: string) {
                 if (rules.some(rule => rule.normalizedWord === normalizedWord)) return currentRules;
                 return [...rules, { color: createHighlightColor(normalizedWord), normalizedWord, word }];
             });
+        },
+    };
+}
+
+export function useDefinitionsForPDF(hash?: string) {
+    const key = `${DEFINITION_STORAGE_KEY}/${hash ?? ''}`;
+    const [definitionRules, setDefinitionRules] = useState<DefinitionRule[]>();
+
+    useEffect(() => {
+        const stored = window.localStorage.getItem(key);
+        setDefinitionRules(stored ? (JSON.parse(stored) as DefinitionRule[]) : []);
+    }, [hash]);
+
+    useEffect(() => {
+        if (definitionRules) window.localStorage.setItem(key, JSON.stringify(definitionRules));
+    }, [definitionRules]);
+
+    return {
+        definitionRules,
+        /** Defining the same excerpt again keeps only the latest definition, in the color it already had */
+        addDefinition(word: string, definition: string) {
+            const normalizedWord = normalizeWord(word);
+            if (!normalizedWord) return;
+            setDefinitionRules(current => {
+                const previous = current?.find(rule => rule.normalizedWord === normalizedWord);
+                return [
+                    ...(current ?? []).filter(rule => rule.normalizedWord !== normalizedWord),
+                    { normalizedWord, word, definition, color: previous?.color ?? createDefinitionColor(normalizedWord) },
+                ];
+            });
+        },
+        removeDefinitions(normalizedWords: string[]) {
+            setDefinitionRules(current => current?.filter(rule => !normalizedWords.includes(rule.normalizedWord)));
         },
     };
 }
@@ -144,25 +193,45 @@ function backgroundOf(colors: string[]) {
     return `linear-gradient(${colors.map((color, i) => `${color} ${i * band}% ${(i + 1) * band}%`).join(', ')})`;
 }
 
-type PieceRange = { start: number; end: number; color: string; token: string };
+type PieceRange = {
+    start: number;
+    end: number;
+    token: string;
+    /** A highlight has its color, a definition its text, the excerpt it is of and its own color */
+    color?: string;
+    definition?: string;
+    definedWord?: string;
+    definedColor?: string;
+    /** Whether the occurrence ends on this piece, where its definition is pointed at */
+    isEnd: boolean;
+};
+
+export type TextLayerLook = {
+    highlightClassName: string;
+    definedClassName: string;
+    /** Given to the last piece of each defined excerpt, that shows the icon */
+    definedEndClassName: string;
+    highlightTestId: string;
+    definedTestId: string;
+};
 
 /**
- * Rewrites the lines of the text layer of a page, wrapping the highlighted pieces in <mark>.
- * A text is found across lines, and highlights that overlap are all kept: where they do, the piece belongs to every one of them.
+ * Rewrites the lines of the text layer of a page, wrapping the highlighted and the defined pieces in <mark>.
+ * A text is found across lines, and the ones that overlap are all kept: where they do, the piece belongs to every one of them.
  * `scope` tells this page apart from the others, to name the occurrences.
  */
 export function highlightTextLayer(
     pieces: TextPiece[],
     highlightRules: HighlightRule[],
-    markClassName: string,
-    markTestId: string,
+    definitionRules: DefinitionRule[],
+    look: TextLayerLook,
     scope: string,
 ) {
     const { text: pageText, sources } = pageTextOf(pieces);
     const ranges: PieceRange[][] = pieces.map(() => []);
 
-    collectHighlightMatches(pageText, highlightRules).forEach((match, index) => {
-        const token = occurrenceToken(match.word, scope, index);
+    /** Splits a match of the page in the pieces of each line it is on */
+    function placeOnPieces(match: HighlightMatch, extra: Pick<PieceRange, 'token' | 'color' | 'definition' | 'definedWord' | 'definedColor'>) {
         const touched = new Map<number, { first: number; last: number }>();
         for (let i = match.start; i < match.end; i++) {
             const source = sources[i];
@@ -174,13 +243,26 @@ export function highlightTextLayer(
         const touchedPieces = [...touched.keys()].sort((a, b) => a - b);
         touchedPieces.forEach((piece, i) => {
             const { first, last } = touched.get(piece)!;
+            const isEnd = i === touchedPieces.length - 1;
             // When it goes on to the next line, the rest of this one (like the hyphen) is part of it too
-            ranges[piece].push({
-                start: i === 0 ? first : 0,
-                end: i === touchedPieces.length - 1 ? last + 1 : pieces[piece].text.length,
-                color: match.color,
-                token,
-            });
+            ranges[piece].push({ start: i === 0 ? first : 0, end: isEnd ? last + 1 : pieces[piece].text.length, isEnd, ...extra });
+        });
+    }
+
+    collectHighlightMatches(pageText, highlightRules).forEach((match, index) => {
+        placeOnPieces(match, { token: occurrenceToken(match.word, scope, index), color: match.color });
+    });
+    const definitionOf = new Map(definitionRules.map(rule => [rule.normalizedWord, rule]));
+    collectHighlightMatches(
+        pageText,
+        definitionRules.map(rule => ({ normalizedWord: rule.normalizedWord, word: rule.word, color: '' })),
+    ).forEach((match, index) => {
+        const rule = definitionOf.get(match.word)!;
+        placeOnPieces(match, {
+            token: `definition~${scope}~${index}`,
+            definition: rule.definition,
+            definedWord: rule.normalizedWord,
+            definedColor: rule.color,
         });
     });
 
@@ -195,15 +277,37 @@ export function highlightTextLayer(
                 element.append(document.createTextNode(text.slice(start, end)));
                 continue;
             }
+            const highlights = covering.filter(range => range.color !== undefined);
+            const definitions = covering.filter(range => range.definition !== undefined);
             const mark = document.createElement('mark');
-            mark.className = markClassName;
-            mark.dataset.testid = markTestId;
-            mark.dataset.occurrences = covering.map(range => range.token).join(' ');
-            const colors = covering.map(range => range.color);
-            if (colors.length === 1) mark.style.backgroundColor = colors[0];
-            else mark.style.background = backgroundOf(colors);
+            mark.className = [
+                highlights.length ? look.highlightClassName : '',
+                definitions.length ? look.definedClassName : '',
+                definitions.some(range => range.isEnd && range.end === end) ? look.definedEndClassName : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
+            mark.dataset.testid = highlights.length ? look.highlightTestId : look.definedTestId;
+            if (highlights.length) {
+                mark.dataset.occurrences = highlights.map(range => range.token).join(' ');
+                const colors = highlights.map(range => range.color!);
+                if (colors.length === 1) mark.style.backgroundColor = colors[0];
+                else mark.style.background = backgroundOf(colors);
+            }
+            if (definitions.length) {
+                mark.dataset.defined = 'true';
+                // The excerpts it is of, so a click can remove their definitions
+                mark.dataset.definitions = JSON.stringify([...new Set(definitions.map(range => range.definedWord!))]);
+                const { definedColor } = definitions[definitions.length - 1];
+                if (definedColor) mark.style.setProperty('--defined-color', definedColor);
+                // What it means is a hover away
+                mark.title = [...new Set(definitions.map(range => range.definition!))].join('\n\n');
+            }
             mark.textContent = text.slice(start, end);
             element.append(mark);
         }
     });
 }
+
+/** The excerpts whose definitions a piece of the document shows */
+export const definitionsOf = (mark: HTMLElement): string[] => JSON.parse(mark.dataset.definitions ?? '[]');
