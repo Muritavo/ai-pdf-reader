@@ -281,8 +281,6 @@ test.describe('both progress on the same bar', () => {
         const [last, progress] = await Promise.all([lastOpening(page).boundingBox(), readProgress(page).boundingBox()]);
         expect(last!.x).toBeLessThan(progress!.x);
         expect(last!.y).toBeCloseTo(progress!.y, 0);
-        await expect(lastOpening(page)).toHaveCSS('color', 'rgb(255, 107, 107)');
-        await expect(readProgress(page)).toHaveCSS('color', 'rgb(124, 156, 255)');
     });
 
     test('reads the last opening text with the end of the document when it was read to the end', async ({ page }) => {

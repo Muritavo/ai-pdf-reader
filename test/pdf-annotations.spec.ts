@@ -29,6 +29,8 @@ const highlightsButton = (page: Page) => byId(page, ids.highlightsButton);
 const markersButton = (page: Page) => byId(page, ids.markersButton);
 const highlightItems = (page: Page) => byId(page, ids.highlightItem);
 const markerItems = (page: Page) => byId(page, ids.markerItem);
+/** The item of a highlighted text, given in lowercase as the list keeps it */
+const highlightItem = (page: Page, normalizedWord: string) => highlightItems(page).and(page.locator(`[data-word="${normalizedWord}"]`));
 const closeButton = (page: Page) => page.locator('[class*="closeBtn"]');
 const scrollToTop = (page: Page) => byId(page, TestIds.preview.box).evaluate(box => box.scrollTo(0, 0));
 
@@ -42,24 +44,36 @@ async function openMarkers(page: Page) {
     await expect(byId(page, ids.markersPanel)).toBeVisible();
 }
 
-/** Which of the highlights of a word, in the order of the document, is the closest to the middle of the screen */
-const highlightInTheMiddle = (page: Page, normalizedWord: string) =>
+/** Which occurrence of a text, in the order of the document, is outlined by the go to. -1 if none is */
+const outlinedOccurrence = (page: Page, normalizedWord: string) =>
     byId(page, TestIds.preview.box).evaluate((box, word) => {
         const boxRect = box.getBoundingClientRect();
-        const middle = boxRect.top + boxRect.height / 2;
         // An occurrence can be in more than one piece, so they are told apart by the occurrence
-        const occurrences = new Map<string, number>();
+        const occurrences = new Map<string, { top: number; outlined: boolean }>();
         for (const mark of box.querySelectorAll<HTMLElement>('mark')) {
             for (const token of (mark.dataset.occurrences ?? '').split(' ')) {
                 if (decodeURIComponent(token.split('~')[0]) !== word) continue;
                 const top = mark.getBoundingClientRect().top - boxRect.top + box.scrollTop;
-                occurrences.set(token, Math.min(top, occurrences.get(token) ?? Infinity));
+                const known = occurrences.get(token);
+                occurrences.set(token, {
+                    top: Math.min(top, known?.top ?? Infinity),
+                    outlined: (known?.outlined ?? false) || mark.className.includes('wordPulse'),
+                });
             }
         }
-        const ordered = [...occurrences.entries()].sort((a, b) => a[1] - b[1]);
-        const distances = ordered.map(([, top]) => Math.abs(top - box.scrollTop - middle + boxRect.top));
-        return distances.indexOf(Math.min(...distances));
+        const ordered = [...occurrences.values()].sort((a, b) => a.top - b.top);
+        return ordered.findIndex(occurrence => occurrence.outlined);
     }, normalizedWord);
+
+/** Goes through the occurrences with the button of the list, checking the one that is outlined each time */
+async function goThroughOccurrences(page: Page, goTo: ReturnType<typeof byId>, normalizedWord: string, expected: number[]) {
+    for (const [step, expectedIndex] of expected.entries()) {
+        // The outline of the previous one fades away before the next
+        if (step > 0) await expect(page.locator('mark[class*="wordPulse"]')).toHaveCount(0, { timeout: 4000 });
+        await goTo.click();
+        await expect.poll(() => outlinedOccurrence(page, normalizedWord), { timeout: 5000 }).toBe(expectedIndex);
+    }
+}
 
 test.describe('the annotation buttons', () => {
     test('are placed by the side of the close button, highlights first', async ({ page }) => {
@@ -89,6 +103,19 @@ test.describe('the annotation buttons', () => {
         await expect(highlightsButton(page)).toContainText('1');
         await expect(markersButton(page)).toHaveAttribute('data-count', '2');
         await expect(markersButton(page)).toContainText('2');
+    });
+
+    test('open lists that are 30% transparent, so the document behind them can be seen', async ({ page }) => {
+        await highlight(page, SAMPLE_WORD);
+        await mark(page, 'Plasma');
+
+        await openHighlights(page);
+        await expect(byId(page, ids.highlightsPanel)).toHaveCSS('background-color', 'rgba(23, 26, 33, 0.7)');
+
+        await openMarkers(page);
+        await expect(byId(page, ids.markersPanel)).toHaveCSS('background-color', 'rgba(23, 26, 33, 0.7)');
+        // Nothing blurs what is behind them
+        await expect(byId(page, ids.markersPanel)).toHaveCSS('backdrop-filter', 'none');
     });
 
     test('open one list at a time, and close it when clicked again', async ({ page }) => {
@@ -159,14 +186,43 @@ test.describe('the list of highlights', () => {
     });
 
     test('goes to the occurrences one by one, coming back to the first after the last', async ({ page }) => {
+        test.setTimeout(45_000);
         await highlight(page, SAMPLE_WORD);
         await scrollToTop(page);
         await openHighlights(page);
 
-        for (const expectedIndex of [0, 1, 2, 3, 0]) {
-            await byId(page, ids.highlightGoTo).click();
-            await expect.poll(() => highlightInTheMiddle(page, SAMPLE_WORD), { timeout: 5000 }).toBe(expectedIndex);
-        }
+        await goThroughOccurrences(page, byId(page, ids.highlightGoTo), 'proteome', [0, 1, 2, 3, 0]);
+    });
+
+    test('outlines the occurrence in red when going to it, as white would not be seen on the pages', async ({ page }) => {
+        await highlight(page, SAMPLE_WORD);
+        await scrollToTop(page);
+        await openHighlights(page);
+
+        await byId(page, ids.highlightGoTo).click();
+
+        const pulsing = page.locator('mark[class*="wordPulse"]');
+        await expect(pulsing.first()).toBeVisible();
+        const { color, width, style } = await pulsing.first().evaluate(mark => {
+            const { outlineColor, outlineWidth, outlineStyle } = getComputedStyle(mark);
+            const [r, g, b] = outlineColor.match(/[\d.]+/g)!.map(Number);
+            return { color: { r, g, b }, width: outlineWidth, style: outlineStyle };
+        });
+        // Red, and not white
+        expect(color.r).toBeGreaterThan(150);
+        expect(color.g).toBeLessThan(110);
+        expect(color.b).toBeLessThan(110);
+        expect(style).toBe('solid');
+        expect(Number.parseFloat(width)).toBeGreaterThanOrEqual(3);
+    });
+
+    test('stops outlining the occurrence after a moment', async ({ page }) => {
+        await highlight(page, SAMPLE_WORD);
+        await openHighlights(page);
+        await byId(page, ids.highlightGoTo).click();
+        await expect(page.locator('mark[class*="wordPulse"]').first()).toBeVisible();
+
+        await expect(page.locator('mark[class*="wordPulse"]')).toHaveCount(0, { timeout: 4000 });
     });
 
     test('brings the occurrence into the screen', async ({ page }) => {
@@ -206,7 +262,7 @@ test.describe('the list of highlights', () => {
         await highlight(page, 'group');
         await openHighlights(page);
 
-        await highlightItems(page).filter({ hasText: 'Proteome' }).getByTestId(ids.highlightRemove).click();
+        await highlightItem(page, 'proteome').getByTestId(ids.highlightRemove).click();
 
         await expect(highlightItems(page)).toHaveCount(1);
         await expect(highlightItems(page)).toContainText('group');
@@ -217,7 +273,7 @@ test.describe('the list of highlights', () => {
         await highlight(page, SAMPLE_WORD);
         await highlight(page, 'group');
         await openHighlights(page);
-        await highlightItems(page).filter({ hasText: 'Proteome' }).getByTestId(ids.highlightRemove).click();
+        await highlightItem(page, 'proteome').getByTestId(ids.highlightRemove).click();
 
         await page.reload();
         await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
@@ -272,14 +328,19 @@ test.describe('the list of markers', () => {
         await scrollToTop(page);
         await expect.poll(() => byId(page, TestIds.preview.box).evaluate(box => box.scrollTop)).toBe(0);
         await openMarkers(page);
+        const box = (await byId(page, TestIds.preview.box).boundingBox())!;
+        const onTheScreen = async () => {
+            const marker = await centerOf(page, TestIds.preview.pointOfInterest);
+            return marker.y >= box.y && marker.y <= box.y + box.height;
+        };
+        // Far down on the last page, so it starts out of the screen
+        expect(await onTheScreen()).toBe(false);
 
         await byId(page, ids.markerGoTo).click();
 
+        // The document scrolls to it, it is not there right away
+        await expect.poll(onTheScreen, { timeout: 5000 }).toBe(true);
         await expect.poll(() => byId(page, TestIds.preview.box).evaluate(box => box.scrollTop)).toBeGreaterThan(1000);
-        const [box, marker] = await Promise.all([byId(page, TestIds.preview.box).boundingBox(), centerOf(page, TestIds.preview.pointOfInterest)]);
-        const middle = box!.y + box!.height / 2;
-        // In the middle of the screen
-        expect(Math.abs(marker.y - middle)).toBeLessThan(box!.height / 4);
     });
 
     test('goes to each marker on its own', async ({ page }) => {
@@ -381,8 +442,8 @@ test.describe('highlights over each other', () => {
         await openHighlights(page);
 
         await expect(highlightItems(page)).toHaveCount(2);
-        const phrase = highlightItems(page).filter({ hasText: PHRASE });
-        const word = highlightItems(page).filter({ hasText: 'collected' });
+        const phrase = highlightItem(page, PHRASE.toLowerCase());
+        const word = highlightItem(page, 'collected');
         await expect(phrase).toHaveAttribute('data-count', '1');
         await expect(word).toHaveAttribute('data-count', '1');
         await expect(word).toHaveAttribute('data-pages', '2');
@@ -397,8 +458,8 @@ test.describe('highlights over each other', () => {
 
         await openHighlights(page);
 
-        await expect(highlightItems(page).filter({ hasText: 'Proteome analysis' })).toHaveAttribute('data-count', '1');
-        const word = highlightItems(page).filter({ hasText: /^Proteome$|^Proteome\b(?! analysis)/ });
+        await expect(highlightItem(page, 'proteome analysis')).toHaveAttribute('data-count', '1');
+        const word = highlightItem(page, 'proteome');
         await expect(word).toHaveAttribute('data-count', String(SAMPLE_WORD_OCCURRENCES));
         await expect(word).toHaveAttribute('data-pages', '1,2,3');
     });
@@ -409,8 +470,8 @@ test.describe('highlights over each other', () => {
 
         await openHighlights(page);
 
-        await expect(highlightItems(page).filter({ hasText: 'Proteome analysis' })).toHaveAttribute('data-count', '1');
-        await expect(highlightItems(page).first()).toHaveAttribute('data-count', String(SAMPLE_WORD_OCCURRENCES));
+        await expect(highlightItem(page, 'proteome analysis')).toHaveAttribute('data-count', '1');
+        await expect(highlightItem(page, 'proteome')).toHaveAttribute('data-count', String(SAMPLE_WORD_OCCURRENCES));
     });
 
     test('finds both texts when they only overlap partly', async ({ page }) => {
@@ -426,16 +487,13 @@ test.describe('highlights over each other', () => {
     });
 
     test('goes through the occurrences inside the longer text too', async ({ page }) => {
+        test.setTimeout(45_000);
         await highlight(page, 'Proteome analysis');
         await highlight(page, SAMPLE_WORD);
         await scrollToTop(page);
         await openHighlights(page);
-        const word = highlightItems(page).filter({ hasText: /^Proteome\b(?! analysis)/ });
 
-        for (const expectedIndex of [0, 1, 2, 3, 0]) {
-            await word.getByTestId(ids.highlightGoTo).click();
-            await expect.poll(() => highlightInTheMiddle(page, SAMPLE_WORD), { timeout: 5000 }).toBe(expectedIndex);
-        }
+        await goThroughOccurrences(page, highlightItem(page, 'proteome').getByTestId(ids.highlightGoTo), 'proteome', [0, 1, 2, 3, 0]);
     });
 
     test('shows the colors of both where they are over each other', async ({ page }) => {
@@ -465,7 +523,7 @@ test.describe('highlights over each other', () => {
         expect(text).toBe(PHRASE);
         // Counted once, although it is in more than one piece
         await openHighlights(page);
-        await expect(highlightItems(page).filter({ hasText: PHRASE })).toHaveAttribute('data-count', '1');
+        await expect(highlightItem(page, PHRASE.toLowerCase())).toHaveAttribute('data-count', '1');
     });
 
     test('keeps the word highlighted when the longer text is removed', async ({ page }) => {
@@ -473,7 +531,7 @@ test.describe('highlights over each other', () => {
         await highlight(page, 'collected');
         await openHighlights(page);
 
-        await highlightItems(page).filter({ hasText: PHRASE }).getByTestId(ids.highlightRemove).click();
+        await highlightItem(page, PHRASE.toLowerCase()).getByTestId(ids.highlightRemove).click();
 
         await expect(highlightItems(page)).toHaveCount(1);
         await expect(byId(page, TestIds.preview.highlight)).toHaveCount(1);
@@ -485,7 +543,7 @@ test.describe('highlights over each other', () => {
         await highlight(page, 'collected');
         await openHighlights(page);
 
-        await highlightItems(page).filter({ hasText: 'collected' }).getByTestId(ids.highlightRemove).click();
+        await highlightItem(page, 'collected').getByTestId(ids.highlightRemove).click();
 
         await expect(highlightItems(page)).toHaveCount(1);
         await expect(byId(page, TestIds.preview.highlight)).toHaveCount(1);

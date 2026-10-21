@@ -12,23 +12,37 @@ export async function selectWord(page: Page, word: string, occurrence = 0, whole
             const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const expression = new RegExp(whole ? `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])` : escaped, 'giu');
             let seen = 0;
-            for (const layer of document.querySelectorAll(`[data-testid="${ids.textLayer}"]`)) {
-                const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
-                for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
-                    expression.lastIndex = 0;
-                    for (let match = expression.exec(node.data); match; match = expression.exec(node.data)) {
-                        if (seen++ !== occurrence) continue;
-                        // Like a user, scrolls to the word before selecting it, so its menu appears on screen
-                        node.parentElement!.scrollIntoView({ block: 'center' });
-                        const range = document.createRange();
-                        range.setStart(node, match.index);
-                        range.setEnd(node, match.index + word.length);
-                        const selection = window.getSelection()!;
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                        document.querySelector(`[data-testid="${ids.box}"]`)!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                        return;
-                    }
+            // Every piece of text of a line is looked at together, as highlights split a line in many nodes
+            for (const line of document.querySelectorAll(`[data-testid="${ids.textLayer}"] span`)) {
+                const nodes: Text[] = [];
+                const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+                for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) nodes.push(node);
+                const text = nodes.map(node => node.data).join('');
+                expression.lastIndex = 0;
+                for (let match = expression.exec(text); match; match = expression.exec(text)) {
+                    if (seen++ !== occurrence) continue;
+                    const pointAt = (offset: number, isEnd: boolean) => {
+                        let passed = 0;
+                        for (const node of nodes) {
+                            const reaches = isEnd ? offset <= passed + node.length : offset < passed + node.length;
+                            if (reaches) return { node, offset: offset - passed };
+                            passed += node.length;
+                        }
+                        const last = nodes[nodes.length - 1];
+                        return { node: last, offset: last.length };
+                    };
+                    const start = pointAt(match.index, false);
+                    const end = pointAt(match.index + match[0].length, true);
+                    // Like a user, scrolls to the word before selecting it, so its menu appears on screen
+                    start.node.parentElement!.scrollIntoView({ block: 'center' });
+                    const range = document.createRange();
+                    range.setStart(start.node, start.offset);
+                    range.setEnd(end.node, end.offset);
+                    const selection = window.getSelection()!;
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    document.querySelector(`[data-testid="${ids.box}"]`)!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                    return;
                 }
             }
             throw new Error(`Could not find the word "${word}" (occurrence ${occurrence})`);

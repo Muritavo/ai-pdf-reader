@@ -136,19 +136,28 @@
   }
 }
 .wordPulse {
-  outline: 2px solid #fff;
-  outline-offset: 1px;
+  // Red, as white can't be seen over the white pages
+  outline: 3px solid #e5383b;
+  outline-offset: 2px;
+  border-radius: 4px;
   animation: pulseOutline 1.8s ease-out;
 }
 
 @keyframes pulseOutline {
   0% {
-    outline-color: #fff;
-    outline-offset: 6px;
+    outline-color: #e5383b;
+    outline-offset: 8px;
+    box-shadow: 0 0 0 6px rgba(229, 56, 59, 0.35);
+  }
+  60% {
+    outline-color: #e5383b;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0 rgba(229, 56, 59, 0);
   }
   100% {
-    outline-color: transparent;
-    outline-offset: 1px;
+    outline-color: rgba(229, 56, 59, 0);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0 rgba(229, 56, 59, 0);
   }
 }
 

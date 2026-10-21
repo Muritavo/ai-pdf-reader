@@ -60,7 +60,8 @@
   overflow-y: auto;
   padding: 8px;
   border-radius: 12px;
-  background: $colorPanel;
+  // 30% transparent, so the highlights and markers behind the list can be seen
+  background: rgba($colorPanel, 0.7);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 }
 
