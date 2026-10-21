@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ForwardedRef, type KeyboardEvent } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
@@ -24,7 +24,15 @@ import ResponseModal from '../ResponseModal/ResponseModal';
 import PromptHistoryPanel from './components/PromptHistoryPanel';
 import Styles from './DocumentPromptBar.module.scss';
 
-export default function DocumentPromptBar({ fullText }: { fullText: FullText }) {
+export type DocumentPromptBarHandle = {
+    /** Starts a question about a statement of the document, leaving the user to write it */
+    askAbout(statement: string): void;
+};
+
+export default forwardRef(function DocumentPromptBar(
+    { fullText }: { fullText: FullText },
+    ref: ForwardedRef<DocumentPromptBarHandle>,
+) {
     const { txt } = useShortIntl();
     const [promptText, setPromptText] = useState<string>();
     const [lastAnswer, setLastAnswer] = useState<string>();
@@ -93,12 +101,15 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
         }
     };
 
+    /** Leaves the prompt empty, without the last answer */
+    const clearPrompt = () => {
+        setPromptText(undefined);
+        setLastAnswer(undefined);
+    };
+
     useEffect(() => {
         const handleEscape = (e: globalThis.KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setPromptText(undefined);
-                setLastAnswer(undefined);
-            }
+            if (e.key === 'Escape') clearPrompt();
         };
         document.addEventListener('keydown', handleEscape);
         return () => document.removeEventListener('keydown', handleEscape);
@@ -144,6 +155,22 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
 
     // The field grows with the lines of the question, up to a limit, and shrinks back when they are gone
     const promptField = useRef<HTMLTextAreaElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        askAbout(statement: string) {
+            clearPrompt();
+            const start = `About: '${statement}'\n\n`;
+            setPromptText(start);
+            setShowHistory(false);
+            // Once the text is in the field, the user goes on writing right after it
+            requestAnimationFrame(() => {
+                const field = promptField.current;
+                if (!field) return;
+                field.focus();
+                field.setSelectionRange(start.length, start.length);
+            });
+        },
+    }));
     useEffect(() => {
         const field = promptField.current;
         if (!field) return;
@@ -236,4 +263,4 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
             </div>
         </>
     );
-}
+});

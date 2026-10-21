@@ -10,7 +10,10 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@onepercentio/one-ui/components/ScrollendIndicator": ["./node_modules/@onepercentio/one-ui/dist-ts/components/ScrollendIndicator/ScrollendIndicator"]
+    }
   },
   "include": ["src", "vite.config.ts"],
   "exclude": ["src/context/Repository.tsx"]

@@ -12,6 +12,18 @@
   padding: 10px;
   position: fixed;
   z-index: 10000;
+  // The edges that show there is more to scroll
+  --main-color: rgba(217, 133, 59, 0.45);
+}
+
+// What scrolls. Not positioned, so the scroll end indicator is placed on the menu and does not scroll with it
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .selectedWord {

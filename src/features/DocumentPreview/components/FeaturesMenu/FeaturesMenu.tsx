@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useState, type ForwardedRef } from 'react';
 import { createPortal } from 'react-dom';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
+import ScrollendIndicator from '@onepercentio/one-ui/components/ScrollendIndicator';
 import Styles from './FeaturesMenu.module.scss';
 import type { FullText } from '../../../../models/Article';
 import { defineWordInContext, findReferenceInContext } from '../../../../services/ai';
@@ -10,6 +11,10 @@ import AsyncInteractionButton from '../../../../components/AsyncInteractionButto
 
 export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
 
+const MAX_MENU_HEIGHT = 340;
+/** Enough for the selected text and a couple of actions, even close to the bottom of the screen */
+const MIN_MENU_HEIGHT = 180;
+
 type FeaturesMenuProps = {
     addHighlight: (word: string) => void;
     fullText: FullText;
@@ -17,6 +22,8 @@ type FeaturesMenuProps = {
     aiReady: boolean;
     getDocumentCoordinates: () => { x: number; y: number };
     onMarkLocation: (x: number, y: number, word: string) => void;
+    /** Starts a question about the selected statement on the prompt */
+    onAskAbout: (statement: string) => void;
     /** Keeps the definition of an excerpt, so every place it is on is marked */
     onDefined: (word: string, definition: string) => void;
     /** Shows the reference found for the selected passage */
@@ -29,7 +36,7 @@ function extractSelectedWord(selectionText: string) {
 }
 
 export default forwardRef(function FeaturesMenu(
-    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound, onDefined }: FeaturesMenuProps,
+    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound, onDefined, onAskAbout }: FeaturesMenuProps,
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
@@ -114,6 +121,17 @@ export default forwardRef(function FeaturesMenu(
             },
         },
         {
+            id: 'ask-about',
+            testId: TestIds.menu.askAbout,
+            label: txt('documentPreview.menu.askAbout'),
+            disabled: !aiReady,
+            hint: txt('aiWarmUp.locked'),
+            onClick: async () => {
+                onAskAbout(word);
+                dismiss();
+            },
+        },
+        {
             id: 'find-reference',
             testId: TestIds.menu.reference,
             label: txt('documentPreview.menu.reference'),
@@ -142,21 +160,31 @@ export default forwardRef(function FeaturesMenu(
 
     // Rendered on the body so it stays above the dialog and positioned by viewport coordinates
     return createPortal(
-        <div data-testid={TestIds.menu.root} className={Styles.menu} onMouseUp={e => e.stopPropagation()} style={{ left: x, top: y }}>
+        <div
+            data-testid={TestIds.menu.root}
+            className={Styles.menu}
+            onMouseUp={e => e.stopPropagation()}
+            // Limited, and never past the bottom of the screen, as it opens under the selection
+            style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, window.innerHeight - y - 16)) }}
+        >
             <div className={Styles.selectedWord}>{displayWord}</div>
-            {menuItems.map(item => (
-                <AsyncInteractionButton
-                    key={item.id}
-                    data-testid={item.testId}
-                    variant="transparent"
-                    className={Styles.menuButton}
-                    action={item.onClick}
-                    disabled={item.disabled}
-                    title={item.disabled ? item.hint : undefined}
-                >
-                    {item.label}
-                </AsyncInteractionButton>
-            ))}
+            <div className={Styles.actions} data-testid={TestIds.menu.actions}>
+                {menuItems.map(item => (
+                    <AsyncInteractionButton
+                        key={item.id}
+                        data-testid={item.testId}
+                        variant="transparent"
+                        className={Styles.menuButton}
+                        action={item.onClick}
+                        disabled={item.disabled}
+                        title={item.disabled ? item.hint : undefined}
+                    >
+                        {item.label}
+                    </AsyncInteractionButton>
+                ))}
+                {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
+                <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
+            </div>
         </div>,
         document.body,
     );

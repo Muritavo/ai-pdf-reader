@@ -39,6 +39,7 @@ export default {
             define: 'Definir',
             markLocation: 'Marcar este local',
             reference: 'Referência',
+            askAbout: 'Perguntar sobre isto',
             tryAgain: 'Tentar novamente',
         },
         promptBar: {

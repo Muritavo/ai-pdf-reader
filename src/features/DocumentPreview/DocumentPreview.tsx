@@ -26,7 +26,7 @@ import { REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
 import ResponseModalStyles from './components/ResponseModal/ResponseModal.module.scss';
 import Button from '@onepercentio/one-ui/components/Button';
-import DocumentPromptBar from './components/DocumentPromptBar';
+import DocumentPromptBar, { type DocumentPromptBarHandle } from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
 import Styles from './DocumentPreview.module.scss';
 
@@ -66,6 +66,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
     const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
+    const promptBarRef = useRef<DocumentPromptBarHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
         const response = await fetch(fullText.url);
@@ -457,6 +458,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
                 onDefined={addDefinition}
+                onAskAbout={statement => promptBarRef.current?.askAbout(statement)}
             />
             {reference && (
                 <ResponseModal
@@ -496,7 +498,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     }
                 />
             )}
-            <DocumentPromptBar fullText={fullText} />
+            <DocumentPromptBar ref={promptBarRef} fullText={fullText} />
         </div>
     );
 }

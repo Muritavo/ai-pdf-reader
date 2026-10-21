@@ -50,11 +50,13 @@ export const TestIds = {
     },
     menu: {
         root: 'features-menu',
+        actions: 'features-menu-actions',
         searchOnGoogle: 'menu-search-on-google',
         highlight: 'menu-highlight',
         define: 'menu-define',
         markLocation: 'menu-mark-location',
         reference: 'menu-reference',
+        askAbout: 'menu-ask-about',
     },
     ai: {
         statusButton: 'ai-status-button',
