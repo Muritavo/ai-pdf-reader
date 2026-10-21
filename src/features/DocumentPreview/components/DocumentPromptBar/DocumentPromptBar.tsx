@@ -3,32 +3,26 @@ import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Clock, ExternalLink, Trash2 } from 'lucide-react';
+import { Clock, ExternalLink } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
-import { wordingOf } from '../../../../utils/wording';
+import {
+    answerFor,
+    entryKeyOf,
+    loadPrompts,
+    savePrompts,
+    withEntryFirst,
+    type PromptHistoryEntry,
+    type PromptScope,
+} from '../../../../utils/promptHistory';
 import AIWarmUp from '../../../AIWarmUp';
 import { useWarmUp } from '../../../../context/AIContext';
 import { TestIds } from '../../../../testids';
 import Markdown from '../../../../components/Markdown';
 import ResponseModal from '../ResponseModal/ResponseModal';
+import PromptHistoryPanel from './components/PromptHistoryPanel';
 import Styles from './DocumentPromptBar.module.scss';
-
-type PromptHistoryEntry = {
-    prompt: string;
-    answer: string;
-    timestamp: string;
-};
-
-const STORAGE_KEY_PREFIX = 'prompt-history-';
-
-function formatTimestamp(timestamp: string) {
-    const date = new Date(timestamp);
-    const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    return `${day} ${time}`;
-}
 
 export default function DocumentPromptBar({ fullText }: { fullText: FullText }) {
     const { txt } = useShortIntl();
@@ -36,27 +30,68 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
     const [lastAnswer, setLastAnswer] = useState<string>();
     const [isLoading, setIsLoading] = useState(false);
     const [isError, setIsError] = useState(false);
-    const [history, setHistory] = useState<PromptHistoryEntry[]>();
+    const [history, setHistory] = useState<Record<PromptScope, PromptHistoryEntry[]>>({ local: [], global: [] });
     const [showHistory, setShowHistory] = useState(false);
     const [showResponseModal, setShowResponseModal] = useState(false);
 
     const { ready: aiReady } = useWarmUp(fullText);
-    const storageKey = `${STORAGE_KEY_PREFIX}${fullText.hash}`;
+    const { hash } = fullText;
 
     const saveHistory = useCallback(
-        (updated: PromptHistoryEntry[]) => {
-            setHistory(updated);
-            localStorage.setItem(storageKey, JSON.stringify(updated));
+        (scope: PromptScope, entries: PromptHistoryEntry[]) => {
+            setHistory(current => ({ ...current, [scope]: entries }));
+            savePrompts(scope, hash, entries);
         },
-        [storageKey],
+        [hash],
     );
 
     useEffect(() => {
-        const stored = localStorage.getItem(storageKey);
-        setHistory(stored ? (JSON.parse(stored) as PromptHistoryEntry[]) : undefined);
+        setHistory({ local: loadPrompts('local', hash), global: loadPrompts('global', hash) });
         setPromptText(undefined);
         setLastAnswer(undefined);
-    }, [storageKey]);
+    }, [hash]);
+
+    /** Takes the entry out of the list it is on, and puts it first on the other one */
+    const moveEntry = (entry: PromptHistoryEntry, from: PromptScope) => {
+        const to: PromptScope = from === 'local' ? 'global' : 'local';
+        saveHistory(from, history[from].filter(other => other !== entry));
+        // A question made local is about the document that is open now, so it keeps only the answer about it
+        const moved: PromptHistoryEntry =
+            to === 'local' ? { ...entry, answers: entry.answers[hash] ? { [hash]: entry.answers[hash] } : {} } : entry;
+        saveHistory(to, withEntryFirst(history[to], moved));
+    };
+
+    const [answering, setAnswering] = useState<ReadonlySet<string>>(new Set());
+    const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+    const withKey = (keys: ReadonlySet<string>, key: string, present: boolean) => {
+        const next = new Set(keys);
+        if (present) next.add(key);
+        else next.delete(key);
+        return next;
+    };
+
+    /** Answers a question of the history about the document that is open, keeping the answers about the others */
+    const answerHere = async (entry: PromptHistoryEntry, scope: PromptScope) => {
+        const key = entryKeyOf(entry);
+        setAnswering(current => withKey(current, key, true));
+        setFailed(current => withKey(current, key, false));
+        try {
+            const answer = await askContext(entry.prompt, await getNormalizedText(fullText));
+            const answered: PromptHistoryEntry = {
+                ...entry,
+                answers: { ...entry.answers, [hash]: { answer, timestamp: new Date().toISOString(), documentName: fullText.name } },
+            };
+            setHistory(current => {
+                const updated = current[scope].map(other => (entryKeyOf(other) === key ? answered : other));
+                savePrompts(scope, hash, updated);
+                return { ...current, [scope]: updated };
+            });
+        } catch {
+            setFailed(current => withKey(current, key, true));
+        } finally {
+            setAnswering(current => withKey(current, key, false));
+        }
+    };
 
     useEffect(() => {
         const handleEscape = (e: globalThis.KeyboardEvent) => {
@@ -83,9 +118,15 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
             const context = await getNormalizedText(fullText);
             const result = await askContext(prompt, context);
             setLastAnswer(result);
-            // Asking again with the same wording replaces the previous entry instead of adding another one
-            const others = (history ?? []).filter(entry => wordingOf(entry.prompt) !== wordingOf(prompt));
-            saveHistory([{ prompt, answer: result, timestamp: new Date().toISOString() }, ...others]);
+            // A question is always born local. Asking again with the same wording replaces the previous one
+            saveHistory(
+                'local',
+                withEntryFirst(history.local, {
+                    prompt,
+                    timestamp: new Date().toISOString(),
+                    answers: { [hash]: { answer: result, timestamp: new Date().toISOString(), documentName: fullText.name } },
+                }),
+            );
         } catch {
             setIsError(true);
         } finally {
@@ -116,73 +157,23 @@ export default function DocumentPromptBar({ fullText }: { fullText: FullText }) 
                 <ResponseModal prompt={promptText!} answer={lastAnswer!} onClose={() => setShowResponseModal(false)} />
             )}
             {showHistory && (
-                <div className={Styles.historyPanel}>
-                    <div className={Styles.historyHeader}>
-                        <Text type="caption" className={Styles.historyTitle}>
-                            {txt('documentPreview.promptBar.historyTitle')}
-                        </Text>
-                        <div className={Styles.historyActions}>
-                            <Button
-                                variant="transparent"
-                                data-testid={TestIds.ai.historyClear}
-                                className={Styles.clearButton}
-                                onClick={() => {
-                                    setHistory(undefined);
-                                    localStorage.removeItem(storageKey);
-                                }}
-                            >
-                                {txt('documentPreview.promptBar.clearHistory')}
-                            </Button>
-                            <Button variant="transparent" onClick={() => setShowHistory(false)}>
-                                ✕
-                            </Button>
-                        </div>
-                    </div>
-                    <div className={Styles.historyList}>
-                        {history && history.length > 0 ? (
-                            history.map((entry, index) => (
-                                <div
-                                    key={index}
-                                    data-testid={TestIds.ai.historyItem}
-                                    className={Styles.historyItem}
-                                    onClick={() => {
-                                        setLastAnswer(entry.answer);
-                                        setPromptText(entry.prompt);
-                                        setShowHistory(false);
-                                    }}
-                                >
-                                    <button
-                                        type="button"
-                                        className={Styles.historyItemRemove}
-                                        data-testid={TestIds.ai.historyRemove}
-                                        title={txt('documentPreview.promptBar.removeEntry')}
-                                        aria-label={txt('documentPreview.promptBar.removeEntry')}
-                                        onClick={e => {
-                                            // Removing does not bring the entry back to the prompt
-                                            e.stopPropagation();
-                                            saveHistory(history.filter(other => other !== entry));
-                                        }}
-                                    >
-                                        <Trash2 size={14} strokeWidth={1.75} />
-                                    </button>
-                                    <Text type="caption" className={Styles.historyItemPrompt}>
-                                        {entry.prompt}
-                                    </Text>
-                                    <Text type="caption" className={Styles.historyItemAnswer}>
-                                        {entry.answer}
-                                    </Text>
-                                    <Text type="caption" className={Styles.historyItemTime}>
-                                        {formatTimestamp(entry.timestamp)}
-                                    </Text>
-                                </div>
-                            ))
-                        ) : (
-                            <Text type="caption" className={Styles.noHistory}>
-                                {txt('documentPreview.promptBar.noHistory')}
-                            </Text>
-                        )}
-                    </div>
-                </div>
+                <PromptHistoryPanel
+                    entries={history}
+                    documentHash={hash}
+                    onPick={entry => {
+                        setPromptText(entry.prompt);
+                        // Only the answer about this document, as a global question may have been answered about others
+                        setLastAnswer(answerFor(entry, hash));
+                        setShowHistory(false);
+                    }}
+                    onRemove={(entry, scope) => saveHistory(scope, history[scope].filter(other => other !== entry))}
+                    onMove={moveEntry}
+                    onClose={() => setShowHistory(false)}
+                    onAnswerHere={answerHere}
+                    answering={answering}
+                    failed={failed}
+                    aiReady={aiReady}
+                />
             )}
             <div className={Styles.container}>
                 <div className={Styles.inputRow}>

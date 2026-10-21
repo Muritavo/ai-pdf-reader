@@ -717,7 +717,7 @@ test.describe('asking questions', () => {
         await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Primeira pergunta');
     });
 
-    test('keeps the history after reloading, and can clear it', async ({ page }) => {
+    test('keeps the history after reloading', async ({ page }) => {
         await openSamplePreview(page);
         await warmUp(page);
         await ask(page, 'Pergunta guardada');
@@ -725,12 +725,20 @@ test.describe('asking questions', () => {
         await page.reload();
         await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
         await byId(page, TestIds.ai.historyToggle).click();
+
         await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(1);
+        await expect(byId(page, TestIds.ai.historyItem)).toContainText('Pergunta guardada');
+    });
 
-        await byId(page, TestIds.ai.historyClear).click();
+    test('has no button to clear the whole history', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta qualquer');
 
-        await expect(byId(page, TestIds.ai.historyItem)).toHaveCount(0);
-        await expect(page.getByText('Nenhuma pergunta ainda')).toBeVisible();
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await expect(byId(page, TestIds.ai.historyPanel)).toBeVisible();
+        await expect(byId(page, TestIds.ai.historyPanel).getByText('Limpar histórico')).toHaveCount(0);
     });
 
     test('keeps a separate history for each document', async ({ page }) => {
@@ -1053,5 +1061,255 @@ test.describe('finding the reference of a passage', () => {
         ai.chatStatus = 200;
         await byId(page, TestIds.menu.reference).click();
         await expect(referenceModal(page)).toBeVisible();
+    });
+});
+
+test.describe('local and global questions', () => {
+    const items = (page: Page) => byId(page, TestIds.ai.historyItem);
+    const item = (page: Page, prompt: string) => items(page).filter({ hasText: prompt });
+    const openHistory = async (page: Page) => {
+        await byId(page, TestIds.ai.historyToggle).click();
+        await expect(byId(page, TestIds.ai.historyPanel)).toBeVisible();
+    };
+    const showTab = async (page: Page, scope: 'local' | 'global') => {
+        await byId(page, scope === 'local' ? TestIds.ai.historyTabLocal : TestIds.ai.historyTabGlobal).click();
+        await expect(byId(page, TestIds.ai.historyPanel)).toHaveAttribute('data-scope', scope);
+    };
+    const switchOf = (page: Page, prompt: string) => item(page, prompt).getByTestId(TestIds.ai.historyScopeSwitch);
+
+    /** Leaves the open document and opens another one, with another text, on the second article */
+    async function openOtherDocument(page: Page) {
+        await closePreview(page);
+        const second = articleCard(page, 'Article 2');
+        await attachPdf(second, pdfWithOtherText());
+        await openPreview(page, second, 1);
+        await warmUp(page);
+    }
+
+    test('shows the local questions first, with a tab for the global ones', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta local');
+
+        await openHistory(page);
+
+        await expect(byId(page, TestIds.ai.historyPanel)).toHaveAttribute('data-scope', 'local');
+        await expect(byId(page, TestIds.ai.historyTabLocal)).toHaveText('Local');
+        await expect(byId(page, TestIds.ai.historyTabGlobal)).toHaveText('Global');
+        await expect(item(page, 'Pergunta local')).toHaveCount(1);
+    });
+
+    test('makes every question local when it is asked', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await openHistory(page);
+        await showTab(page, 'global');
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await ask(page, 'Pergunta nova');
+        await openHistory(page);
+
+        // Even asked with the global tab chosen
+        await showTab(page, 'global');
+        await expect(items(page)).toHaveCount(0);
+        await expect(byId(page, TestIds.ai.historyPanel)).toContainText('Nenhuma pergunta global ainda');
+        await showTab(page, 'local');
+        await expect(item(page, 'Pergunta nova')).toHaveCount(1);
+        await expect(switchOf(page, 'Pergunta nova')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('offers to move each question with a document icon, a switch and a globe icon, in that order', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta qualquer');
+        await openHistory(page);
+
+        const toggle = item(page, 'Pergunta qualquer').getByTestId(TestIds.ai.historyScopeToggle);
+        const [documentIcon, theSwitch, globeIcon] = await Promise.all([
+            toggle.locator('svg.lucide-file-text').boundingBox(),
+            toggle.getByTestId(TestIds.ai.historyScopeSwitch).boundingBox(),
+            toggle.locator('svg.lucide-globe').boundingBox(),
+        ]);
+        expect(documentIcon!.x).toBeLessThan(theSwitch!.x);
+        expect(theSwitch!.x).toBeLessThan(globeIcon!.x);
+    });
+
+    test('moves a question to the global ones with the switch', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta para todos');
+        await ask(page, 'Pergunta só daqui');
+        await openHistory(page);
+
+        await switchOf(page, 'Pergunta para todos').click();
+
+        await expect(item(page, 'Pergunta para todos')).toHaveCount(0);
+        await expect(item(page, 'Pergunta só daqui')).toHaveCount(1);
+        await showTab(page, 'global');
+        await expect(items(page)).toHaveCount(1);
+        await expect(item(page, 'Pergunta para todos')).toHaveCount(1);
+        await expect(switchOf(page, 'Pergunta para todos')).toHaveAttribute('aria-checked', 'true');
+    });
+
+    test('does not load the question on the prompt when the switch is used', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await ask(page, 'Segunda pergunta');
+        await openHistory(page);
+
+        await switchOf(page, 'Primeira pergunta').click();
+
+        await expect(byId(page, TestIds.ai.historyPanel)).toBeVisible();
+        await expect(promptInput(page)).toHaveValue('Segunda pergunta');
+    });
+
+    test('offers the global questions on every document, and not the local ones', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await ask(page, 'Pergunta local');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await expect(item(page, 'Pergunta global')).toHaveCount(0);
+
+        await openOtherDocument(page);
+        await openHistory(page);
+
+        await expect(items(page)).toHaveCount(0);
+        await showTab(page, 'global');
+        await expect(item(page, 'Pergunta global')).toHaveCount(1);
+        // It tells the document it was asked about
+        await expect(item(page, 'Pergunta global')).toContainText('sample.pdf');
+    });
+
+    test('brings a global question to the prompt, without the answer about another document', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await expect(item(page, 'Pergunta global')).toHaveCount(0);
+        await openOtherDocument(page);
+        await openHistory(page);
+        await showTab(page, 'global');
+
+        await item(page, 'Pergunta global').click();
+
+        await expect(promptInput(page)).toHaveValue('Pergunta global');
+        await expect(byId(page, TestIds.ai.answer)).toHaveCount(0);
+        // It can be asked about this document then
+        await promptInput(page).press('Enter');
+        await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Pergunta global');
+    });
+
+    test('brings a global question with its answer on the document it was asked about', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await ask(page, 'Outra pergunta');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await showTab(page, 'global');
+
+        await item(page, 'Pergunta global').click();
+
+        await expect(promptInput(page)).toHaveValue('Pergunta global');
+        await expect(byId(page, TestIds.ai.answer)).toContainText('Resposta mock para: Pergunta global');
+    });
+
+    test('moves a global question back to the local ones of the document that is open', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await expect(item(page, 'Pergunta global')).toHaveCount(0);
+        await openOtherDocument(page);
+        await openHistory(page);
+        await showTab(page, 'global');
+
+        await switchOf(page, 'Pergunta global').click();
+
+        await expect(items(page)).toHaveCount(0);
+        await showTab(page, 'local');
+        await expect(item(page, 'Pergunta global')).toHaveCount(1);
+        await expect(switchOf(page, 'Pergunta global')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('keeps where each question is after reloading', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await ask(page, 'Pergunta local');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await expect(item(page, 'Pergunta global')).toHaveCount(0);
+
+        await page.reload();
+        await openPreview(page, articleCard(page, 'Article 1'), SAMPLE_PAGES.length);
+        await openHistory(page);
+
+        await expect(items(page)).toHaveCount(1);
+        await expect(item(page, 'Pergunta local')).toHaveCount(1);
+        await showTab(page, 'global');
+        await expect(items(page)).toHaveCount(1);
+        await expect(item(page, 'Pergunta global')).toHaveCount(1);
+    });
+
+    test('does not repeat a global question with the same wording', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Qual é o objetivo?');
+        await openHistory(page);
+        await switchOf(page, 'Qual é o objetivo?').click();
+        await expect(items(page)).toHaveCount(0);
+        await byId(page, TestIds.ai.historyToggle).click();
+
+        await ask(page, 'qual e o OBJETIVO');
+        await openHistory(page);
+        await switchOf(page, 'qual e o OBJETIVO').click();
+        await showTab(page, 'global');
+
+        await expect(items(page)).toHaveCount(1);
+        await expect(items(page)).toContainText('qual e o OBJETIVO');
+    });
+
+    test('removes a global question', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Pergunta global');
+        await openHistory(page);
+        await switchOf(page, 'Pergunta global').click();
+        await showTab(page, 'global');
+
+        await item(page, 'Pergunta global').hover();
+        await item(page, 'Pergunta global').getByTestId(TestIds.ai.historyRemove).click();
+
+        await expect(items(page)).toHaveCount(0);
+        await expect(byId(page, TestIds.ai.historyPanel)).toContainText('Nenhuma pergunta global ainda');
+    });
+
+    test('animates the questions that leave and enter the list', async ({ page }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+        await ask(page, 'Primeira pergunta');
+        await ask(page, 'Segunda pergunta');
+        await openHistory(page);
+        // Each question is wrapped by the animated list
+        const wrapped = await items(page).evaluateAll(entries => entries.every(entry => entry.closest('[class*="resetHeight"]')));
+        expect(wrapped).toBe(true);
+
+        await switchOf(page, 'Primeira pergunta').click();
+
+        // It stays a moment while it leaves, instead of vanishing at once
+        const heights: number[] = [];
+        for (let i = 0; i < 6; i++) {
+            const leaving = item(page, 'Primeira pergunta');
+            heights.push((await leaving.count()) ? ((await leaving.boundingBox())?.height ?? 0) : 0);
+            await page.waitForTimeout(60);
+        }
+        expect(heights[0]).toBeGreaterThan(0);
+        await expect(item(page, 'Primeira pergunta')).toHaveCount(0);
     });
 });

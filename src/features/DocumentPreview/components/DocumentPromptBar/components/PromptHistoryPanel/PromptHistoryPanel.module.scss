@@ -1,0 +1,200 @@
+@use "../../../../../../styles/variables.scss" as *;
+
+.historyPanel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: $colorPanel;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.75rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.historyTitle {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.historyActions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.historyList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.historyItem {
+  position: relative;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: $colorSurface;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: lighten($colorSurface, 4%);
+  }
+}
+
+.historyItemRemove {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: $colorMuted;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+
+  &:hover {
+    color: $colorDanger;
+    background: rgba($colorDanger, 0.12);
+  }
+}
+
+// Shown over the entry that is hovered, or reached by keyboard, and always where there is no hover
+.historyItem:hover .historyItemRemove,
+.historyItem:focus-within .historyItemRemove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .historyItemRemove {
+    opacity: 1;
+  }
+}
+
+.historyItemPrompt {
+  padding-right: 1.6rem;
+  font-weight: 600;
+  color: $colorText;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.historyItemAnswer {
+  line-height: 1.45;
+  margin-bottom: 0.3rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.historyItemTime {
+  font-size: 0.7rem;
+}
+
+.noHistory {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.tabs {
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0 0.75rem 0.25rem;
+  --tab-guide-color: #{$colorHighlight};
+}
+
+.tab {
+  padding: 0.35rem 0.75rem;
+  color: $colorMuted;
+  font-size: 0.85rem;
+}
+
+.historyItemFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+// The file is the document only, the globe is every document. The switch says which one the question is on
+.scopeToggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  color: $colorMuted;
+  cursor: default;
+
+  // The one-ui switch, in the colors of the dark theme
+  > div {
+    border-color: $colorBorder;
+    background-color: $colorBackground;
+
+    > div {
+      background-color: $colorMuted;
+    }
+  }
+
+  > div[aria-checked="true"] {
+    border-color: $colorHighlight;
+    background-color: $colorHighlight;
+
+    > div {
+      background-color: $colorText;
+    }
+  }
+}
+
+.noAnswer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.3rem;
+  color: $colorMuted;
+}
+
+.answerHere {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba($colorHighlight, 0.18);
+  color: $colorHighlight;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba($colorHighlight, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.answerFailed {
+  color: $colorDanger;
+}
