@@ -54,8 +54,8 @@ test.describe('marking a location', () => {
         // And the marker is drawn by the line of the selected word
         const center = await centerOf(page, TestIds.preview.pointOfInterest);
         expect(Math.abs(center.y - selection.top)).toBeLessThan(5);
-        expect(center.x).toBeGreaterThanOrEqual(selection.left);
-        expect(center.x).toBeLessThan(selection.left + 40);
+        // Centered on the start of the selection, not beside it
+        expect(Math.abs(center.x - selection.left)).toBeLessThan(3);
     });
 
     test('marks every word on its own place', async ({ page }) => {
@@ -93,7 +93,9 @@ test.describe('the last click marker', () => {
         expect(stored.y).toBeCloseTo(((box.scrollTop + ((click.y - box.top) / box.height) * box.clientHeight) / box.scrollHeight) * 100, 0);
 
         const center = await centerOf(page, TestIds.preview.lastClickMarker);
+        // Centered on the click, not beside it
         expect(Math.abs(center.y - click.y)).toBeLessThan(5);
+        expect(Math.abs(center.x - click.x)).toBeLessThan(3);
     });
 
     test('keeps only the last click', async ({ page }) => {

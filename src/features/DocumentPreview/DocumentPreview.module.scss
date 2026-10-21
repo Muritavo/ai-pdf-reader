@@ -88,7 +88,7 @@
   border: 2px solid $colorHighlight;
   position: absolute;
   pointer-events: none;
-  transform: translate(50%, -50%);
+  transform: translate(-50%, -50%);
   z-index: 2;
 
   &::after {
@@ -107,7 +107,7 @@
 
 .poiIndicator {
   position: absolute;
-  transform: translate(50%, -50%);
+  transform: translate(-50%, -50%);
   z-index: 3;
   pointer-events: auto;
   display: flex;
@@ -121,19 +121,19 @@
 
   &:hover {
     opacity: 1;
-    transform: translate(50%, -50%) scale(1.2);
+    transform: translate(-50%, -50%) scale(1.2);
   }
 }
 
 @keyframes highlightVibrate {
   0%, 100% {
-    transform: translate(50%, -50%) scale(3);
+    transform: translate(-50%, -50%) scale(3);
   }
   10%, 30%, 50%, 70%, 90% {
-    transform: translate(50%, -50%) scale(3) translateX(-2px);
+    transform: translate(-50%, -50%) scale(3) translateX(-2px);
   }
   20%, 40%, 60%, 80% {
-    transform: translate(50%, -50%) scale(3) translateX(2px);
+    transform: translate(-50%, -50%) scale(3) translateX(2px);
   }
 }
 .wordPulse {
@@ -169,9 +169,9 @@
 @keyframes poiFocus {
   0%,
   40% {
-    transform: translate(50%, -50%) scale(2);
+    transform: translate(-50%, -50%) scale(2);
   }
   100% {
-    transform: translate(50%, -50%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
