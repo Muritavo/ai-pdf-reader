@@ -16,7 +16,10 @@ export function getReadingProgress(hash?: string): number {
 
 export const isReadToTheEnd = (progress: number) => progress >= READ_TO_THE_END;
 
-/** Keeps the furthest point reached, so scrolling back does not lose what was already read */
+/**
+ * Keeps the furthest point the reader stopped at, so a shorter reading later does not lose what was already read.
+ * It is recorded when leaving the document, so looking ahead and scrolling back is not counted
+ */
 export function recordReadingProgress(hash: string, progress: number) {
     const rounded = Math.round(Math.min(1, Math.max(0, progress)) * 10000) / 10000;
     if (rounded <= getReadingProgress(hash)) return;

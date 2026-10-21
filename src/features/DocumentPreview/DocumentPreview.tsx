@@ -276,21 +276,23 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         let frame = 0;
         // Kept on the side, as a closed document can't be measured anymore
         let reached = (box.scrollTop + box.clientHeight) / box.scrollHeight;
-        const record = () => {
+        const follow = () => {
             cancelAnimationFrame(frame);
             frame = requestAnimationFrame(() => {
                 reached = (box.scrollTop + box.clientHeight) / box.scrollHeight;
-                recordReadingProgress(hash, reached);
             });
         };
-        // Where the reader stopped, saved when leaving the document, or the page
-        const saveWhereStopped = () => saveLastOpening(hash, reached);
-        record();
-        box.addEventListener('scroll', record, { passive: true });
+        // Only where the reader stopped counts as read, when leaving the document or the page:
+        // scrolling ahead to look at something (as a table) and coming back is not reading that far
+        const saveWhereStopped = () => {
+            saveLastOpening(hash, reached);
+            recordReadingProgress(hash, reached);
+        };
+        box.addEventListener('scroll', follow, { passive: true });
         window.addEventListener('pagehide', saveWhereStopped);
         return () => {
             cancelAnimationFrame(frame);
-            box.removeEventListener('scroll', record);
+            box.removeEventListener('scroll', follow);
             window.removeEventListener('pagehide', saveWhereStopped);
             // Only when the document was really left, not when this effect restarts with it still on the screen
             if (!box.isConnected) saveWhereStopped();
