@@ -1,4 +1,13 @@
 export default {
+    documentActions: {
+        methodFlowchart: {
+            label: 'Fluxograma do método',
+            description: 'O método de proteômica/metabolômica, da amostra à aquisição de dados, em um fluxograma',
+        },
+        request: 'Pedido',
+        result: 'Resultado',
+        failed: 'Não foi possível gerar. Clique para tentar novamente.',
+    },
     annotations: {
         highlights: 'Destaques',
         markers: 'Marcadores',

@@ -1,0 +1,43 @@
+@use "../../../../styles/variables.scss" as *;
+
+// At the top left, mirroring the annotations and the close button at the top right
+.balloon {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 24px;
+  background: $colorSurface;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: $colorMuted;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    color: $colorText;
+    background: lighten($colorSurface, 6%);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.failed {
+  color: $colorDanger;
+}

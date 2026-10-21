@@ -7,6 +7,12 @@ export const TestIds = {
         clear: 'references-clear',
         next: 'references-next',
     },
+    markdown: {
+        mermaid: 'mermaid-diagram',
+        mermaidLoading: 'mermaid-loading',
+        mermaidError: 'mermaid-error',
+        mermaidOpen: 'mermaid-open',
+    },
     steps: {
         step: 'step',
     },
@@ -35,6 +41,12 @@ export const TestIds = {
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
         definedTerm: 'defined-term',
+    },
+    documentActions: {
+        balloon: 'document-actions',
+        action: 'document-action',
+        modal: 'document-action-modal',
+        answer: 'document-action-answer',
     },
     annotations: {
         highlightsButton: 'highlights-button',

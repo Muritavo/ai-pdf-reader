@@ -21,6 +21,7 @@ import {
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
+import DocumentActions from './components/DocumentActions';
 import ResponseModal from './components/ResponseModal/ResponseModal';
 import { REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
@@ -436,6 +437,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     </div>
                 ))}
             </div>
+            <DocumentActions fullText={fullText} aiReady={warmUp.ready} />
             <AnnotationsToolbar
                 highlights={(highlightRules ?? []).map(rule => ({
                     normalizedWord: rule.normalizedWord,
