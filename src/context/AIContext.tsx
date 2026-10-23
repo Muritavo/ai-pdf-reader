@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import useAsyncControl from '@onepercentio/one-ui/hooks/useAsyncControl';
-import { AI_ENDPOINT, getLoadedModelId, pingServer } from '../services/ai';
+import { getLoadedModelId, pingServer, setAIEndpoint } from '../services/ai';
+import { isValidEndpoint, loadAIEndpoints, normalizeEndpoint, saveAIEndpoints, type AIEndpoints } from '../utils/aiEndpoints';
 import type { FullText } from '../models/Article';
 import { getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
 
@@ -22,7 +23,12 @@ const NOT_WARMED: WarmUp = { state: 'idle', progress: 0 };
 type AIContextShape = {
     /** Online only when the AI server answers and has a model loaded */
     status: AIStatus;
+    /** The endpoint in use, and every one added, to switch between */
     endpoint: string;
+    endpoints: string[];
+    selectEndpoint: (endpoint: string) => void;
+    /** Adds an endpoint and starts using it. False when it is not an http(s) address */
+    addEndpoint: (endpoint: string) => boolean;
     /** The id of the loaded model, when online */
     model: string | null;
     checking: boolean;
@@ -42,16 +48,29 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const [hasChecked, setHasChecked] = useState(false);
     const [warmUps, setWarmUps] = useState<Record<string, WarmUp>>({});
     const reportedKey = useRef<Record<string, string>>({});
+    const [endpoints, setEndpoints] = useState<AIEndpoints>(() => {
+        const loaded = loadAIEndpoints();
+        // Before the first check, so it already goes to the chosen endpoint
+        setAIEndpoint(loaded.current);
+        return loaded;
+    });
+    // Changes with the endpoint, so a check of the previous one that ends late does not tell its status as the new one's
+    const checkGeneration = useRef(0);
     const control = useAsyncControl({
         async checkStatus() {
+            const generation = checkGeneration.current;
+            const isCurrent = () => generation === checkGeneration.current;
             try {
                 const loadedModel = await getLoadedModelId();
+                if (!isCurrent()) return;
                 setModel(loadedModel);
                 setStatus(loadedModel ? 'online' : 'offline');
             } catch {
                 // The models can't be known, so it falls back to checking if the server answers at all
+                const answers = await pingServer();
+                if (!isCurrent()) return;
                 setModel(null);
-                setStatus((await pingServer()) ? 'online' : 'offline');
+                setStatus(answers ? 'online' : 'offline');
             }
         },
     });
@@ -59,9 +78,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
     // A check already running is shared, instead of asking the server twice
     const checkInFlight = useRef<Promise<void>>();
     const reconnect = useCallback(() => {
+        const generation = checkGeneration.current;
         checkInFlight.current ??= control
             .checkStatus()
             .catch(() => {
+                if (generation !== checkGeneration.current) return;
                 setModel(null);
                 setStatus('offline');
             })
@@ -75,6 +96,41 @@ export function AIProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         reconnect();
     }, []);
+
+    const applyEndpoints = useCallback(
+        (next: AIEndpoints) => {
+            setEndpoints(next);
+            saveAIEndpoints(next);
+            setAIEndpoint(next.current);
+            // A new server: its status is checked again from the start
+            checkGeneration.current += 1;
+            checkInFlight.current = undefined;
+            setModel(null);
+            setStatus('offline');
+            setHasChecked(false);
+            reconnect();
+        },
+        [reconnect],
+    );
+
+    const selectEndpoint = useCallback(
+        (endpoint: string) => {
+            if (endpoint !== endpoints.current) applyEndpoints({ ...endpoints, current: endpoint });
+        },
+        [endpoints, applyEndpoints],
+    );
+
+    const addEndpoint = useCallback(
+        (typed: string) => {
+            const endpoint = normalizeEndpoint(typed);
+            if (!isValidEndpoint(endpoint)) return false;
+            // Added again, it is only chosen
+            const list = endpoints.endpoints.includes(endpoint) ? endpoints.endpoints : [...endpoints.endpoints, endpoint];
+            applyEndpoints({ endpoints: list, current: endpoint });
+            return true;
+        },
+        [endpoints, applyEndpoints],
+    );
 
     const updateWarmUp = useCallback((articleKey: string, warmUp: WarmUp) => {
         setWarmUps(prev => ({ ...prev, [articleKey]: warmUp }));
@@ -117,8 +173,20 @@ export function AIProvider({ children }: { children: ReactNode }) {
     );
 
     const value = useMemo(
-        () => ({ status, endpoint: AI_ENDPOINT, model, checking: control.loading || !hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore }),
-        [status, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore],
+        () => ({
+            status,
+            endpoint: endpoints.current,
+            endpoints: endpoints.endpoints,
+            selectEndpoint,
+            addEndpoint,
+            model,
+            checking: control.loading || !hasChecked,
+            reconnect,
+            warmUps,
+            warmUp,
+            checkWarmedUpBefore,
+        }),
+        [status, endpoints, selectEndpoint, addEndpoint, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore],
     );
 
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;

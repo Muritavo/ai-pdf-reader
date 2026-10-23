@@ -51,7 +51,7 @@ test.describe('the AI status', () => {
         await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
         await byId(page, TestIds.ai.statusButton).click();
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Online');
-        await expect(byId(page, TestIds.ai.endpoint)).toHaveText(ai.endpoint);
+        await expect(byId(page, TestIds.ai.endpoint)).toHaveValue(ai.endpoint);
         await expect(byId(page, TestIds.ai.model)).toHaveText('mock-model');
         await expect(byId(page, TestIds.ai.reconnect)).toHaveCount(0);
     });
@@ -63,7 +63,7 @@ test.describe('the AI status', () => {
         await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'offline');
         await byId(page, TestIds.ai.statusButton).click();
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Offline');
-        await expect(byId(page, TestIds.ai.endpoint)).toHaveText(ai.endpoint);
+        await expect(byId(page, TestIds.ai.endpoint)).toHaveValue(ai.endpoint);
 
         // Still offline: reconnecting does not change anything
         await byId(page, TestIds.ai.reconnect).click();

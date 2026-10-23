@@ -54,3 +54,27 @@
 .details dd {
     font-weight: 600;
 }
+
+.endpointSelect,
+.endpointInput {
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.endpointSelect:focus,
+.endpointInput:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.addEndpoint {
+    display: flex;
+    gap: 8px;
+}

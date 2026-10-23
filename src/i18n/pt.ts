@@ -48,6 +48,9 @@ export default {
         online: 'Online',
         offline: 'Offline',
         reconnect: 'Reconectar',
+        newEndpoint: 'Novo endpoint',
+        addEndpoint: 'Adicionar',
+        invalidEndpoint: 'Endereço inválido: use http:// ou https://',
     },
     documentPreview: {
         menu: {

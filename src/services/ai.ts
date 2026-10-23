@@ -1,7 +1,15 @@
 const API_KEY = "stub";
-export const AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://127.0.0.1:8000";
-const API_URL = `${AI_ENDPOINT}/v1/chat/completions`;
-const MODEL_STATUS_URL = `${AI_ENDPOINT}/v1/models/status`;
+/** The endpoint used while none was chosen on the AI status */
+export const DEFAULT_AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://127.0.0.1:8000";
+
+let currentEndpoint = DEFAULT_AI_ENDPOINT;
+
+/** Every request goes to the endpoint chosen on the AI status, read when it is made */
+export function setAIEndpoint(endpoint: string) {
+  currentEndpoint = endpoint;
+}
+
+export const getAIEndpoint = () => currentEndpoint;
 import { wrapFunction } from "../utils/hash";
 
 const MODEL =
@@ -19,7 +27,7 @@ export async function callOpenAiApi(
   /** Receives each piece of the answer as it streams */
   onProgress?: (chunk: string) => void,
 ): Promise<string> {
-  const response = await fetch(API_URL, {
+  const response = await fetch(`${currentEndpoint}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -186,7 +194,7 @@ async function _askContext(
 export const askContext = wrapFunction(_askContext);
 
 async function _getLoadedModelId(): Promise<string | null> {
-  const response = await fetch(MODEL_STATUS_URL, {
+  const response = await fetch(`${currentEndpoint}/v1/models/status`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${API_KEY}`,
@@ -211,7 +219,7 @@ export const getLoadedModelId = _getLoadedModelId;
  */
 export async function pingServer(): Promise<boolean> {
   try {
-    await fetch(`${AI_ENDPOINT}/v1/models`, {
+    await fetch(`${currentEndpoint}/v1/models`, {
       method: "GET",
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
