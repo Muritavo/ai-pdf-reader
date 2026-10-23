@@ -40,6 +40,7 @@ export const TestIds = {
         lastClickMarker: 'last-click-marker',
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
+        scrollBar: 'scroll-bar',
         imageBox: 'image-box',
         imageQuestion: 'image-question',
         imageQuestionInput: 'image-question-input',

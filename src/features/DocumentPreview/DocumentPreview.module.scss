@@ -8,6 +8,20 @@
   position: relative;
 }
 
+// How far the document was scrolled, along its left edge
+.scrollBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  width: 3px;
+  height: 0;
+  border-radius: 0 2px 2px 0;
+  background: #7c9cff;
+  pointer-events: none;
+  transition: height 80ms linear;
+}
+
 .loaderOverlay {
   position: absolute;
   inset: 0;

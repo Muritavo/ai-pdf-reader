@@ -77,6 +77,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const promptBarRef = useRef<DocumentPromptBarHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
+    const scrollBarRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
         const response = await fetch(fullText.url);
         const pdfBytes = new Uint8Array(await response.arrayBuffer());
@@ -206,6 +207,33 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         removeDefinitions(definitionsOf(mark));
         return true;
     };
+
+    // A bar on the left, along what is seen of the document, as long as how far it was scrolled.
+    // Set on the element itself, so scrolling does not render the whole preview again
+    useEffect(() => {
+        const box = previewBoxRef.current;
+        const bar = scrollBarRef.current;
+        if (!box || !bar) return;
+        let frame = 0;
+        const update = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const scrollable = box.scrollHeight - box.clientHeight;
+                const scrolled = scrollable > 0 ? box.scrollTop / scrollable : 0;
+                bar.style.top = `${box.offsetTop}px`;
+                bar.style.height = `${box.clientHeight * scrolled}px`;
+                bar.dataset.progress = String(Math.round(scrolled * 100));
+            });
+        };
+        update();
+        box.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+        return () => {
+            cancelAnimationFrame(frame);
+            box.removeEventListener('scroll', update);
+            window.removeEventListener('resize', update);
+        };
+    }, [textLayers]);
 
     // A document warmed up before does not need to be warmed up again, which is found without the AI
     useEffect(() => {
@@ -390,6 +418,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
 
     return (
         <div className={Styles.container}>
+            <div ref={scrollBarRef} className={Styles.scrollBar} data-testid={TestIds.preview.scrollBar} aria-hidden />
             {loading && (
                 <div className={Styles.loaderOverlay}>
                     <Dots />
