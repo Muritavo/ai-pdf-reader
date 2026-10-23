@@ -1,0 +1,20 @@
+.buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.button {
+    display: inline-grid;
+    place-items: center;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.button:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}

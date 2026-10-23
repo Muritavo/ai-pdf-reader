@@ -1,4 +1,10 @@
 export default {
+    dataTransfer: {
+        export: 'Exportar dados (sem os PDFs)',
+        import: 'Importar dados',
+        invalid: 'Este arquivo não é uma exportação do Research Workflow.',
+        confirmImport: 'Importar os dados exportados em {date}? Eles substituem os dados atuais (os PDFs já guardados continuam).',
+    },
     imageQuestion: {
         open: 'Perguntar sobre esta imagem',
         placeholder: 'Pergunte algo sobre esta imagem...',

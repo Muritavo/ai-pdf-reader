@@ -7,6 +7,11 @@ export const TestIds = {
         clear: 'references-clear',
         next: 'references-next',
     },
+    dataTransfer: {
+        export: 'data-export',
+        import: 'data-import',
+        importInput: 'data-import-input',
+    },
     markdown: {
         mermaid: 'mermaid-diagram',
         mermaidLoading: 'mermaid-loading',

@@ -1,5 +1,6 @@
 import { TestIds } from '../testids';
 import AIStatus from '../features/AIStatus';
+import DataTransfer from '../features/DataTransfer';
 import Styles from './StepsHeader.module.css';
 
 export type Step = {
@@ -39,6 +40,7 @@ export default function StepsHeader({
                 </ol>
             </nav>
             <div className={Styles.aside}>
+                <DataTransfer />
                 <AIStatus />
             </div>
         </header>
