@@ -18,9 +18,9 @@ type MenuItem = {
     onClick: () => Promise<void>;
     disabled?: boolean;
     hint?: string;
-    /** The action is only offered for a selection with at least this many words, as a statement and not a term */
+    /** The action is only recommended for a selection with at least this many words, as a statement and not a term */
     minWords?: number;
-    /** The action is only offered for a selection with at most this many words, as a term and not a statement */
+    /** The action is only recommended for a selection with at most this many words, as a term and not a statement */
     maxWords?: number;
 };
 
@@ -182,6 +182,29 @@ export default forwardRef(function FeaturesMenu(
     const selectedWords = word.split(/\s+/).filter(Boolean).length;
     const displayWord = word.length > 120 ? `${word.slice(0, 25)}...${word.slice(-25)}` : word;
 
+    const fitsSelection = (item: MenuItem) =>
+        (item.minWords === undefined || selectedWords >= item.minWords) &&
+        (item.maxWords === undefined || selectedWords <= item.maxWords);
+    // The actions not meant for a selection of this size are still offered, set apart after the recommended ones
+    const recommendedItems = menuItems.filter(fitsSelection);
+    const notRecommendedItems = menuItems.filter(item => !fitsSelection(item));
+
+    function renderItem(item: MenuItem) {
+        return (
+            <AsyncInteractionButton
+                key={item.id}
+                data-testid={item.testId}
+                variant="transparent"
+                className={Styles.menuButton}
+                action={item.onClick}
+                disabled={item.disabled}
+                title={item.disabled ? item.hint : undefined}
+            >
+                {item.label}
+            </AsyncInteractionButton>
+        );
+    }
+
     // Rendered on the body so it stays above the dialog and positioned by viewport coordinates
     return createPortal(
         <div
@@ -193,25 +216,13 @@ export default forwardRef(function FeaturesMenu(
         >
             <div className={Styles.selectedWord}>{displayWord}</div>
             <div className={Styles.actions} data-testid={TestIds.menu.actions}>
-                {menuItems
-                    .filter(
-                        item =>
-                            (item.minWords === undefined || selectedWords >= item.minWords) &&
-                            (item.maxWords === undefined || selectedWords <= item.maxWords),
-                    )
-                    .map(item => (
-                        <AsyncInteractionButton
-                            key={item.id}
-                            data-testid={item.testId}
-                            variant="transparent"
-                            className={Styles.menuButton}
-                            action={item.onClick}
-                            disabled={item.disabled}
-                            title={item.disabled ? item.hint : undefined}
-                        >
-                            {item.label}
-                        </AsyncInteractionButton>
-                    ))}
+                {recommendedItems.map(renderItem)}
+                {notRecommendedItems.length > 0 && (
+                    <div className={Styles.notRecommended}>
+                        <div className={Styles.sectionTitle}>{txt('documentPreview.menu.notRecommended')}</div>
+                        {notRecommendedItems.map(renderItem)}
+                    </div>
+                )}
                 {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
                 <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
             </div>

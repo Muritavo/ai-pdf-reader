@@ -80,6 +80,7 @@ export default {
             reference: 'Referência',
             askAbout: 'Perguntar sobre isto',
             tryAgain: 'Tentar novamente',
+            notRecommended: 'Não recomendado',
         },
         promptBar: {
             placeholder: 'Pergunte algo sobre este documento...',
