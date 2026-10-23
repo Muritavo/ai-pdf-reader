@@ -1,6 +1,7 @@
 import { TestIds } from '../testids';
 import AIStatus from '../features/AIStatus';
 import DataTransfer from '../features/DataTransfer';
+import { SwitchProjects } from '../features/Projects';
 import Styles from './StepsHeader.module.css';
 
 export type Step = {
@@ -20,6 +21,9 @@ export default function StepsHeader({
 }) {
     return (
         <header className={Styles.header}>
+            <div className={Styles.start}>
+                <SwitchProjects />
+            </div>
             <nav>
                 <ol className={Styles.steps}>
                     {steps.map((step, i) => (

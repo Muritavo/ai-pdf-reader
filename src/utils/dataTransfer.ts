@@ -1,21 +1,18 @@
+import { clearProjectEntries, projectEntries, scoped } from './projects';
+
 /** Tells an export of this app apart from any other JSON */
 const FORMAT = 'research-workflow-export';
 
 export type DataExport = {
     format: typeof FORMAT;
     exportedAt: string;
-    /** Everything kept in the browser storage, as it is kept: the references, the highlights, the questions... */
+    /** Everything the project keeps in the browser storage: the references, the highlights, the questions... */
     localStorage: Record<string, string>;
 };
 
-/** All the data kept by the app, except the PDFs, which stay in the browser file storage of each machine */
+/** All the data of the open project, except the PDFs, which stay in the browser file storage of each machine */
 export function exportData(): DataExport {
-    const stored: Record<string, string> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)!;
-        stored[key] = localStorage.getItem(key)!;
-    }
-    return { format: FORMAT, exportedAt: new Date().toISOString(), localStorage: stored };
+    return { format: FORMAT, exportedAt: new Date().toISOString(), localStorage: projectEntries() };
 }
 
 /** Downloads the export as a file named with its day */
@@ -42,8 +39,8 @@ export function parseExport(text: string): DataExport | undefined {
     }
 }
 
-/** Replaces what is kept in the browser storage with the export. The PDFs already stored stay */
+/** Replaces what the open project keeps with the export. The PDFs already stored stay */
 export function importData(data: DataExport) {
-    localStorage.clear();
-    for (const [key, value] of Object.entries(data.localStorage)) localStorage.setItem(key, value);
+    clearProjectEntries();
+    for (const [key, value] of Object.entries(data.localStorage)) localStorage.setItem(scoped(key), value);
 }

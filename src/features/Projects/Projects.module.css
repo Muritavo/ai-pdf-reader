@@ -1,0 +1,134 @@
+.chooser {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 96px 24px 64px;
+}
+
+.create {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    outline: none;
+}
+
+.input::placeholder {
+    color: var(--text-muted);
+}
+
+.input:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.open {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.open:hover {
+    background: var(--surface-raised);
+}
+
+.name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.remove {
+    display: inline-grid;
+    place-items: center;
+    margin-right: 8px;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.remove:hover {
+    color: var(--danger);
+    background: var(--surface-raised);
+}
+
+.switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 200px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.switch:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+
+.switchText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.switchLabel {
+    font-size: 11px;
+}
+
+.switchName {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

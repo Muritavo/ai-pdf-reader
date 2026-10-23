@@ -1,9 +1,21 @@
 export default {
+    projects: {
+        title: 'Projetos',
+        description: 'Cada projeto tem suas próprias referências, PDFs, anotações, perguntas e cache da IA.',
+        namePlaceholder: 'Nome do novo projeto',
+        create: 'Criar projeto',
+        empty: 'Nenhum projeto ainda. Crie o primeiro para começar.',
+        last: 'Último aberto',
+        createdAt: 'Criado em {date}',
+        remove: 'Excluir projeto',
+        confirmRemove: 'Excluir o projeto "{name}"? Tudo dele é apagado deste navegador, inclusive os PDFs.',
+        switch: 'Trocar de projeto',
+    },
     dataTransfer: {
-        export: 'Exportar dados (sem os PDFs)',
-        import: 'Importar dados',
+        export: 'Exportar dados do projeto (sem os PDFs)',
+        import: 'Importar dados para este projeto',
         invalid: 'Este arquivo não é uma exportação do Research Workflow.',
-        confirmImport: 'Importar os dados exportados em {date}? Eles substituem os dados atuais (os PDFs já guardados continuam).',
+        confirmImport: 'Importar os dados exportados em {date}? Eles substituem os dados deste projeto (os PDFs já guardados continuam).',
     },
     imageQuestion: {
         open: 'Perguntar sobre esta imagem',

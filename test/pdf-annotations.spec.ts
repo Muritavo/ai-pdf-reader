@@ -418,7 +418,7 @@ test.describe('the list of markers', () => {
     test('lists a marker without a text', async ({ page }) => {
         await mark(page, 'Plasma');
         await page.evaluate(() => {
-            const key = Object.keys(localStorage).find(k => k.startsWith('poi-'))!;
+            const key = Object.keys(localStorage).find(k => /^project\/[^/]+\/poi-/.test(k))!;
             const markers = JSON.parse(localStorage.getItem(key)!) as Array<{ word?: string }>;
             localStorage.setItem(key, JSON.stringify(markers.map(({ word, ...rest }) => rest)));
         });

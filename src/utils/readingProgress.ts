@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react';
+import { scoped } from './projects';
 
 /** How much of the document must have been reached to count it as read to the end */
 export const READ_TO_THE_END = 0.99;
 
 const CHANGED_EVENT = 'reading-progress-changed';
-const keyOf = (hash: string) => `reading-progress/${hash}`;
-const lastOpeningKeyOf = (hash: string) => `reading-last-opening/${hash}`;
+const keyOf = (hash: string) => scoped(`reading-progress/${hash}`);
+const lastOpeningKeyOf = (hash: string) => scoped(`reading-last-opening/${hash}`);
 
 /** The furthest point of the document that was reached, from 0 to 1 */
 export function getReadingProgress(hash?: string): number {

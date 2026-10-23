@@ -1,3 +1,4 @@
+import { scoped } from './projects';
 import { wordingOf } from './wording';
 
 export type PromptScope = 'local' | 'global';
@@ -33,7 +34,7 @@ const localKeyOf = (hash: string) => `prompt-history-${hash}`;
 /** The questions that are offered on every document */
 const GLOBAL_KEY = 'prompt-history-global';
 
-const keyOf = (scope: PromptScope, hash: string) => (scope === 'local' ? localKeyOf(hash) : GLOBAL_KEY);
+const keyOf = (scope: PromptScope, hash: string) => scoped(scope === 'local' ? localKeyOf(hash) : GLOBAL_KEY);
 
 export function loadPrompts(scope: PromptScope, hash: string): PromptHistoryEntry[] {
     const stored = localStorage.getItem(keyOf(scope, hash));

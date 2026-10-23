@@ -6,9 +6,11 @@ export async function sha256(message: string): Promise<string> {
         .join('');
 }
 
+import { scoped } from './projects';
+
 const CACHE_PREFIX = 'cache-';
 
-const cacheKeyOf = async (args: string[]) => `${CACHE_PREFIX}${await sha256(args.join(''))}`;
+const cacheKeyOf = async (args: string[]) => scoped(`${CACHE_PREFIX}${await sha256(args.join(''))}`);
 
 /** Whether the answer for these arguments was already cached, so the AI is not needed */
 export async function isCached(args: string[]) {

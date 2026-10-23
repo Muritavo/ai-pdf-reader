@@ -113,7 +113,8 @@ export const centerOf = (page: Page, testId: string, index = 0) =>
 /** Reads a value saved by the preview for the document, like the last click or the points of interest */
 export const readStored = <T>(page: Page, prefix: string): Promise<T | undefined> =>
     page.evaluate(prefix => {
-        const key = Object.keys(localStorage).find(k => k.startsWith(prefix));
+        // Kept inside the project, as project/<id>/<key>
+        const key = Object.keys(localStorage).find(k => k.replace(/^project\/[^/]+\//, '').startsWith(prefix));
         return key ? JSON.parse(localStorage.getItem(key)!) : undefined;
     }, prefix);
 

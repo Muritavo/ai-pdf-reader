@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { del, get, set } from 'idb-keyval';
 import type { Article, FullText } from '../models/Article';
 import { countWords } from '../utils/preprocessing';
+import { scoped } from '../utils/projects';
 
 type StoredFullText = Omit<FullText, 'url' | 'createdAt'> & { createdAt: string };
 
@@ -21,11 +22,11 @@ export type IArticlesRepository = {
 
 /** Binary content is kept on IndexedDB by hash, metadata on localStorage */
 async function storeFile(hash: string, file: File) {
-    await set(hash, file);
+    await set(scoped(hash), file);
 }
 
 async function restoreFile(hash: string) {
-    return (await get(hash)) as File | undefined;
+    return (await get(scoped(hash))) as File | undefined;
 }
 
 async function readWordCount(file: File) {
@@ -51,7 +52,7 @@ async function hashFile(file: File) {
 
 function readJSON<T>(key: string, fallback: T): T {
     try {
-        const stored = localStorage.getItem(key);
+        const stored = localStorage.getItem(scoped(key));
         return stored ? (JSON.parse(stored) as T) : fallback;
     } catch (e) {
         console.error(`Failed to load ${key} from localStorage`, e);
@@ -64,7 +65,7 @@ function saveFullTexts(fullTexts: Record<string, FullText>) {
         ...f,
         createdAt: f.createdAt.toISOString(),
     }));
-    localStorage.setItem(FULL_TEXTS_KEY, JSON.stringify(items));
+    localStorage.setItem(scoped(FULL_TEXTS_KEY), JSON.stringify(items));
 }
 
 async function loadFullTexts(): Promise<Record<string, FullText>> {
@@ -105,7 +106,7 @@ export function ArticlesRepositoryProvider({ children }: { children: React.React
 
     const setArticles = useCallback((next: Article[]) => {
         _setArticles(next);
-        localStorage.setItem(ARTICLES_KEY, JSON.stringify(next));
+        localStorage.setItem(scoped(ARTICLES_KEY), JSON.stringify(next));
     }, []);
 
     const attachFullText = useCallback(async (articleKey: string, file: File) => {
@@ -141,11 +142,11 @@ export function ArticlesRepositoryProvider({ children }: { children: React.React
         setFullTexts(updated);
         saveFullTexts(updated);
         // The same PDF may be attached to more than one article
-        if (!Object.values(updated).some(f => f.hash === removed.hash)) await del(removed.hash);
+        if (!Object.values(updated).some(f => f.hash === removed.hash)) await del(scoped(removed.hash));
     }, [fullTexts]);
 
     const clear = useCallback(async () => {
-        await Promise.all(Object.values(fullTexts).map(f => del(f.hash)));
+        await Promise.all(Object.values(fullTexts).map(f => del(scoped(f.hash))));
         Object.values(fullTexts).forEach(f => URL.revokeObjectURL(f.url));
         setFullTexts({});
         saveFullTexts({});

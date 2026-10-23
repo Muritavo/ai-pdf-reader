@@ -8,10 +8,20 @@ export const ARTICLES_FIXTURE_SIZE = 51;
 
 export const byId = (page: Page, id: string) => page.getByTestId(id);
 
+/** The project the specs work in, created on the chooser the app starts at */
+export const TEST_PROJECT = 'Projeto de teste';
+
 export async function openApp(page: Page) {
     await page.goto('/');
+    await createProject(page, TEST_PROJECT);
+}
+
+export async function createProject(page: Page, name: string) {
+    await byId(page, TestIds.projects.nameInput).fill(name);
+    await byId(page, TestIds.projects.create).click();
     await expect(byId(page, TestIds.steps.step).first()).toBeVisible();
 }
+
 
 /** The step buttons on the header, in order */
 export const stepButtons = (page: Page) => byId(page, TestIds.steps.step);

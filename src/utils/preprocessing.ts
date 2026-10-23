@@ -3,6 +3,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { isDocumentTextOrganized, organizeDocumentText } from '../services/ai-helper';
 import type { FullText } from '../models/Article';
 import { createProgressTracker, tokenize } from './progressTracker';
+import { scoped } from './projects';
 
 export type PreprocessingProgress = {
     /** From 0 to 1 */
@@ -97,16 +98,18 @@ export function getNormalizedText(
     fullText: FullText,
     onProgress: (progress: PreprocessingProgress) => void = () => {},
 ): Promise<string> {
-    const cached = normalizedTexts.get(fullText.hash);
+    // By project, as nothing done for a project is reused by another
+    const key = scoped(fullText.hash);
+    const cached = normalizedTexts.get(key);
     if (cached) return cached;
 
     const processing = fetch(fullText.url)
         .then(r => r.arrayBuffer())
         .then(bytes => preprocessPDF(bytes, onProgress))
         .catch(error => {
-            normalizedTexts.delete(fullText.hash);
+            normalizedTexts.delete(key);
             throw error;
         });
-    normalizedTexts.set(fullText.hash, processing);
+    normalizedTexts.set(key, processing);
     return processing;
 }

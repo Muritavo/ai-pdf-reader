@@ -1,4 +1,5 @@
 import { DEFAULT_AI_ENDPOINT } from '../services/ai';
+import { scoped } from './projects';
 
 /** The endpoints added on the AI status, and the one in use */
 export type AIEndpoints = { endpoints: string[]; current: string };
@@ -19,10 +20,10 @@ export function isValidEndpoint(endpoint: string) {
 
 /** While nothing was chosen, the default endpoint is the only one */
 export function loadAIEndpoints(): AIEndpoints {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(scoped(STORAGE_KEY));
     return stored ? (JSON.parse(stored) as AIEndpoints) : { endpoints: [DEFAULT_AI_ENDPOINT], current: DEFAULT_AI_ENDPOINT };
 }
 
 export function saveAIEndpoints(endpoints: AIEndpoints) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(endpoints));
+    localStorage.setItem(scoped(STORAGE_KEY), JSON.stringify(endpoints));
 }

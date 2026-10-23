@@ -7,6 +7,15 @@ export const TestIds = {
         clear: 'references-clear',
         next: 'references-next',
     },
+    projects: {
+        chooser: 'projects-chooser',
+        nameInput: 'projects-name-input',
+        create: 'projects-create',
+        item: 'projects-item',
+        remove: 'projects-remove',
+        switch: 'projects-switch',
+        currentName: 'projects-current-name',
+    },
     dataTransfer: {
         export: 'data-export',
         import: 'data-import',

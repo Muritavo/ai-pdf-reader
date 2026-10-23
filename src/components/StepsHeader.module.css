@@ -70,6 +70,13 @@
     color: var(--success);
 }
 
+.start {
+    position: absolute;
+    top: 50%;
+    left: 24px;
+    transform: translateY(-50%);
+}
+
 .aside {
     display: flex;
     align-items: center;

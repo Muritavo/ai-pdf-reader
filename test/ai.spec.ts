@@ -234,7 +234,7 @@ test.describe('warming up a document', () => {
         await warmUp(page);
         await page.evaluate(() => {
             Object.keys(localStorage)
-                .filter(key => key.startsWith('cache-'))
+                .filter(key => /^project\/[^/]+\/cache-/.test(key))
                 .forEach(key => localStorage.removeItem(key));
         });
 

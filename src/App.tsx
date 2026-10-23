@@ -3,9 +3,12 @@ import StepsHeader, { type Step } from './components/StepsHeader';
 import AddReferences from './steps/AddReferences';
 import AssociateFullText from './steps/AssociateFullText';
 import UnderConstruction from './steps/UnderConstruction';
-import { useArticlesRepository } from './context/ArticlesRepository';
+import { ArticlesRepositoryProvider, useArticlesRepository } from './context/ArticlesRepository';
+import { AIProvider } from './context/AIContext';
+import { useProjects } from './context/ProjectsContext';
+import { ProjectChooser } from './features/Projects';
 
-export default function App() {
+function Workspace() {
     const { articles } = useArticlesRepository();
     const hasArticles = articles.length > 0;
     // Articles are restored synchronously, so a returning user lands straight on step 2
@@ -28,5 +31,18 @@ export default function App() {
                 {active === 2 && <UnderConstruction />}
             </main>
         </>
+    );
+}
+
+export default function App() {
+    const { current } = useProjects();
+    if (!current) return <ProjectChooser />;
+    // Keyed by the project, so everything starts again reading the data of the one opened
+    return (
+        <AIProvider key={current.id}>
+            <ArticlesRepositoryProvider>
+                <Workspace />
+            </ArticlesRepositoryProvider>
+        </AIProvider>
     );
 }

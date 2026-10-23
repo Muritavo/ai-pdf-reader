@@ -26,6 +26,7 @@ import ImageQuestion from './components/ImageQuestion';
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
+import { scoped } from '../../utils/projects';
 import ResponseModal from './components/ResponseModal/ResponseModal';
 import { askAboutImage, REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
@@ -83,9 +84,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         const pdfBytes = new Uint8Array(await response.arrayBuffer());
         return pdfjsLib.getDocument({ data: pdfBytes }).promise;
     }, [fullText.url]);
-    const [lastClick, setLastClick] = useLocalStorage<ClickPosition | null>(`lastClick-${hash}`, null);
+    const [lastClick, setLastClick] = useLocalStorage<ClickPosition | null>(scoped(`lastClick-${hash}`), null);
     const [pointsOfInterest, setPointsOfInterest] = useLocalStorage<Array<ClickPosition & { word?: string }>>(
-        `poi-${hash}`,
+        scoped(`poi-${hash}`),
         [],
     );
     const clickCounterRef = useRef(0);

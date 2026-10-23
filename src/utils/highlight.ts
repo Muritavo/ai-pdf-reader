@@ -1,6 +1,7 @@
 import chroma from 'chroma-js';
 import seedrandom from 'seedrandom';
 import { useEffect, useState } from 'react';
+import { scoped } from './projects';
 
 const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
 const DEFINITION_STORAGE_KEY = 'pdf-ai-reader/definitions';
@@ -50,7 +51,7 @@ function createDefinitionColor(normalizedWord: string) {
 }
 
 export function useHighlightsForPDF(hash?: string) {
-    const key = `${HIGHLIGHT_STORAGE_KEY}/${hash ?? ''}`;
+    const key = scoped(`${HIGHLIGHT_STORAGE_KEY}/${hash ?? ''}`);
     const [highlightRules, setHighlightRules] = useState<HighlightRule[]>();
 
     useEffect(() => {
@@ -79,7 +80,7 @@ export function useHighlightsForPDF(hash?: string) {
 }
 
 export function useDefinitionsForPDF(hash?: string) {
-    const key = `${DEFINITION_STORAGE_KEY}/${hash ?? ''}`;
+    const key = scoped(`${DEFINITION_STORAGE_KEY}/${hash ?? ''}`);
     const [definitionRules, setDefinitionRules] = useState<DefinitionRule[]>();
 
     useEffect(() => {
