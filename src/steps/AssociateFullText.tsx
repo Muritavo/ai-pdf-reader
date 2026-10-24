@@ -7,6 +7,7 @@ import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
+import ManualReference from '../features/ManualReference';
 import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
@@ -225,10 +226,14 @@ export default function AssociateFullText() {
             <Text type="description">
                 Envie ou arraste o PDF de cada artigo. Itens tracejados ainda não possuem texto completo.
             </Text>
-            <Text type="caption" data-testid={TestIds.fullTexts.progressCount}>
-                {associated} de {articles.length} artigos com PDF
-                {query.trim() && ` · ${visible.length} encontrados`}
-            </Text>
+            <div className={Styles.actions}>
+                <Text type="caption" data-testid={TestIds.fullTexts.progressCount}>
+                    {associated} de {articles.length} artigos com PDF
+                    {query.trim() && ` · ${visible.length} encontrados`}
+                </Text>
+                {/* For the articles that were not on the CSV of the screening */}
+                <ManualReference variant="transparent" />
+            </div>
             <progress className={Styles.progress} max={articles.length || 1} value={associated} />
 
             <ul className={Styles.articleList} data-testid={TestIds.fullTexts.list}>

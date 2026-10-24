@@ -71,4 +71,17 @@ export async function deleteProjectData(id: string) {
     removeStoredWithPrefix(prefix);
     const files = (await keys()).filter(key => typeof key === 'string' && key.startsWith(prefix));
     await delMany(files);
+    await removeBrowserAttachments(id);
+}
+
+/** The attachments kept on the private storage of the browser, when it has no access to a folder of the computer */
+async function removeBrowserAttachments(id: string) {
+    if (!('storage' in navigator && 'getDirectory' in navigator.storage)) return;
+    try {
+        const projects = await (await navigator.storage.getDirectory()).getDirectoryHandle('project');
+        await projects.removeEntry(id, { recursive: true });
+    } catch (e) {
+        // The project never had attachments there
+        if (!(e instanceof DOMException && e.name === 'NotFoundError')) throw e;
+    }
 }

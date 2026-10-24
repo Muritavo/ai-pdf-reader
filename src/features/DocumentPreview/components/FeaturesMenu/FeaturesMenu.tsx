@@ -8,6 +8,8 @@ import { defineWordInContext, findReferenceInContext } from '../../../../service
 import { getNormalizedText } from '../../../../utils/preprocessing';
 import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
+import { usePlugins } from '../../../../context/PluginsContext';
+import type { PluginResult } from '../../../../plugins/types';
 
 export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
 
@@ -44,6 +46,8 @@ type FeaturesMenuProps = {
     onDefined: (word: string, definition: string) => void;
     /** Shows the reference found for the selected passage */
     onReferenceFound: (passage: string, answer: string) => void;
+    /** Shows what the action of a plugin found */
+    onPluginResult: (result: PluginResult) => void;
 };
 
 function extractSelectedWord(selectionText: string) {
@@ -52,10 +56,21 @@ function extractSelectedWord(selectionText: string) {
 }
 
 export default forwardRef(function FeaturesMenu(
-    { addHighlight, fullText, aiReady, getDocumentCoordinates, onMarkLocation, onReferenceFound, onDefined, onAskAbout }: FeaturesMenuProps,
+    {
+        addHighlight,
+        fullText,
+        aiReady,
+        getDocumentCoordinates,
+        onMarkLocation,
+        onReferenceFound,
+        onDefined,
+        onAskAbout,
+        onPluginResult,
+    }: FeaturesMenuProps,
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
+    const { menuOptions: pluginOptions } = usePlugins();
     const [word, setWord] = useState<string>();
     const [{ x, y }, setPosition] = useState({ x: 0, y: 0 });
 
@@ -178,6 +193,22 @@ export default forwardRef(function FeaturesMenu(
             },
         },
     ];
+
+    // The plugins only offer their actions for the selections they know about (as a protein, for UniProt)
+    for (const option of pluginOptions) {
+        if (option.matches && !option.matches(word)) continue;
+        menuItems.push({
+            id: `plugin-${option.id}`,
+            testId: option.testId ?? `menu-plugin-${option.id}`,
+            label: option.label,
+            minWords: option.minWords,
+            maxWords: option.maxWords,
+            onClick: async () => {
+                await option.onClick({ selection: word, showResult: onPluginResult });
+                dismiss();
+            },
+        });
+    }
 
     const selectedWords = word.split(/\s+/).filter(Boolean).length;
     const displayWord = word.length > 120 ? `${word.slice(0, 25)}...${word.slice(-25)}` : word;

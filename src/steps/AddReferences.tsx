@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import FileInput from '@onepercentio/one-ui/components/FileInput';
 import Button from '@onepercentio/one-ui/components/Button';
 import Text from '@onepercentio/one-ui/components/Text';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import { parseArticlesCsv } from '../utils/parseArticlesCsv';
+import ManualReference, { isManualReference } from '../features/ManualReference';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
@@ -11,6 +12,9 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
     const { articles, setArticles, clear } = useArticlesRepository();
     const [file, setFile] = useState<File>();
     const [error, setError] = useState<string>();
+    // FileInput keeps the first onFile it gets, so the current references are read from here
+    const articlesRef = useRef(articles);
+    articlesRef.current = articles;
 
     const onFile = async (f: File | undefined) => {
         setError(undefined);
@@ -19,7 +23,8 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
         try {
             const parsed = await parseArticlesCsv(f);
             if (!parsed.length) throw new Error('Nenhuma referência encontrada no arquivo.');
-            setArticles(parsed);
+            // The CSV replaces the references of another CSV, keeping the ones typed by hand
+            setArticles([...parsed, ...articlesRef.current.filter(article => isManualReference(article))]);
         } catch (e) {
             setFile(undefined);
             setError(e instanceof Error ? e.message : String(e));
@@ -51,6 +56,11 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
                     },
                 }}
             />
+
+            <div className={Styles.manualEntry}>
+                <Text type="caption">ou</Text>
+                <ManualReference />
+            </div>
 
             {error && (
                 <Text type="caption" className={Styles.error} role="alert" data-testid={TestIds.references.error}>

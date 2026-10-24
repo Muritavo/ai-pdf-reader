@@ -1,0 +1,58 @@
+.trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(520px, 86vw);
+    padding: 28px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.row {
+    display: flex;
+    gap: 12px;
+}
+
+.year {
+    flex: 0 0 90px;
+}
+
+.input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    outline: none;
+    resize: vertical;
+}
+
+.input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.input:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}

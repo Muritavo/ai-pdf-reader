@@ -7,6 +7,7 @@ import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
 import { unwrapMarkdownFence } from '../../../../utils/markdownFence';
 import ResponseModal from '../ResponseModal/ResponseModal';
+import Attachments from '../Attachments';
 import { TestIds } from '../../../../testids';
 import Styles from './DocumentActions.module.scss';
 
@@ -78,6 +79,7 @@ export default function DocumentActions({ fullText, aiReady }: DocumentActionsPr
                         {running === action.id ? <Dots dotsCount={3} lockSize /> : action.icon}
                     </button>
                 ))}
+                <Attachments fullText={fullText} />
             </div>
             {result && (
                 <ResponseModal

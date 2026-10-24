@@ -34,6 +34,7 @@ import ResponseModalStyles from './components/ResponseModal/ResponseModal.module
 import Button from '@onepercentio/one-ui/components/Button';
 import DocumentPromptBar, { type DocumentPromptBarHandle } from './components/DocumentPromptBar';
 import { TestIds } from '../../testids';
+import type { PluginResult } from '../../plugins/types';
 import Styles from './DocumentPreview.module.scss';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -70,6 +71,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
+    const [pluginResult, setPluginResult] = useState<PluginResult>();
     // The images of each page, recorded while drawing it, and the one a question is being written about
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
     const [askingImage, setAskingImage] = useState<{ page: number; index: number }>();
@@ -545,7 +547,17 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
                 onDefined={addDefinition}
                 onAskAbout={statement => promptBarRef.current?.askAbout(statement)}
+                onPluginResult={setPluginResult}
             />
+            {pluginResult && (
+                <ResponseModal
+                    prompt={pluginResult.prompt}
+                    answer={pluginResult.answer}
+                    onClose={() => setPluginResult(undefined)}
+                    labels={{ title: pluginResult.title, prompt: pluginResult.promptLabel, answer: pluginResult.answerLabel }}
+                    testIds={{ modal: TestIds.preview.pluginModal, answer: TestIds.preview.pluginAnswer }}
+                />
+            )}
             {imageAnswer && (
                 <ResponseModal
                     prompt={imageAnswer.question}

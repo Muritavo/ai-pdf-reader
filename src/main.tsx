@@ -6,6 +6,7 @@ import OneUIProvider from '@onepercentio/one-ui/context/OneUIProvider';
 import BigFactory from '@onepercentio/one-ui/components/FileInput/View/BigFactory';
 import App from './App';
 import { ProjectsProvider } from './context/ProjectsContext';
+import { PluginsProvider } from './context/PluginsContext';
 import pt from './i18n/pt';
 import './index.css';
 
@@ -50,7 +51,9 @@ createRoot(document.getElementById('root')!).render(
         >
             <IntlProvider locale="pt-BR" messages={flatten(pt)}>
                 <ProjectsProvider>
-                    <App />
+                    <PluginsProvider>
+                        <App />
+                    </PluginsProvider>
                 </ProjectsProvider>
             </IntlProvider>
         </OneUIProvider>
