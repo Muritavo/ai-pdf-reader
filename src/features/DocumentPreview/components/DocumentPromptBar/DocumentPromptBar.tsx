@@ -41,6 +41,8 @@ export default forwardRef(function DocumentPromptBar(
     const [history, setHistory] = useState<Record<PromptScope, PromptHistoryEntry[]>>({ local: [], global: [] });
     const [showHistory, setShowHistory] = useState(false);
     const [showResponseModal, setShowResponseModal] = useState(false);
+    /** An entry of the history, shown on the window with its answer, leaving the prompt as it is */
+    const [pickedEntry, setPickedEntry] = useState<{ prompt: string; answer: string }>();
 
     const { ready: aiReady } = useWarmUp(fullText);
     const { hash } = fullText;
@@ -183,15 +185,18 @@ export default forwardRef(function DocumentPromptBar(
             {showResponseModal && (
                 <ResponseModal prompt={promptText!} answer={lastAnswer!} onClose={() => setShowResponseModal(false)} />
             )}
+            {pickedEntry && (
+                <ResponseModal prompt={pickedEntry.prompt} answer={pickedEntry.answer} onClose={() => setPickedEntry(undefined)} />
+            )}
             {showHistory && (
                 <PromptHistoryPanel
                     entries={history}
                     documentHash={hash}
                     onPick={entry => {
-                        setPromptText(entry.prompt);
-                        // Only the answer about this document, as a global question may have been answered about others
-                        setLastAnswer(answerFor(entry, hash));
-                        setShowHistory(false);
+                        // Only the answer about this document, as a global question may have been answered about others.
+                        // Without one, there is nothing to show: the entry offers to answer it instead
+                        const answer = answerFor(entry, hash);
+                        if (answer !== undefined) setPickedEntry({ prompt: entry.prompt, answer });
                     }}
                     onRemove={(entry, scope) => saveHistory(scope, history[scope].filter(other => other !== entry))}
                     onMove={moveEntry}

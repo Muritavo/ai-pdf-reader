@@ -86,7 +86,7 @@ export default function PromptHistoryPanel({ entries, documentHash, onPick, onRe
                                 title={txt('documentPreview.promptBar.removeEntry')}
                                 aria-label={txt('documentPreview.promptBar.removeEntry')}
                                 onClick={e => {
-                                    // Removing does not bring the entry back to the prompt
+                                    // Removing does not open the entry
                                     e.stopPropagation();
                                     onRemove(entry, scope);
                                 }}
@@ -134,7 +134,7 @@ export default function PromptHistoryPanel({ entries, documentHash, onPick, onRe
                                 <Text type="caption" className={Styles.historyItemTime}>
                                     {formatTimestamp(entry.timestamp)}
                                 </Text>
-                                {/* Picking the list does not load the entry on the prompt */}
+                                {/* Picking the list does not open the entry */}
                                 <div
                                     className={Styles.scopeToggle}
                                     data-testid={TestIds.ai.historyScopeToggle}

@@ -1,9 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+
+// local mkcert certificate (see .cert/); falls back to plain http when absent
+const certDir = fileURLToPath(new URL('./.cert/', import.meta.url));
+const https = fs.existsSync(`${certDir}cert.pem`)
+  ? { key: fs.readFileSync(`${certDir}key.pem`), cert: fs.readFileSync(`${certDir}cert.pem`) }
+  : undefined;
 
 export default defineConfig({
   plugins: [react()],
+  server: { https },
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
