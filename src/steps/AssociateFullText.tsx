@@ -9,6 +9,7 @@ import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
 import ManualReference from '../features/ManualReference';
 import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
+import useShortcut from '../hooks/useShortcut';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
@@ -176,6 +177,7 @@ const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '
 export default function AssociateFullText() {
     const { articles, fullTexts, attachFullText, detachFullText } = useArticlesRepository();
     const [query, setQuery] = useState('');
+    const searchRef = useRef<HTMLInputElement>(null);
     const [previewKey, setPreviewKey] = useState<string>();
     const [previewOpen, setPreviewOpen] = useState(false);
     const previewFullText = previewKey ? fullTexts[previewKey] : undefined;
@@ -189,6 +191,17 @@ export default function AssociateFullText() {
     const uploadedVisible = uploaded.filter(a => visibleKeys.has(a.key)).length;
     const pendingVisible = pending.filter(a => visibleKeys.has(a.key)).length;
     const associated = articles.filter(a => fullTexts[a.key]).length;
+    // Takes over the search of the browser, but not while a document is open over the list
+    useShortcut(
+        previewOpen
+            ? null
+            : () => {
+                  searchRef.current?.focus();
+                  searchRef.current?.select();
+              },
+        'mod',
+        'f',
+    );
 
     // Articles missed by the search render an empty Fragment so the container animates the "out" state
     const renderItem = (article: Article) => (
@@ -214,6 +227,7 @@ export default function AssociateFullText() {
     return (
         <section className={Styles.step}>
             <input
+                ref={searchRef}
                 type="search"
                 className={Styles.search}
                 placeholder="Buscar por título"

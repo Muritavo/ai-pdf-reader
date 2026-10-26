@@ -10,6 +10,10 @@ export const TestIds = {
         manualForm: 'references-manual-form',
         manualTitle: 'references-manual-title',
         manualSave: 'references-manual-save',
+        manualCitation: 'references-manual-citation',
+        manualCitationFill: 'references-manual-citation-fill',
+        manualPasteOffer: 'references-manual-paste-offer',
+        manualPaste: 'references-manual-paste',
     },
     projects: {
         chooser: 'projects-chooser',
@@ -100,6 +104,12 @@ export const TestIds = {
         markerItem: 'marker-item',
         markerGoTo: 'marker-goto',
         markerRemove: 'marker-remove',
+        notesButton: 'notes-button',
+        notesPanel: 'notes-panel',
+        noteInput: 'note-input',
+        noteAdd: 'note-add',
+        noteItem: 'note-item',
+        noteRemove: 'note-remove',
     },
     menu: {
         root: 'features-menu',

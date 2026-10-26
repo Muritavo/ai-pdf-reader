@@ -143,3 +143,37 @@
   color: $colorDanger;
   background: rgba($colorDanger, 0.14);
 }
+
+.noteForm {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 4px;
+}
+
+.noteInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid lighten($colorSurface, 8%);
+  border-radius: 8px;
+  background: $colorSurface;
+  color: $colorText;
+  font: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: $colorHighlight;
+  }
+}
+
+// Notes keep their line breaks and are shown whole, unlike the one line titles
+.noteText {
+  color: $colorText;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

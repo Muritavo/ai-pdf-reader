@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { TestIds } from '../testids';
 import AIStatus from '../features/AIStatus';
 import DataTransfer from '../features/DataTransfer';
@@ -19,8 +20,19 @@ export default function StepsHeader({
     current: number;
     onSelect: (index: number) => void;
 }) {
+    const headerRef = useRef<HTMLElement>(null);
+    const [height, setHeight] = useState(0);
+    // Sticky at minus its own height, so it scrolls away and leaves the top to what sticks under it
+    useLayoutEffect(() => {
+        const header = headerRef.current!;
+        setHeight(header.clientHeight);
+        const observer = new ResizeObserver(() => setHeight(header.clientHeight));
+        observer.observe(header);
+        return () => observer.disconnect();
+    }, []);
+
     return (
-        <header className={Styles.header}>
+        <header ref={headerRef} className={Styles.header} style={{ top: -height }}>
             <div className={Styles.start}>
                 <SwitchProjects />
             </div>

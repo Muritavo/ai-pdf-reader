@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Brain, Crosshair, Sparkles, Trash2 } from 'lucide-react';
+import { Brain, Crosshair, Plus, Sparkles, StickyNote, Trash2 } from 'lucide-react';
 import { TestIds } from '../../../../testids';
 import Styles from './AnnotationsToolbar.module.scss';
 
@@ -18,7 +18,13 @@ export type MarkerItem = {
     page: number;
 };
 
-type Panel = 'highlights' | 'markers';
+export type NoteItem = {
+    id: number;
+    text: string;
+    createdAt: number;
+};
+
+type Panel = 'highlights' | 'markers' | 'notes';
 
 type AnnotationsToolbarProps = {
     highlights: HighlightItem[];
@@ -28,6 +34,9 @@ type AnnotationsToolbarProps = {
     onRemoveHighlight: (normalizedWord: string) => void;
     onGoToMarker: (key: number) => void;
     onRemoveMarker: (key: number) => void;
+    notes: NoteItem[];
+    onAddNote: (text: string) => void;
+    onRemoveNote: (id: number) => void;
 };
 
 const uniquePages = (pages: number[]) => [...new Set(pages)].sort((a, b) => a - b);
@@ -40,11 +49,22 @@ export default function AnnotationsToolbar({
     onRemoveHighlight,
     onGoToMarker,
     onRemoveMarker,
+    notes,
+    onAddNote,
+    onRemoveNote,
 }: AnnotationsToolbarProps) {
     const { txt, formatMessage } = useShortIntl();
     const [open, setOpen] = useState<Panel>();
+    const [draft, setDraft] = useState('');
     const markers = getMarkers();
     const toggle = (panel: Panel) => setOpen(current => (current === panel ? undefined : panel));
+
+    const addNote = (e?: { preventDefault: () => void }) => {
+        e?.preventDefault();
+        if (!draft.trim()) return;
+        onAddNote(draft.trim());
+        setDraft('');
+    };
 
     return (
         <div className={Styles.toolbar}>
@@ -74,6 +94,19 @@ export default function AnnotationsToolbar({
                 >
                     <Brain size={18} strokeWidth={1.75} />
                     {markers.length > 0 && <span className={Styles.badge}>{markers.length}</span>}
+                </button>
+                <button
+                    type="button"
+                    className={`${Styles.button} ${open === 'notes' ? Styles.active : ''}`}
+                    data-testid={TestIds.annotations.notesButton}
+                    data-count={notes.length}
+                    aria-expanded={open === 'notes'}
+                    title={txt('annotations.notes')}
+                    aria-label={txt('annotations.notes')}
+                    onClick={() => toggle('notes')}
+                >
+                    <StickyNote size={18} strokeWidth={1.75} />
+                    {notes.length > 0 && <span className={Styles.badge}>{notes.length}</span>}
                 </button>
             </div>
 
@@ -158,6 +191,58 @@ export default function AnnotationsToolbar({
                                 title={txt('annotations.remove')}
                                 aria-label={txt('annotations.remove')}
                                 onClick={() => onRemoveMarker(item.key)}
+                            >
+                                <Trash2 size={15} strokeWidth={1.75} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {open === 'notes' && (
+                <div className={Styles.panel} data-testid={TestIds.annotations.notesPanel}>
+                    <form className={Styles.noteForm} onSubmit={addNote}>
+                        <textarea
+                            className={Styles.noteInput}
+                            data-testid={TestIds.annotations.noteInput}
+                            value={draft}
+                            rows={3}
+                            autoFocus
+                            placeholder={txt('annotations.notePlaceholder')}
+                            aria-label={txt('annotations.notePlaceholder')}
+                            onChange={e => setDraft(e.target.value)}
+                            // Enter saves, Shift+Enter breaks the line
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) addNote(e);
+                            }}
+                        />
+                        <button
+                            type="submit"
+                            className={Styles.action}
+                            data-testid={TestIds.annotations.noteAdd}
+                            disabled={!draft.trim()}
+                            title={txt('annotations.addNote')}
+                            aria-label={txt('annotations.addNote')}
+                        >
+                            <Plus size={15} strokeWidth={1.75} />
+                        </button>
+                    </form>
+                    {notes.length === 0 && <p className={Styles.empty}>{txt('annotations.noNotes')}</p>}
+                    {[...notes].reverse().map(note => (
+                        <div key={note.id} className={Styles.item} data-testid={TestIds.annotations.noteItem}>
+                            <div className={Styles.itemText}>
+                                <span className={Styles.noteText}>{note.text}</span>
+                                <span className={Styles.itemDetails}>
+                                    {new Date(note.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className={`${Styles.action} ${Styles.remove}`}
+                                data-testid={TestIds.annotations.noteRemove}
+                                title={txt('annotations.remove')}
+                                aria-label={txt('annotations.remove')}
+                                onClick={() => onRemoveNote(note.id)}
                             >
                                 <Trash2 size={15} strokeWidth={1.75} />
                             </button>

@@ -20,7 +20,7 @@ import {
 } from '../../utils/highlight';
 import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
-import AnnotationsToolbar, { type MarkerItem } from './components/AnnotationsToolbar';
+import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
 import ImageQuestion from './components/ImageQuestion';
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
@@ -91,6 +91,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         scoped(`poi-${hash}`),
         [],
     );
+    const [notes, setNotes] = useLocalStorage<NoteItem[]>(scoped(`notes-${hash}`), []);
     const clickCounterRef = useRef(0);
 
     /** Converts viewport coordinates into percentages of the scrollable document */
@@ -536,6 +537,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 onRemoveHighlight={removeHighlight}
                 onGoToMarker={goToMarker}
                 onRemoveMarker={key => setPointsOfInterest(prev => prev.filter(poi => poi.key !== key))}
+                notes={notes}
+                onAddNote={text => setNotes(prev => [...prev, { id: Date.now(), text, createdAt: Date.now() }])}
+                onRemoveNote={id => setNotes(prev => prev.filter(note => note.id !== id))}
             />
             <FeaturesMenu
                 ref={menuRef}

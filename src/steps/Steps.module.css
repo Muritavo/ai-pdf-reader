@@ -110,7 +110,11 @@
     }
 }
 
+/* Stays at the top while the list scrolls, once the header has scrolled away */
 .search {
+    position: sticky;
+    top: 12px;
+    z-index: 1;
     width: 100%;
     padding: 10px 14px;
     border: 0;
@@ -119,6 +123,8 @@
     color: var(--text);
     font: inherit;
     outline: none;
+    /* Hides the articles passing behind the gap around it */
+    box-shadow: 0 0 0 12px var(--bg);
 }
 
 .search::placeholder {
@@ -126,7 +132,7 @@
 }
 
 .search:focus {
-    box-shadow: 0 0 0 2px var(--accent);
+    box-shadow: 0 0 0 2px var(--accent), 0 0 0 12px var(--bg);
 }
 
 .divider {
