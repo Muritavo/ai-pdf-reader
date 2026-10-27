@@ -7,6 +7,8 @@ export type PluginResult = {
     /** Markdown */
     answer: string;
     answerLabel: string;
+    /** The URL of an image drawn faded behind the result, as the structure of a molecule */
+    background?: string;
 };
 
 /** What an action of the menu gets to work with */

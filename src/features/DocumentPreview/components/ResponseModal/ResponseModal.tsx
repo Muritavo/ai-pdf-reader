@@ -17,14 +17,17 @@ type ResponseModalProps = {
     actions?: ReactNode;
     /** Shown with the question, as the image it was about */
     media?: ReactNode;
+    /** The URL of an image drawn faded behind everything, as the structure of a molecule */
+    background?: string;
 };
 
-export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions, media }: ResponseModalProps) {
+export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions, media, background }: ResponseModalProps) {
     const { txt } = useShortIntl();
 
     return (
         <div className={Styles.modalOverlay} onClick={onClose} data-testid={testIds?.modal ?? TestIds.ai.responseModal}>
             <div className={Styles.modalContent} onClick={e => e.stopPropagation()}>
+                {background && <img className={Styles.background} src={background} alt="" aria-hidden />}
                 <div className={Styles.modalHeader}>
                     <Text type="subtitle">{labels?.title ?? txt('documentPreview.responseModal.title')}</Text>
                     <Button variant="transparent" onClick={onClose} aria-label={txt('documentPreview.responseModal.close')}>

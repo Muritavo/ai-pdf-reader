@@ -13,6 +13,10 @@
 }
 
 .modalContent {
+  position: relative;
+  // Keeps the background inside the rounded corners
+  isolation: isolate;
+  overflow: hidden;
   background: $colorPanel;
   border-radius: 12px;
   width: 100%;
@@ -95,4 +99,20 @@
     border-radius: 8px;
     background: #fff;
   }
+}
+
+// Behind the texts, at the top right and never wider than 80% of the window, so the whole drawing is always seen
+.background {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: -1;
+  max-width: 80%;
+  max-height: 80%;
+  // The drawings are black on transparent: inverted for the dark window, turning the colors of the atoms back
+  filter: invert(1) hue-rotate(180deg);
+  opacity: 0.22;
+  // Fading only towards the corners, past the edges of the drawing, so almost all of it is seen
+  mask-image: radial-gradient(circle farthest-corner, #000 65%, transparent);
+  pointer-events: none;
 }

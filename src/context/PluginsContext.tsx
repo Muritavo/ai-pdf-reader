@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Plugin, PluginMenuOption } from '../plugins/types';
 import UniprotPlugin from '../plugins/Uniprot';
+import ChemblPlugin from '../plugins/Chembl';
 
 /** Imported for now. Later they can come from somewhere else, with the same shape */
-const PLUGINS: Plugin[] = [UniprotPlugin];
+const PLUGINS: Plugin[] = [UniprotPlugin, ChemblPlugin];
 
 export type IPlugins = {
     /** The options of the plugins already set up, for the menu of the selection */
