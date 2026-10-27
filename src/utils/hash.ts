@@ -17,6 +17,11 @@ export async function isCached(args: string[]) {
     return window.localStorage.getItem(await cacheKeyOf(args)) !== null;
 }
 
+/** Forgets the cached answer for these arguments, so the AI is asked again next time */
+export async function clearCached(args: string[]) {
+    window.localStorage.removeItem(await cacheKeyOf(args));
+}
+
 /** Caches the (expensive) AI answers on localStorage, keyed by the hash of the arguments */
 export async function withCache(args: string[], produce: () => Promise<string>) {
     const cacheKey = await cacheKeyOf(args);

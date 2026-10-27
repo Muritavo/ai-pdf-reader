@@ -3,7 +3,7 @@ import useAsyncControl from '@onepercentio/one-ui/hooks/useAsyncControl';
 import { getLoadedModelId, pingServer, setAIEndpoint } from '../services/ai';
 import { isValidEndpoint, loadAIEndpoints, normalizeEndpoint, saveAIEndpoints, type AIEndpoints } from '../utils/aiEndpoints';
 import type { FullText } from '../models/Article';
-import { getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
+import { clearNormalizedText, getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
 
 export type AIStatus = 'offline' | 'online';
 
@@ -38,6 +38,8 @@ type AIContextShape = {
     warmUp: (fullText: FullText) => Promise<void>;
     /** Marks the document as warmed up when it was before, without using the AI */
     checkWarmedUpBefore: (fullText: FullText) => Promise<void>;
+    /** Discards the normalized text, so the document has to be warmed up again */
+    clearWarmUp: (fullText: FullText) => Promise<void>;
 };
 
 export const AIContext = createContext<AIContextShape>(null as any);
@@ -172,6 +174,14 @@ export function AIProvider({ children }: { children: ReactNode }) {
         [updateWarmUp],
     );
 
+    const clearWarmUp = useCallback(
+        async (fullText: FullText) => {
+            await clearNormalizedText(fullText);
+            updateWarmUp(fullText.articleKey, NOT_WARMED);
+        },
+        [updateWarmUp],
+    );
+
     const value = useMemo(
         () => ({
             status,
@@ -185,8 +195,9 @@ export function AIProvider({ children }: { children: ReactNode }) {
             warmUps,
             warmUp,
             checkWarmedUpBefore,
+            clearWarmUp,
         }),
-        [status, endpoints, selectEndpoint, addEndpoint, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore],
+        [status, endpoints, selectEndpoint, addEndpoint, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore, clearWarmUp],
     );
 
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;
@@ -198,7 +209,7 @@ export function useAI() {
 
 /** Warm up state of a full text, and whether the AI features that depend on it can be used */
 export function useWarmUp(fullText: FullText) {
-    const { status, checking, warmUps, warmUp, checkWarmedUpBefore } = useAI();
+    const { status, checking, warmUps, warmUp, checkWarmedUpBefore, clearWarmUp } = useAI();
     const current = warmUps[fullText.articleKey] ?? NOT_WARMED;
     return {
         ...current,
@@ -207,5 +218,6 @@ export function useWarmUp(fullText: FullText) {
         ready: status === 'online' && current.state === 'done',
         start: () => warmUp(fullText),
         checkWarmedUpBefore: () => checkWarmedUpBefore(fullText),
+        clear: () => clearWarmUp(fullText),
     };
 }

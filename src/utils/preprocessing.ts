@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { isDocumentTextOrganized, organizeDocumentText } from '../services/ai-helper';
+import { forgetDocumentTextOrganization, isDocumentTextOrganized, organizeDocumentText } from '../services/ai-helper';
 import type { FullText } from '../models/Article';
 import { createProgressTracker, tokenize } from './progressTracker';
 import { scoped } from './projects';
@@ -112,4 +112,11 @@ export function getNormalizedText(
         });
     normalizedTexts.set(key, processing);
     return processing;
+}
+
+/** Discards the organized text of a full text, kept and saved, so the next warm up normalizes it again */
+export async function clearNormalizedText(fullText: FullText) {
+    normalizedTexts.delete(scoped(fullText.hash));
+    const bytes = await (await fetch(fullText.url)).arrayBuffer();
+    await forgetDocumentTextOrganization((await extractPageTexts(bytes)).join(' '));
 }

@@ -103,6 +103,7 @@ export default {
         ready: 'Documento pronto para a IA',
         error: 'Falha ao preparar o documento. Clique para tentar novamente',
         locked: 'Disponível quando a IA estiver online e o documento preparado',
+        clear: 'Descartar o texto preparado pela IA',
     },
     aiStatus: {
         title: 'Status da IA',

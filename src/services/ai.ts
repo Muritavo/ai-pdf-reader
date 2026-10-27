@@ -34,7 +34,6 @@ export async function callOpenAiApi(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${API_KEY}`,
-      ...(cache ? {} : { cache: "false" }),
     },
     body: JSON.stringify({
       // Servers that don't report the loaded model are still used, with the default model
@@ -42,6 +41,7 @@ export async function callOpenAiApi(
       messages,
       stream: true,
       chat_template_kwargs: { enable_thinking: false },
+      ...(cache ? {} : { cache: false }),
     }),
   });
 
