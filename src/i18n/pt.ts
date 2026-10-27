@@ -50,10 +50,10 @@ export default {
         cancel: 'Cancelar',
         save: 'Adicionar',
         citation: {
-            ask: 'Já tem uma citação NLM do PubMed na área de transferência?',
-            missing: 'Nenhuma citação NLM na área de transferência. Copie uma e tente de novo.',
+            ask: 'Já tem uma citação do PubMed, Springer Nature ou MDPI na área de transferência?',
+            missing: 'Nenhuma citação reconhecida na área de transferência. Copie uma e tente de novo.',
             paste: 'Colar',
-            found: 'Citação NLM encontrada',
+            found: 'Citação encontrada',
             fill: 'Preencher',
             dismiss: 'Ignorar',
         },

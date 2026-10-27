@@ -34,3 +34,64 @@ export function parseNlmCitation(text: string): CitationFields | undefined {
         doi: DOI.exec(text)?.[1] ?? '',
     };
 }
+
+/** `Sultan`, `de Souza`, with the `S.M.E.` or `J.-P.` initials of the Springer Nature style */
+const SN_SURNAME = String.raw`\p{L}[\p{L}'’ -]*?`;
+const SN_INITIALS = String.raw`\p{Lu}\.(?:-?\p{Lu}\.)*`;
+const SN_AUTHORS = String.raw`${SN_SURNAME}, ${SN_INITIALS}(?:(?:, | & )${SN_SURNAME}, ${SN_INITIALS})*(?: et al\.)?`;
+/**
+ * The citation as the "Cite this article" of BMC, Nature and Springer gives it, as
+ * `Sultan, S.M.E., Yousef, A.F. et al. Title of the article. BMC Plant Biol 24, 420 (2024). https://doi.org/10.1186/xyz`
+ * As on NLM, the journal abbreviation never has periods
+ */
+const SPRINGER = new RegExp(
+    String.raw`^(?<authors>${SN_AUTHORS}) (?<title>.+?[.?!]) (?<journal>[^.\d]+?) \d+, [\w–-]+ \((?<year>\d{4})\)(?=[.\s]|$)`,
+    'u',
+);
+const SN_AUTHOR_EACH = new RegExp(String.raw`(?<surname>${SN_SURNAME}), (?<initials>${SN_INITIALS})`, 'gu');
+const DOI_URL = /doi\.org\/(10\.\S+?)\.?(?=\s|$)/i;
+
+/** The fields of a reference in the Springer Nature style, or undefined when the text is something else */
+export function parseSpringerCitation(text: string): CitationFields | undefined {
+    const match = SPRINGER.exec(text.trim().replace(/\s+/g, ' '));
+    if (!match?.groups) return undefined;
+    const authors = [...match.groups.authors.matchAll(SN_AUTHOR_EACH)].map(({ groups }) => `${groups!.surname}, ${groups!.initials.replace(/\./g, '')}`);
+
+    return {
+        // Only the first three authors are given before the `et al.`
+        authors: [...authors, ...(match.groups.authors.endsWith('et al.') ? ['others'] : [])].join(' and '),
+        title: match.groups.title.replace(/\.$/, ''),
+        journal: match.groups.journal,
+        year: match.groups.year,
+        doi: DOI_URL.exec(text)?.[1] ?? DOI.exec(text)?.[1] ?? '',
+    };
+}
+
+const MDPI_AUTHORS = String.raw`${SN_SURNAME}, ${SN_INITIALS}(?:(?:; |;? and )${SN_SURNAME}, ${SN_INITIALS})*(?: et al\.)?`;
+/**
+ * The citation as MDPI (and ACS) gives it, as
+ * `Yan, D.; Lin, L.; Keidar, M. Title of the article. Plasma 2022, 5, 98-110. https://doi.org/10.3390/xyz`
+ * Unlike the others, the journal may be abbreviated with periods (`Int. J. Mol. Sci.`), but only by single words before the year
+ */
+const MDPI = new RegExp(
+    String.raw`^(?<authors>${MDPI_AUTHORS}) (?<title>.+?[.?!]) (?<journal>(?:[\p{L}&-]+\.? )+?)(?<year>\d{4}), \d+`,
+    'u',
+);
+
+/** The fields of a reference in the MDPI or ACS style, or undefined when the text is something else */
+export function parseMdpiCitation(text: string): CitationFields | undefined {
+    const match = MDPI.exec(text.trim().replace(/\s+/g, ' '));
+    if (!match?.groups) return undefined;
+    const authors = [...match.groups.authors.matchAll(SN_AUTHOR_EACH)].map(({ groups }) => `${groups!.surname}, ${groups!.initials.replace(/\./g, '')}`);
+
+    return {
+        authors: [...authors, ...(match.groups.authors.endsWith('et al.') ? ['others'] : [])].join(' and '),
+        title: match.groups.title.replace(/\.$/, ''),
+        journal: match.groups.journal.trim(),
+        year: match.groups.year,
+        doi: DOI_URL.exec(text)?.[1] ?? DOI.exec(text)?.[1] ?? '',
+    };
+}
+
+/** A citation copied from PubMed (NLM), or from a Springer Nature, MDPI or ACS article page */
+export const parseCitation = (text: string) => parseNlmCitation(text) ?? parseSpringerCitation(text) ?? parseMdpiCitation(text);

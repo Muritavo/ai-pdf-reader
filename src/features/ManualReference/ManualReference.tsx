@@ -6,7 +6,7 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { ClipboardPaste, Plus } from 'lucide-react';
 import { useArticlesRepository } from '../../context/ArticlesRepository';
 import type { Article } from '../../models/Article';
-import { parseNlmCitation, type CitationFields } from '../../utils/nlmCitation';
+import { parseCitation, type CitationFields } from '../../utils/nlmCitation';
 import { TestIds } from '../../testids';
 import Styles from './ManualReference.module.css';
 
@@ -38,7 +38,7 @@ export default function ManualReference({ variant = 'outline' }: { variant?: Com
     });
 
     const offerCitationIn = (text: string) => {
-        const found = parseNlmCitation(text);
+        const found = parseCitation(text);
         if (found) setCitation(found);
         return !!found;
     };
