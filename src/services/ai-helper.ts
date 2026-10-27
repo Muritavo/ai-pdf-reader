@@ -19,6 +19,8 @@ ${currentPageTextWithPositions}`;
         { role: "user", content: prompt },
       ],
       onProgress,
+      // The document is normalized only once, so the server has no reason to keep it
+      { cache: false },
     ),
   );
 }

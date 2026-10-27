@@ -26,12 +26,15 @@ export async function callOpenAiApi(
   messages: { role: string; content: string | ContentPart[] }[],
   /** Receives each piece of the answer as it streams */
   onProgress?: (chunk: string) => void,
+  /** False tells the server not to keep the prompt on its cache, for prompts that are not asked again */
+  { cache = true }: { cache?: boolean } = {},
 ): Promise<string> {
   const response = await fetch(`${currentEndpoint}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${API_KEY}`,
+      ...(cache ? {} : { cache: "false" }),
     },
     body: JSON.stringify({
       // Servers that don't report the loaded model are still used, with the default model
@@ -98,7 +101,7 @@ async function _normalizePdfText(rawText: string): Promise<string> {
 
   const normalizedText = await callOpenAiApi([
     { role: "user", content: prompt },
-  ]);
+  ], undefined, { cache: false });
 
   return normalizedText;
 }
