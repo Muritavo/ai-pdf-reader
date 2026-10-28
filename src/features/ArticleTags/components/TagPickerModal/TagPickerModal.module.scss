@@ -1,0 +1,93 @@
+@use "../../../../styles/variables.scss" as *;
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  cursor: default;
+}
+
+.modalContent {
+  background: $colorPanel;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.inputRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 0.75rem;
+  background: $colorSurface;
+  color: $colorText;
+  outline: none;
+
+  &::placeholder {
+    color: $colorMuted;
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 2px rgba($colorHighlight, 0.6);
+  }
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.option {
+  height: 26px;
+  padding: 0 12px;
+  /* --tag-color is seeded by the name of the tag, the same as on the article */
+  border: 1px solid color-mix(in srgb, var(--tag-color) 55%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--tag-color) 18%, transparent);
+  color: color-mix(in srgb, var(--tag-color) 35%, $colorText);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--tag-color);
+    background: color-mix(in srgb, var(--tag-color) 30%, transparent);
+    outline: none;
+  }
+}

@@ -54,6 +54,16 @@ export const TestIds = {
         readBarProgress: 'read-bar-progress',
         readBarLastOpening: 'read-bar-last-opening',
     },
+    tags: {
+        list: 'article-tags',
+        add: 'article-tags-add',
+        tag: 'article-tag',
+        remove: 'article-tag-remove',
+        modal: 'tag-picker-modal',
+        filter: 'tag-picker-filter',
+        create: 'tag-picker-create',
+        option: 'tag-picker-option',
+    },
     preview: {
         box: 'pdf-preview',
         page: 'pdf-page',

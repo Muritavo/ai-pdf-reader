@@ -1,0 +1,66 @@
+@use "../../styles/variables.scss" as *;
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag,
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* --tag-color is seeded by the name of the tag */
+.tag {
+  padding: 0 4px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--tag-color) 55%, transparent);
+  background: color-mix(in srgb, var(--tag-color) 18%, transparent);
+  color: color-mix(in srgb, var(--tag-color) 35%, var(--text));
+}
+
+.remove {
+  display: inline-grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: $colorDanger;
+    background: var(--surface-raised);
+    outline: none;
+  }
+}
+
+.add {
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+  }
+}

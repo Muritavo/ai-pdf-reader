@@ -8,6 +8,7 @@ import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
 import ManualReference from '../features/ManualReference';
+import ArticleTags from '../features/ArticleTags';
 import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import useShortcut from '../hooks/useShortcut';
 import { TestIds } from '../testids';
@@ -65,6 +66,7 @@ function ArticleItem({
                     <Text type="description" className={Styles.articleTitle}>
                         {article.title}
                     </Text>
+                    <ArticleTags articleKey={article.key} />
                     {meta && <Text type="caption">{meta}</Text>}
                     {fullText && (
                         <Text type="caption" className={Styles.pdfName}>
