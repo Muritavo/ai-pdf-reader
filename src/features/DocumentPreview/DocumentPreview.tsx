@@ -28,7 +28,7 @@ import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
 import { scoped } from '../../utils/projects';
 import ResponseModal from './components/ResponseModal/ResponseModal';
-import { askAboutImage, REFERENCE_NOT_FOUND } from '../../services/ai';
+import { askAboutImage, forgetWordDefinition, REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
 import ResponseModalStyles from './components/ResponseModal/ResponseModal.module.scss';
 import Button from '@onepercentio/one-ui/components/Button';
@@ -208,7 +208,16 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         if (!mark) return false;
         event.preventDefault();
         event.stopPropagation();
-        removeDefinitions(definitionsOf(mark));
+        const normalizedWords = definitionsOf(mark);
+        // Only once the document is warmed up, as its text is what the definitions were cached with,
+        // and getting it otherwise would normalize the document again
+        if (warmUp.state === 'done') {
+            const words = (definitionRules ?? []).filter(rule => normalizedWords.includes(rule.normalizedWord)).map(rule => rule.word);
+            getNormalizedText(fullText)
+                .then(context => Promise.all(words.map(word => forgetWordDefinition(word, context))))
+                .catch(() => {});
+        }
+        removeDefinitions(normalizedWords);
         return true;
     };
 

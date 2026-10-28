@@ -10,7 +10,7 @@ export function setAIEndpoint(endpoint: string) {
 }
 
 export const getAIEndpoint = () => currentEndpoint;
-import { wrapFunction } from "../utils/hash";
+import { clearCached, wrapFunction } from "../utils/hash";
 
 const MODEL =
   // "gemma-4-26b-a4b-it-UD-MLX-4bit"
@@ -141,6 +141,9 @@ async function _defineWordInContext(
   ]);
 }
 export const defineWordInContext = wrapFunction(_defineWordInContext);
+
+/** Forgets the cached definition of the word, so defining it again asks the AI */
+export const forgetWordDefinition = (word: string, context: string) => clearCached([word, context]);
 
 /** What the model answers when the passage cites nothing it could find on the document */
 export const REFERENCE_NOT_FOUND = "NOT_FOUND";
