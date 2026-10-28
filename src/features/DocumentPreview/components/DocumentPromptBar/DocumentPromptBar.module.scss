@@ -17,9 +17,15 @@
   align-items: center;
 }
 
-.promptInput {
+.promptField {
+  position: relative;
   flex: 1;
   min-width: 200px;
+  display: flex;
+}
+
+.promptInput {
+  flex: 1;
   max-height: 160px;
   resize: none;
   overflow-y: auto;
@@ -29,6 +35,8 @@
   font: inherit;
   font-size: 0.95rem;
   padding: 0.55rem 0.75rem;
+  // Room for the help button, so the text never goes under it
+  padding-right: 2.25rem;
   background: $colorSurface;
   color: $colorText;
   outline: none;
@@ -39,6 +47,31 @@
 
   &:focus {
     box-shadow: 0 0 0 2px rgba($colorHighlight, 0.6);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.helperButton {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: $colorMuted;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: $colorHighlight;
   }
 
   &:disabled {

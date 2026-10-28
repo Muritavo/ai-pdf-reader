@@ -154,5 +154,10 @@ export const TestIds = {
         historyItemNoAnswer: 'history-item-no-answer',
         historyAnswerHere: 'history-answer-here',
         historyRemove: 'history-remove',
+        promptHelperToggle: 'prompt-helper-toggle',
+        promptHelperModal: 'prompt-helper-modal',
+        promptHelperQuery: 'prompt-helper-query',
+        promptHelperSuggest: 'prompt-helper-suggest',
+        promptHelperSuggestion: 'prompt-helper-suggestion',
     },
 } as const;

@@ -149,6 +149,15 @@ export default {
             removeEntry: 'Remover do histórico',
             openInModal: 'Abrir em janela',
         },
+        promptHelper: {
+            open: 'Ajuda para estruturar uma pergunta',
+            title: 'Vou te ajudar a estruturar uma pergunta',
+            queryLabel: 'O que você está pesquisando?',
+            queryPlaceholder: 'Descreva sua pergunta de pesquisa...',
+            suggest: 'Sugerir',
+            suggestions: 'Sugestões',
+            error: 'Não foi possível sugerir perguntas. Tente novamente.',
+        },
         referenceModal: {
             title: 'Referência',
             passage: 'Trecho selecionado',

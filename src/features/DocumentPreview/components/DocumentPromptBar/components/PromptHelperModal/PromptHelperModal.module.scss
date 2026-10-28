@@ -1,0 +1,101 @@
+@use "../../../../../../styles/variables.scss" as *;
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.modalContent {
+  background: $colorPanel;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.sectionLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: block;
+}
+
+.queryInput {
+  resize: vertical;
+  line-height: 1.4;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 0.75rem;
+  background: $colorSurface;
+  color: $colorText;
+  outline: none;
+
+  &::placeholder {
+    color: $colorMuted;
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 2px rgba($colorHighlight, 0.6);
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.suggestion {
+  text-align: left;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: $colorText;
+  background: $colorSurface;
+  border: 1px solid $colorBorder;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: $colorHighlight;
+    outline: none;
+  }
+}
+
+.errorText {
+  color: $colorDanger;
+}

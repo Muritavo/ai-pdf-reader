@@ -3,7 +3,7 @@ import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Clock, ExternalLink } from 'lucide-react';
+import { CircleHelp, Clock, ExternalLink } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
 import { getNormalizedText } from '../../../../utils/preprocessing';
@@ -22,6 +22,7 @@ import { TestIds } from '../../../../testids';
 import Markdown from '../../../../components/Markdown';
 import ResponseModal from '../ResponseModal/ResponseModal';
 import PromptHistoryPanel from './components/PromptHistoryPanel';
+import PromptHelperModal from './components/PromptHelperModal';
 import Styles from './DocumentPromptBar.module.scss';
 
 export type DocumentPromptBarHandle = {
@@ -41,6 +42,7 @@ export default forwardRef(function DocumentPromptBar(
     const [history, setHistory] = useState<Record<PromptScope, PromptHistoryEntry[]>>({ local: [], global: [] });
     const [showHistory, setShowHistory] = useState(false);
     const [showResponseModal, setShowResponseModal] = useState(false);
+    const [showHelper, setShowHelper] = useState(false);
     /** An entry of the history, shown on the window with its answer, leaving the prompt as it is */
     const [pickedEntry, setPickedEntry] = useState<{ prompt: string; answer: string }>();
 
@@ -188,6 +190,24 @@ export default forwardRef(function DocumentPromptBar(
             {pickedEntry && (
                 <ResponseModal prompt={pickedEntry.prompt} answer={pickedEntry.answer} onClose={() => setPickedEntry(undefined)} />
             )}
+            {showHelper && (
+                <PromptHelperModal
+                    fullText={fullText}
+                    onPick={prompt => {
+                        clearPrompt();
+                        setPromptText(prompt);
+                        setShowHelper(false);
+                        // The user may still adjust the suggestion before sending it
+                        requestAnimationFrame(() => {
+                            const field = promptField.current;
+                            if (!field) return;
+                            field.focus();
+                            field.setSelectionRange(prompt.length, prompt.length);
+                        });
+                    }}
+                    onClose={() => setShowHelper(false)}
+                />
+            )}
             {showHistory && (
                 <PromptHistoryPanel
                     entries={history}
@@ -219,18 +239,31 @@ export default forwardRef(function DocumentPromptBar(
                         <Clock size={18} strokeWidth={1.5} />
                     </Button>
                     <AIWarmUp fullText={fullText} />
-                    <textarea
-                        ref={promptField}
-                        rows={1}
-                        data-testid={TestIds.ai.promptInput}
-                        value={promptText ?? ''}
-                        onChange={e => setPromptText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        className={Styles.promptInput}
-                        disabled={!aiReady}
-                        title={aiReady ? undefined : txt('aiWarmUp.locked')}
-                        placeholder={txt('documentPreview.promptBar.placeholder')}
-                    />
+                    <div className={Styles.promptField}>
+                        <textarea
+                            ref={promptField}
+                            rows={1}
+                            data-testid={TestIds.ai.promptInput}
+                            value={promptText ?? ''}
+                            onChange={e => setPromptText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className={Styles.promptInput}
+                            disabled={!aiReady}
+                            title={aiReady ? undefined : txt('aiWarmUp.locked')}
+                            placeholder={txt('documentPreview.promptBar.placeholder')}
+                        />
+                        <button
+                            type="button"
+                            data-testid={TestIds.ai.promptHelperToggle}
+                            className={Styles.helperButton}
+                            onClick={() => setShowHelper(true)}
+                            disabled={!aiReady}
+                            title={txt('documentPreview.promptHelper.open')}
+                            aria-label={txt('documentPreview.promptHelper.open')}
+                        >
+                            <CircleHelp size={16} strokeWidth={1.5} />
+                        </button>
+                    </div>
                     <Button variant="primary" data-testid={TestIds.ai.promptSend} onClick={handleAsk} disabled={!aiReady || !promptText?.trim() || isLoading}>
                         {isLoading ? <Dots dotsCount={5} lockSize /> : txt('documentPreview.promptBar.send')}
                     </Button>

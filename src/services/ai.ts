@@ -196,6 +196,38 @@ async function _askContext(
 }
 export const askContext = wrapFunction(_askContext);
 
+/** How the suggestions are asked. Part of the cache key, so changing it asks the AI again */
+const SUGGEST_PROMPTS_INSTRUCTIONS = `Rewrite the research query above as 5 alternative wordings of the same question, to be asked about a research article. Each one must keep exactly the meaning and scope of the query: do not add new topics, details or sub-questions, and do not narrow or broaden it. Only make it clearer and simpler, in a single short sentence, in the same language as the query.
+
+Answer only with the rewordings, one per line, without numbering, bullets or any other commentary.`;
+
+async function _suggestPrompts(
+  instructions: string,
+  researchQuery: string,
+  context: string,
+): Promise<string> {
+  return callOpenAiApi([
+    ...documentContextMessages(context),
+    {
+      role: "user",
+      content: `Research query: """${researchQuery}"""
+
+${instructions}`,
+    },
+  ]);
+}
+const suggestPromptsCached = wrapFunction(_suggestPrompts);
+
+/** Clearer wordings of the research query, to be asked about the document */
+export async function suggestPrompts(researchQuery: string, context: string): Promise<string[]> {
+  const answer = await suggestPromptsCached(SUGGEST_PROMPTS_INSTRUCTIONS, researchQuery, context);
+  return answer
+    .split("\n")
+    // The model may still number or bullet the lines
+    .map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/^"(.*)"$/, "$1").trim())
+    .filter(Boolean);
+}
+
 async function _getLoadedModelId(): Promise<string | null> {
   const response = await fetch(`${currentEndpoint}/v1/models/status`, {
     method: "GET",
