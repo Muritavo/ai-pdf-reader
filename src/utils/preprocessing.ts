@@ -3,6 +3,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { forgetDocumentTextOrganization, isDocumentTextOrganized, organizeDocumentText } from '../services/ai-helper';
 import type { FullText } from '../models/Article';
 import { createProgressTracker, tokenize } from './progressTracker';
+import { PAGE_MAX_SIDE } from './pageImages';
 import { scoped } from './projects';
 
 export type PreprocessingProgress = {
@@ -45,6 +46,25 @@ export async function extractPageTexts(
             return text;
         }),
     );
+}
+
+/** An image of each page, as a PNG data URL, with its longest side as `PAGE_MAX_SIDE` */
+export async function renderPageImages(fullText: FullText): Promise<string[]> {
+    const pdf = await loadPdf(await (await fetch(fullText.url)).arrayBuffer());
+    const images: string[] = [];
+    // One page at a time, so only one canvas is in memory
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const { width, height } = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: PAGE_MAX_SIDE / Math.max(width, height) });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise;
+        images.push(canvas.toDataURL('image/png'));
+        page.cleanup();
+    }
+    return images;
 }
 
 export async function countWords(pdfBytes: ArrayBuffer) {

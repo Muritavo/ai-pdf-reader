@@ -185,6 +185,37 @@ async function _askAboutImage(
 /** Kept by the question, the image and the document, so asking the same again is instant */
 export const askAboutImage = wrapFunction(_askAboutImage);
 
+async function _validateAgainstPages(
+  context: string,
+  ...pageImages: string[]
+): Promise<string> {
+  return callOpenAiApi([
+    ...documentContextMessages(context),
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `The document above was organized from the text extracted from its PDF. Here is an image of each of its pages, in order. Validate how the content was organized against the images:
+
+- Tables, above all: the same columns, headers and rows as the image, with every value in the right cell, nothing merged, split, shifted or missing
+- Headings, paragraphs and columns of text in the reading order of the page
+- Figure and table captions, footnotes and notes kept with what they belong to
+- Content missing, duplicated or that is not on the pages
+
+Answer in markdown, with each problem found under the page it is on: what the page shows, and what the organized text has instead. For a wrong table, also write it as it is on the page, as a markdown table. If the content matches the pages, say so.`,
+        },
+        ...pageImages.flatMap((image, index): ContentPart[] => [
+          { type: "text", text: `Page ${index + 1}:` },
+          { type: "image_url", image_url: { url: image } },
+        ]),
+      ],
+    },
+  ]);
+}
+/** Kept by the document and the images of its pages, so validating again is instant */
+export const validateAgainstPages = wrapFunction(_validateAgainstPages);
+
 async function _askContext(
   prompt: string,
   context: string,

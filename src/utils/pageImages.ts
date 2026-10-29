@@ -49,3 +49,6 @@ export function cropImage(canvas: HTMLCanvasElement, box: ImageBox) {
     crop.getContext('2d')!.drawImage(canvas, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
     return crop.toDataURL('image/png');
 }
+
+/** The longest side a whole page is sent to the AI with, larger so the small text of a table can be read */
+export const PAGE_MAX_SIDE = 1600;

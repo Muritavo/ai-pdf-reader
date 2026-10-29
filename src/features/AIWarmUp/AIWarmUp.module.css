@@ -1,4 +1,5 @@
 .wrapper {
+    position: relative;
     display: flex;
     flex-shrink: 0;
     align-items: center;
@@ -91,4 +92,55 @@
 
 .badgePlay {
     color: var(--accent);
+}
+
+.validating {
+    color: var(--accent);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+/* Above the button, as the prompt bar is at the bottom of the screen */
+.menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+    background: var(--surface-raised);
+}
+
+.menuItem:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }

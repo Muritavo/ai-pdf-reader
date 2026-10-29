@@ -13,8 +13,16 @@ export default function ArticleTags({ articleKey }: { articleKey: string }) {
     const [picking, setPicking] = useState(false);
 
     return (
-        // Clicks here do not open the document of the card
-        <ul className={Styles.tags} data-testid={TestIds.tags.list} onClick={e => e.stopPropagation()}>
+        <ul
+            className={Styles.tags}
+            data-testid={TestIds.tags.list}
+            // Clicks on the pills, and on the picker (whose clicks bubble here through the portal), do not open
+            // the document of the card. The rest of the line does, as the rest of the card
+            onClick={e => {
+                const target = e.target as HTMLElement;
+                if (!e.currentTarget.contains(target) || target.closest('button')) e.stopPropagation();
+            }}
+        >
             {/* Keyed by the position, so the slot of the add pill animates into the tag that was added */}
             {tags.map((tag, i) => (
                 <AdaptiveContainer key={i} containerElement="li" direction="h">
