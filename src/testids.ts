@@ -73,6 +73,7 @@ export const TestIds = {
         pointOfInterest: 'point-of-interest',
         highlight: 'word-highlight',
         scrollBar: 'scroll-bar',
+        goBack: 'go-back',
         imageBox: 'image-box',
         imageQuestion: 'image-question',
         imageQuestionInput: 'image-question-input',

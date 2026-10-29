@@ -22,6 +22,31 @@
   transition: height 80ms linear;
 }
 
+// Next to the scroll bar, where the document was left the last time, pointing at it
+.goBack {
+  position: absolute;
+  left: 8px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(124, 156, 255, 0.18);
+  color: #7c9cff;
+  cursor: pointer;
+  transform: translateY(-50%);
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(124, 156, 255, 0.3);
+  }
+}
+
 .loaderOverlay {
   position: absolute;
   inset: 0;

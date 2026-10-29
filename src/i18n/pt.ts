@@ -173,6 +173,7 @@ export default {
             notFound: 'Nenhuma referência encontrada para este trecho no documento.',
             searchOnGoogle: 'Pesquisar no Google',
         },
+        goBack: 'Voltar para onde parei',
         textLayerOffset: {
             title: 'Deslocamento do texto (px)',
             up: 'Mover o texto para cima',

@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { Brain, MessageCircleQuestion, Search } from 'lucide-react';
+import { ArrowLeft, Brain, MessageCircleQuestion, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -18,7 +18,7 @@ import {
     useHighlightsForPDF,
     wordOfOccurrence,
 } from '../../utils/highlight';
-import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
+import { getLastOpening, recordReadingProgress, saveLastOpening } from '../../utils/readingProgress';
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
@@ -77,6 +77,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
     const [askingImage, setAskingImage] = useState<{ page: number; index: number }>();
     const [imageAnswer, setImageAnswer] = useState<{ question: string; answer: string; image: string }>();
+    // Where the document was left the last time: the scroll to go back to, and how far down the scroll bar it is
+    const [goBack, setGoBack] = useState<{ top: number; barTop: number }>();
     const highlightCursor = useRef<Record<string, number>>({});
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const promptBarRef = useRef<DocumentPromptBarHandle>(null);
@@ -394,6 +396,24 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         };
     }, [textLayers, hash]);
 
+    // Where the document was left the last time, offered until the first scroll, once every page is rendered
+    useEffect(() => {
+        const box = previewBoxRef.current;
+        const lastOpening = getLastOpening(hash);
+        if (!box || !textLayers || lastOpening === undefined) return;
+        // Saved as the bottom of what was seen, scrolled to as its top
+        const scrollable = box.scrollHeight - box.clientHeight;
+        const top = Math.min(scrollable, lastOpening * box.scrollHeight - box.clientHeight);
+        if (scrollable <= 0 || top <= 0) return;
+        setGoBack({ top, barTop: box.offsetTop + box.clientHeight * (top / scrollable) });
+        const dismiss = () => setGoBack(undefined);
+        box.addEventListener('scroll', dismiss, { once: true, passive: true });
+        return () => {
+            box.removeEventListener('scroll', dismiss);
+            setGoBack(undefined);
+        };
+    }, [textLayers, hash]);
+
     useEffect(() => {
         if (!textLayers || !highlightRules || !definitionRules) return;
         // Drawn even with no rules, so what was removed stops being highlighted
@@ -436,6 +456,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     return (
         <div className={Styles.container}>
             <div ref={scrollBarRef} className={Styles.scrollBar} data-testid={TestIds.preview.scrollBar} aria-hidden />
+            {goBack && (
+                <button
+                    type="button"
+                    className={Styles.goBack}
+                    style={{ top: goBack.barTop }}
+                    title={txt('documentPreview.goBack')}
+                    aria-label={txt('documentPreview.goBack')}
+                    data-testid={TestIds.preview.goBack}
+                    onClick={() => previewBoxRef.current?.scrollTo({ top: goBack.top, behavior: 'smooth' })}
+                >
+                    <ArrowLeft size={14} strokeWidth={2} />
+                </button>
+            )}
             {loading && (
                 <div className={Styles.loaderOverlay}>
                     <Dots />
