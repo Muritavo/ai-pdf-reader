@@ -1,0 +1,25 @@
+appId: br.ufrgs.researchworkflow
+productName: Research Workflow
+directories:
+  output: out
+files:
+  - main.cjs
+  - package.json
+  # The web build of the project, served by main.cjs
+  - from: ../dist
+    to: web
+mac:
+  category: public.app-category.education
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+linux:
+  category: Education
+  # A .deb also needs a homepage on the metadata, as the repository's URL
+  target:
+    - target: AppImage
+      arch: [x64]

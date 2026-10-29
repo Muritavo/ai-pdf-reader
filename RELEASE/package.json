@@ -1,0 +1,21 @@
+{
+  "name": "research-workflow-desktop",
+  "productName": "Research Workflow",
+  "version": "0.0.0",
+  "description": "Desktop build of Research Workflow",
+  "author": "Murilo Oliveira de Araujo",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "web": "npm --prefix .. run build",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder",
+    "dist:mac": "npm run web && electron-builder --mac",
+    "dist:win": "npm run web && electron-builder --win",
+    "dist:linux": "npm run web && electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  }
+}

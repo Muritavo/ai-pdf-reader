@@ -71,6 +71,10 @@ If a local certificate is placed in `.cert/` (`cert.pem` and `key.pem`, e.g. mad
 | `npm run preview` | Serves the built `dist/` |
 | `npm test` | Runs the Playwright end-to-end tests |
 
+### Desktop app
+
+Packages for macOS, Windows and Linux are built from the [`RELEASE/`](RELEASE/README.md) folder.
+
 ## Data storage
 
 Everything is kept in the browser of the machine you use: references, highlights and answers in `localStorage`, PDFs and plugin lists in IndexedDB / the browser file storage. Clearing the site data erases them, so use **Export** to keep a backup.
