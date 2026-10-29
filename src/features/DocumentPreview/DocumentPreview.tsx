@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type RefObject } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import Text from '@onepercentio/one-ui/components/Text';
@@ -22,6 +22,7 @@ import { recordReadingProgress, saveLastOpening } from '../../utils/readingProgr
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
+import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion from './components/ImageQuestion';
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
@@ -92,6 +93,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         [],
     );
     const [notes, setNotes] = useLocalStorage<NoteItem[]>(scoped(`notes-${hash}`), []);
+    // How far the text layer is moved over the pages, for the documents where it is a bit off from the drawn text
+    const [textLayerOffset, setTextLayerOffset] = useLocalStorage<Offset>(scoped(`textLayerOffset-${hash}`), { x: 0, y: 0 });
     const clickCounterRef = useRef(0);
 
     /** Converts viewport coordinates into percentages of the scrollable document */
@@ -334,7 +337,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 viewport: textLayerViewport,
             });
             await textLayer.render();
-            textLayerContainer.style.transform = `scale(${scale})`;
+            // Moved before scaling, so the offset is in pixels of the screen. Read from the preview, so changing it does not draw the pages again
+            textLayerContainer.style.transform = `translate(var(--text-layer-x, 0px), var(--text-layer-y, 0px)) scale(${scale})`;
             textLayerContainer.style.width = `${textLayerViewport.width}px`;
             textLayerContainer.style.height = `${textLayerViewport.height}px`;
 
@@ -441,6 +445,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 ref={previewBoxRef}
                 data-testid={TestIds.preview.box}
                 className={`${Styles.previewBox} ${removingDefinitions ? Styles.removingDefinitions : ''}`}
+                style={{ '--text-layer-x': `${textLayerOffset.x}px`, '--text-layer-y': `${textLayerOffset.y}px` } as CSSProperties}
                 // Captured first, so the click does not move the last click marker too
                 onClickCapture={removeDefinitionAt}
                 // On macOS, Ctrl + click is the right click
@@ -532,6 +537,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         <Brain size={18} color="#ffa8f1" />
                     </div>
                 ))}
+                {/* Only while Ctrl is held, as it is seldom needed */}
+                {removingDefinitions && <TextLayerOffset offset={textLayerOffset} onChange={setTextLayerOffset} />}
             </div>
             <DocumentActions fullText={fullText} aiReady={warmUp.ready} />
             <AnnotationsToolbar

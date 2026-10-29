@@ -1,0 +1,52 @@
+@use "../../../../styles/variables.scss" as *;
+
+// At the end of the document, stuck to the bottom of what is seen of it
+.anchor {
+  position: sticky;
+  bottom: 0;
+  height: 0;
+  z-index: 5;
+}
+
+.pad {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left value right"
+    ". down .";
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(3, 32px);
+  padding: 4px;
+  border-radius: 16px;
+  background: $colorSurface;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: $colorMuted;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: $colorText;
+    background: lighten($colorSurface, 6%);
+  }
+}
+
+.value {
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  color: $colorMuted;
+  font-variant-numeric: tabular-nums;
+}

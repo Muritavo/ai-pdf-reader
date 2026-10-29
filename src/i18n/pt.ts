@@ -173,6 +173,13 @@ export default {
             notFound: 'Nenhuma referência encontrada para este trecho no documento.',
             searchOnGoogle: 'Pesquisar no Google',
         },
+        textLayerOffset: {
+            title: 'Deslocamento do texto (px)',
+            up: 'Mover o texto para cima',
+            down: 'Mover o texto para baixo',
+            left: 'Mover o texto para a esquerda',
+            right: 'Mover o texto para a direita',
+        },
         responseModal: {
             close: 'Fechar',
             title: 'Ver resposta',

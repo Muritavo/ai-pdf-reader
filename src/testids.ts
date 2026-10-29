@@ -82,6 +82,8 @@ export const TestIds = {
         pluginAnswer: 'plugin-answer',
         imageAnswer: 'image-answer',
         definedTerm: 'defined-term',
+        textLayerOffset: 'text-layer-offset',
+        textLayerOffsetMove: 'text-layer-offset-move',
     },
     documentActions: {
         balloon: 'document-actions',
