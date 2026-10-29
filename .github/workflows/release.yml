@@ -1,0 +1,79 @@
+# Builds the desktop packages of RELEASE/ and publishes them as a GitHub release whenever a pull request is merged
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      # The version of RELEASE/package.json, told apart by the number of the run, as v0.0.0-build.12
+      - id: version
+        run: echo "version=$(node -p "require('./RELEASE/package.json').version")-build.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: mac
+          - os: windows-latest
+            target: win
+          - os: ubuntu-latest
+            target: linux
+    runs-on: ${{ matrix.os }}
+    env:
+      # The packages are unsigned
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            RELEASE/package-lock.json
+      # one-ui still asks for chroma-js 2 as a peer, while the project uses 3
+      - run: npm ci --legacy-peer-deps
+      - run: npm ci
+        working-directory: RELEASE
+      - run: npm run dist:${{ matrix.target }} -- --publish never -c.extraMetadata.version=${{ needs.version.outputs.version }}
+        working-directory: RELEASE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            RELEASE/out/*.dmg
+            RELEASE/out/*.exe
+            RELEASE/out/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.version.outputs.version }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          gh release create "$TAG" packages/* \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.event.pull_request.merge_commit_sha }}" \
+            --title "$TAG — $PR_TITLE" \
+            --generate-notes

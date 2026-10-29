@@ -28,6 +28,15 @@ Every command first runs the project's `npm run build`. The packages are written
 
 All three targets build from macOS. Building the Windows installer from Linux or macOS may need [Wine](https://www.electron.build/multi-platform-build) on some setups.
 
+## Automatic releases
+
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) runs whenever a pull request is merged on GitHub:
+
+1. Builds the packages on macOS, Windows and Linux runners, with the scripts above.
+2. Publishes them as a GitHub release tagged `v<version>-build.<run number>` (e.g. `v0.0.0-build.12`), with notes listing the merged pull requests.
+
+The version comes from `version` in this folder's `package.json`; bump it to start a new series. GitHub Actions is free for public repositories.
+
 ## Notes
 
 - **Code signing:** the packages are unsigned. On macOS, open the app the first time with right-click → **Open** (or allow it in System Settings → Privacy & Security). On Windows, SmartScreen asks for confirmation. See [electron-builder code signing](https://www.electron.build/code-signing) to sign them.
