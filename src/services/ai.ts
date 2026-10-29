@@ -85,6 +85,11 @@ export async function callOpenAiApi(
       }
     }
 
+    // The stream may open and then end without content, which is a failure and must not be cached
+    if (!accumulated.trim()) {
+      throw new Error("API returned an empty response");
+    }
+
     return accumulated;
   } finally {
     clearInterval(timer);
