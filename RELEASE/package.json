@@ -2,7 +2,7 @@
   "name": "research-workflow-desktop",
   "productName": "Research Workflow",
   "version": "0.0.0",
-  "description": "Desktop build of Research Workflow",
+  "description": "Desktop and Android builds of Research Workflow",
   "author": "Murilo Oliveira de Araujo",
   "private": true,
   "main": "main.cjs",
@@ -12,9 +12,14 @@
     "dist": "npm run web && electron-builder",
     "dist:mac": "npm run web && electron-builder --mac",
     "dist:win": "npm run web && electron-builder --win",
-    "dist:linux": "npm run web && electron-builder --linux"
+    "dist:linux": "npm run web && electron-builder --linux",
+    "android": "npm run web && cap sync android",
+    "dist:android": "npm run android && cd android && ./gradlew assembleRelease"
   },
   "devDependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0",
     "electron": "45.1.0",
     "electron-builder": "26.18.0"
   }

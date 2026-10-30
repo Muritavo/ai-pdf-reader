@@ -59,8 +59,59 @@ jobs:
             RELEASE/out/*.AppImage
           if-no-files-found: error
 
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # Without these secrets the APK is signed with a throwaway debug key, so it doesn't install over the previous one
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            RELEASE/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm ci
+        working-directory: RELEASE
+      - run: npm run android
+        working-directory: RELEASE
+      - working-directory: RELEASE/android
+        run: |
+          VERSIONS="-PversionCode=${{ github.run_number }} -PversionName=$VERSION"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            ./gradlew assembleRelease $VERSIONS \
+              -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.keystore" \
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+            APK=app/build/outputs/apk/release/app-release.apk
+          else
+            ./gradlew assembleDebug $VERSIONS
+            APK=app/build/outputs/apk/debug/app-debug.apk
+          fi
+          mkdir -p ../out
+          cp "$APK" "../out/Research Workflow-$VERSION.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: RELEASE/out/*.apk
+          if-no-files-found: error
+
   release:
-    needs: [version, build]
+    needs: [version, build, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

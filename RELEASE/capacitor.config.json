@@ -1,0 +1,12 @@
+{
+  "appId": "br.ufrgs.researchworkflow",
+  "appName": "Research Workflow",
+  "webDir": "../dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

@@ -71,9 +71,9 @@ If a local certificate is placed in `.cert/` (`cert.pem` and `key.pem`, e.g. mad
 | `npm run preview` | Serves the built `dist/` |
 | `npm test` | Runs the Playwright end-to-end tests |
 
-### Desktop app
+### Desktop and Android apps
 
-Packages for macOS, Windows and Linux are built from the [`RELEASE/`](RELEASE/README.md) folder.
+Packages for macOS, Windows, Linux and Android are built from the [`RELEASE/`](RELEASE/README.md) folder.
 
 ## Data storage
 
