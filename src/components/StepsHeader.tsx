@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { TestIds } from '../testids';
 import AIStatus from '../features/AIStatus';
 import DataTransfer from '../features/DataTransfer';
+import PluginSettings from '../features/PluginSettings';
 import { SwitchProjects } from '../features/Projects';
 import Styles from './StepsHeader.module.css';
 
@@ -57,6 +58,7 @@ export default function StepsHeader({
             </nav>
             <div className={Styles.aside}>
                 <DataTransfer />
+                <PluginSettings />
                 <AIStatus />
             </div>
         </header>

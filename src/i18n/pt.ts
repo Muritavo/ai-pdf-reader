@@ -17,6 +17,10 @@ export default {
         invalid: 'Este arquivo não é uma exportação do Research Workflow.',
         confirmImport: 'Importar os dados exportados em {date}? Eles substituem os dados deste projeto (os PDFs já guardados continuam).',
     },
+    pluginSettings: {
+        title: 'Configurações dos plugins',
+        close: 'Fechar',
+    },
     imageQuestion: {
         open: 'Perguntar sobre esta imagem',
         placeholder: 'Pergunte algo sobre esta imagem...',

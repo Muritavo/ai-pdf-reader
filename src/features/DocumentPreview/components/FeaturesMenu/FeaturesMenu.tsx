@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useState, type ForwardedRef } from 'react';
+import { forwardRef, useImperativeHandle, useState, type ForwardedRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import ScrollendIndicator from '@onepercentio/one-ui/components/ScrollendIndicator';
@@ -16,7 +16,7 @@ export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
 type MenuItem = {
     id: string;
     testId: string;
-    label: string;
+    label: ReactNode;
     onClick: () => Promise<void>;
     disabled?: boolean;
     hint?: string;
@@ -200,7 +200,7 @@ export default forwardRef(function FeaturesMenu(
         menuItems.push({
             id: `plugin-${option.id}`,
             testId: option.testId ?? `menu-plugin-${option.id}`,
-            label: option.label,
+            label: typeof option.label === 'function' ? option.label() : option.label,
             minWords: option.minWords,
             maxWords: option.maxWords,
             onClick: async () => {

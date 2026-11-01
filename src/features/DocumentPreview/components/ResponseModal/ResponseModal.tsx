@@ -13,6 +13,8 @@ type ResponseModalProps = {
     /** The texts of the window, when it shows something else than an answer to a question */
     labels?: { title: string; prompt: string; answer: string };
     testIds?: { modal: string; answer: string };
+    /** Shown instead of the answer, for one that can be interacted with */
+    answerView?: ReactNode;
     /** Shown after the answer, for what can be done with it */
     actions?: ReactNode;
     /** Shown with the question, as the image it was about */
@@ -21,7 +23,7 @@ type ResponseModalProps = {
     background?: string;
 };
 
-export default function ResponseModal({ prompt, answer, onClose, labels, testIds, actions, media, background }: ResponseModalProps) {
+export default function ResponseModal({ prompt, answer, onClose, labels, testIds, answerView, actions, media, background }: ResponseModalProps) {
     const { txt } = useShortIntl();
 
     return (
@@ -50,9 +52,11 @@ export default function ResponseModal({ prompt, answer, onClose, labels, testIds
                         {labels?.answer ?? txt('documentPreview.responseModal.answer')}
                     </Text>
                     <div className={Styles.answerContent}>
-                        <Markdown className={Styles.answerText} data-testid={testIds?.answer ?? TestIds.ai.responseModalAnswer}>
-                            {answer}
-                        </Markdown>
+                        {answerView ?? (
+                            <Markdown className={Styles.answerText} data-testid={testIds?.answer ?? TestIds.ai.responseModalAnswer}>
+                                {answer}
+                            </Markdown>
+                        )}
                     </div>
                     {actions && <div className={Styles.actions}>{actions}</div>}
                 </div>

@@ -606,6 +606,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 <ResponseModal
                     prompt={pluginResult.prompt}
                     answer={pluginResult.answer}
+                    answerView={pluginResult.view}
                     background={pluginResult.background}
                     onClose={() => setPluginResult(undefined)}
                     labels={{ title: pluginResult.title, prompt: pluginResult.promptLabel, answer: pluginResult.answerLabel }}

@@ -24,6 +24,13 @@ export const TestIds = {
         switch: 'projects-switch',
         currentName: 'projects-current-name',
     },
+    pluginSettings: {
+        open: 'plugin-settings-open',
+        menu: 'plugin-settings-menu',
+        item: 'plugin-settings-item',
+        view: 'plugin-settings-view',
+        close: 'plugin-settings-close',
+    },
     dataTransfer: {
         export: 'data-export',
         import: 'data-import',
