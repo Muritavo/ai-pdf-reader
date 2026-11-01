@@ -1,0 +1,371 @@
+/* Filling the view, so the menu of the last book has room under it instead of being cut by the scroll */
+.listing {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.icon {
+    vertical-align: -3px;
+    margin-right: 8px;
+}
+
+.books {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.book {
+    display: grid;
+    grid-template-columns: minmax(200px, 2fr) minmax(120px, 1.5fr) auto minmax(160px, 1.5fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.bookTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bookTitle:hover span:first-of-type {
+    color: var(--accent);
+}
+
+.bookActions {
+    display: flex;
+    gap: 4px;
+}
+
+.iconButton {
+    display: inline-grid;
+    place-items: center;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+
+.iconButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.done {
+    color: var(--success);
+    font-size: 13px;
+}
+
+.error {
+    color: var(--danger);
+    font-size: 13px;
+}
+
+.offset {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.offset input {
+    width: 72px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+
+.pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+}
+
+.pill button {
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.editor {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.editorBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.editorTitle {
+    margin-right: auto;
+}
+
+.rangeForm {
+    display: flex;
+    gap: 6px;
+}
+
+.rangeForm input {
+    width: 80px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+
+/* The pages side by side, each as tall as this box */
+.pages {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 16px;
+    padding: 16px 24px;
+    overflow-y: auto;
+}
+
+.page {
+    margin: 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.page figcaption {
+    height: 28px;
+    line-height: 28px;
+}
+
+.pageSheet {
+    background: #fff;
+    border-radius: 2px;
+    outline: 3px solid transparent;
+}
+
+.selected .pageSheet {
+    outline-color: var(--accent);
+}
+
+.selected figcaption {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.bookResults {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bookResultTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.chevron,
+.chevronOpen {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 150ms;
+}
+
+.chevron {
+    transform: rotate(-90deg);
+}
+
+/* one-ui limits the content to 500px */
+.bookResultContent {
+    max-width: none;
+}
+
+.matches {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.match {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.preview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.previewHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.previewHeader > span {
+    margin-right: auto;
+}
+
+.previewPage canvas {
+    display: block;
+    background: #fff;
+}
+
+.actionMenuAnchor {
+    position: relative;
+}
+
+.actionMenu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.actionMenuItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.actionMenuItem:hover {
+    background: var(--surface-raised);
+}
+
+/* Above the view of the plugin */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 720px;
+    max-height: 80vh;
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 1rem 1.25rem;
+}
+
+.modalBody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 1.25rem 1.25rem;
+    overflow-y: auto;
+}
+
+.extracted {
+    max-height: 300px;
+    overflow: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
