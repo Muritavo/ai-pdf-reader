@@ -1,4 +1,4 @@
-package br.ufrgs.researchworkflow;
+package io.github.muritavo.researchworkflow;
 
 import com.getcapacitor.BridgeActivity;
 

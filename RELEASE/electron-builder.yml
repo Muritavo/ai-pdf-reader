@@ -1,4 +1,4 @@
-appId: br.ufrgs.researchworkflow
+appId: io.github.muritavo.researchworkflow
 productName: Research Workflow
 directories:
   output: out

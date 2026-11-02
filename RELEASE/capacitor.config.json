@@ -1,5 +1,5 @@
 {
-  "appId": "br.ufrgs.researchworkflow",
+  "appId": "io.github.muritavo.researchworkflow",
   "appName": "Research Workflow",
   "webDir": "../dist",
   "server": {

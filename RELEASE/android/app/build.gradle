@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "br.ufrgs.researchworkflow"
+    namespace = "io.github.muritavo.researchworkflow"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "br.ufrgs.researchworkflow"
+        applicationId "io.github.muritavo.researchworkflow"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Given by the release workflow, as -PversionCode=12 -PversionName=0.0.0-build.12
