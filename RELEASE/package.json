@@ -14,7 +14,7 @@
     "dist:mac": "npm run icons && npm run web && electron-builder --mac",
     "dist:win": "npm run icons && npm run web && electron-builder --win",
     "dist:linux": "npm run icons && npm run web && electron-builder --linux",
-    "android": "npm run icons && npm run web && cap sync android",
+    "android": "npm run web && cap sync android",
     "dist:android": "npm run android && cd android && ./gradlew assembleRelease"
   },
   "devDependencies": {

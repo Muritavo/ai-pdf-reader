@@ -46,6 +46,19 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Renders the launcher icons from src/assets/icon.svg before every build (see RELEASE/scripts/icons.mjs)
+def releaseDir = file('../..')
+def iconDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']
+def iconNames = ['ic_launcher', 'ic_launcher_round', 'ic_launcher_foreground']
+tasks.register('generateIcons', Exec) {
+    workingDir releaseDir
+    commandLine 'node', 'scripts/icons.mjs'
+    inputs.file(new File(releaseDir, 'scripts/icons.mjs'))
+    inputs.file(new File(releaseDir, '../src/assets/icon.svg'))
+    outputs.files(iconDensities.collectMany { density -> iconNames.collect { name -> file("src/main/res/mipmap-${density}/${name}.png") } })
+}
+tasks.named('preBuild') { dependsOn 'generateIcons' }
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {

@@ -1,2 +1,5 @@
 node_modules
 out
+
+# Launcher icons, rendered from src/assets/icon.svg by the generateIcons task
+app/src/main/res/mipmap-*/ic_launcher*.png
