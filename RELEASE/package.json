@@ -8,12 +8,13 @@
   "main": "main.cjs",
   "scripts": {
     "web": "npm --prefix .. run build",
+    "icons": "node scripts/icons.mjs",
     "start": "npm run web && electron .",
-    "dist": "npm run web && electron-builder",
-    "dist:mac": "npm run web && electron-builder --mac",
-    "dist:win": "npm run web && electron-builder --win",
-    "dist:linux": "npm run web && electron-builder --linux",
-    "android": "npm run web && cap sync android",
+    "dist": "npm run icons && npm run web && electron-builder",
+    "dist:mac": "npm run icons && npm run web && electron-builder --mac",
+    "dist:win": "npm run icons && npm run web && electron-builder --win",
+    "dist:linux": "npm run icons && npm run web && electron-builder --linux",
+    "android": "npm run icons && npm run web && cap sync android",
     "dist:android": "npm run android && cd android && ./gradlew assembleRelease"
   },
   "devDependencies": {
@@ -21,6 +22,7 @@
     "@capacitor/cli": "8.6.0",
     "@capacitor/core": "8.6.0",
     "electron": "45.1.0",
-    "electron-builder": "26.18.0"
+    "electron-builder": "26.18.0",
+    "sharp": "^0.35.5"
   }
 }
