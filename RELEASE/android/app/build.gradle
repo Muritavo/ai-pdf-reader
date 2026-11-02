@@ -8,7 +8,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Given by the release workflow, as -PversionCode=12 -PversionName=0.0.0-build.12
-        versionCode((project.findProperty('versionCode') ?: '1') as Integer)
+        // Local builds count the minutes since 1970, so each one installs over the previous
+        versionCode((project.findProperty('versionCode') ?: (System.currentTimeMillis() / 60000) as Long) as Integer)
         versionName((project.findProperty('versionName') ?: '0.0.0') as String)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
