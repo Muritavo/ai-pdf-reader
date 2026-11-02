@@ -11,7 +11,8 @@ import AsyncInteractionButton from '../../../../components/AsyncInteractionButto
 import { usePlugins } from '../../../../context/PluginsContext';
 import type { PluginResult } from '../../../../plugins/types';
 
-export type FeaturesMenuHandle = { openMenu(): void; closeMenu(): void };
+/** Reopening follows the selection while it changes, as on touch it is adjusted by its handles after it opens */
+export type FeaturesMenuHandle = { openMenu(reopen?: boolean): void; closeMenu(): void };
 
 type MenuItem = {
     id: string;
@@ -77,8 +78,8 @@ export default forwardRef(function FeaturesMenu(
     useImperativeHandle(
         ref,
         () => ({
-            openMenu() {
-                if (word) return;
+            openMenu(reopen) {
+                if (word && !reopen) return;
                 const selection = window.getSelection();
                 if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
                     setWord(undefined);

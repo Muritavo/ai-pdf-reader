@@ -83,6 +83,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const promptBarRef = useRef<DocumentPromptBarHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
+    const lastPointerTypeRef = useRef<string>();
     const scrollBarRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
         const response = await fetch(fullText.url);
@@ -262,6 +263,26 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
         window.addEventListener('mouseup', listener);
         return () => window.removeEventListener('mouseup', listener);
+    }, []);
+
+    // A touch selection has no mouse up, so the menu follows the selection once it stops changing
+    useEffect(() => {
+        let timeout: number;
+        const listener = () => {
+            if (lastPointerTypeRef.current !== 'touch') return;
+            window.clearTimeout(timeout);
+            timeout = window.setTimeout(() => {
+                // Tapping the menu clears the selection, which must not close it while an option is working
+                const selection = window.getSelection();
+                if (!selection || selection.isCollapsed || !previewBoxRef.current?.contains(selection.anchorNode)) return;
+                menuRef.current?.openMenu(true);
+            }, 300);
+        };
+        document.addEventListener('selectionchange', listener);
+        return () => {
+            window.clearTimeout(timeout);
+            document.removeEventListener('selectionchange', listener);
+        };
     }, []);
 
     // Brings the attention back to where the user stopped when returning to this tab
@@ -483,6 +504,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 onClickCapture={removeDefinitionAt}
                 // On macOS, Ctrl + click is the right click
                 onContextMenu={removeDefinitionAt}
+                onPointerDown={e => (lastPointerTypeRef.current = e.pointerType)}
                 onMouseUp={() => window.setTimeout(() => menuRef.current?.openMenu(), 0)}
             >
                 {!pdf && (
