@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0" stop-color="#1a1d1b"/>
+      <stop offset="1" stop-color="#0a0b0a"/>
+    </radialGradient>
+    <filter id="bristles" x="-15%" y="-15%" width="130%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Brush stroke: sideways "Y" linking question → AI → magnifier / book -->
+  <g fill="none" stroke="#2a6e47" stroke-linecap="round" filter="url(#bristles)" transform="translate(256 256) scale(0.85) translate(-256 -256)">
+      <path d="M 85 240 C 150 228, 205 249, 250 245 M 242 248 C 284 202, 334 146, 392 90" stroke-width="2.5" stroke-dasharray="60 9 140 6"/>
+      <path d="M 242 264 C 284 310, 334 368, 394 426" stroke-width="2.5" stroke-dasharray="60 9 140 6"/>
+      <path d="M 80 249 C 150 237, 205 254, 250 250 M 245 251 C 291 209, 341 153, 399 97" stroke-width="3.5"/>
+      <path d="M 245 261 C 291 303, 341 361, 401 419" stroke-width="3.5"/>
+      <path d="M 75 257 C 150 245, 205 259, 250 254 M 248 254 C 296 214, 346 158, 404 102" stroke-width="2.2" stroke-dasharray="34 7 90 12"/>
+      <path d="M 248 258 C 296 298, 346 356, 406 414" stroke-width="2.2" stroke-dasharray="34 7 90 12"/>
+      <path d="M 74 266 C 150 254, 205 264, 250 258 M 251 257 C 303 221, 353 165, 411 109" stroke-width="3.2"/>
+      <path d="M 251 255 C 303 291, 353 349, 413 407" stroke-width="3.2"/>
+      <path d="M 79 274 C 150 262, 205 269, 250 262 M 254 260 C 308 226, 358 170, 416 114" stroke-width="2.4" stroke-dasharray="120 10 50 8"/>
+      <path d="M 254 252 C 308 286, 358 344, 418 402" stroke-width="2.4" stroke-dasharray="120 10 50 8"/>
+      <path d="M 85 283 C 150 271, 205 275, 250 266 M 257 263 C 315 233, 365 177, 423 121" stroke-width="3" stroke-dasharray="80 14 200 5"/>
+      <path d="M 257 249 C 315 279, 365 337, 425 395" stroke-width="3" stroke-dasharray="80 14 200 5"/>
+  </g>
+
+  <g fill="none" stroke="#eef5f0" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Question mark (center left) -->
+    <path transform="translate(-18 0)" d="M 88 226 Q 88 202 110 202 Q 132 202 132 224 Q 132 240 114 248 Q 108 251 108 262 V 270" stroke-width="7"/>
+
+    <!-- Magnifying glass (top right) -->
+    <g transform="translate(18 -18)">
+    <circle cx="376" cy="120" r="30" stroke-width="7"/>
+    <path d="M 398 142 L 424 168" stroke-width="9"/>
+    </g>
+
+    <!-- Closed book (bottom right) -->
+    <g transform="translate(18 18)">
+    <rect x="356" y="346" width="58" height="96" rx="12" fill="#121413" stroke="none"/>
+    <path d="M 356 427 V 360 Q 356 346 370 346 H 414 V 412 H 371 Q 356 412 356 427 Q 356 442 371 442 H 414" stroke-width="6"/>
+    <path d="M 414 412 V 442" stroke-width="6"/>
+    <path d="M 372 420 H 408 M 370 427 H 408 M 372 434 H 408" stroke-width="2"/>
+    </g>
+  </g>
+  <circle cx="90" cy="296" r="5.5" fill="#eef5f0"/>
+
+  <!-- Brain with radiating circuit traces (center) -->
+  <g transform="translate(256 256) scale(0.63)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 -95 C -10 -120, -50 -125, -60 -100 C -90 -115, -125 -90, -115 -60 C -150 -50, -155 -10, -130 0 C -155 15, -150 55, -115 60 C -125 90, -90 115, -60 100 C -50 125, -10 120, 0 95 C 10 120, 50 125, 60 100 C 90 115, 125 90, 115 60 C 150 55, 155 15, 130 0 C 155 -10, 150 -50, 115 -60 C 125 -90, 90 -115, 60 -100 C 50 -125, 10 -120, 0 -95 Z" fill="#0d0f0e55" stroke="#0d0f0e" stroke-width="30" filter="url(#soft)"/>
+    <g stroke="#eef5f0" stroke-width="9">
+      <path d="M -32 -118 V -150 H -72 M 32 -118 V -180 M 85 -103 V -140 H 110
+               M 32 118 V 150 H 72 M -32 118 V 180 M -85 103 V 140 H -110
+               M -145 -25 H -170 V -60 M -130 0 H -192 M -145 32 H -168 V 72
+               M 145 -30 H 168 V -68 M 130 0 H 192 M 145 28 H 172 V 62"/>
+    </g>
+    <g fill="#2a6e47">
+      <circle cx="-72" cy="-150" r="10"/><circle cx="32" cy="-180" r="10"/><circle cx="110" cy="-140" r="10"/>
+      <circle cx="72" cy="150" r="10"/><circle cx="-32" cy="180" r="10"/><circle cx="-110" cy="140" r="10"/>
+      <circle cx="-170" cy="-60" r="10"/><circle cx="-192" cy="0" r="10"/><circle cx="-168" cy="72" r="10"/>
+      <circle cx="168" cy="-68" r="10"/><circle cx="192" cy="0" r="10"/><circle cx="172" cy="62" r="10"/>
+    </g>
+    <path d="M 0 -95
+             C -10 -120, -50 -125, -60 -100
+             C -90 -115, -125 -90, -115 -60
+             C -150 -50, -155 -10, -130 0
+             C -155 15, -150 55, -115 60
+             C -125 90, -90 115, -60 100
+             C -50 125, -10 120, 0 95
+             C 10 120, 50 125, 60 100
+             C 90 115, 125 90, 115 60
+             C 150 55, 155 15, 130 0
+             C 155 -10, 150 -50, 115 -60
+             C 125 -90, 90 -115, 60 -100
+             C 50 -125, 10 -120, 0 -95 Z
+             M 0 -95 Q 0 -78 -18 -70 M 0 -95 Q 0 -78 18 -70
+             M 0 95 Q 0 78 -18 70 M 0 95 Q 0 78 18 70" stroke="#eef5f0" stroke-width="14"/>
+  </g>
+</svg>
