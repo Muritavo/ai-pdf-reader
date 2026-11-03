@@ -7,6 +7,7 @@ export default {
         empty: 'Nenhum projeto ainda. Crie o primeiro para começar.',
         last: 'Último aberto',
         createdAt: 'Criado em {date}',
+        lastOpenedAt: 'Aberto em {date}',
         remove: 'Excluir projeto',
         confirmRemove: 'Excluir o projeto "{name}"? Tudo dele é apagado deste navegador, inclusive os PDFs.',
         switch: 'Trocar de projeto',
@@ -132,6 +133,7 @@ export default {
     },
     documentPreview: {
         menu: {
+            openDoi: 'Abrir DOI',
             searchOnGoogle: 'Pesquisar no Google',
             googleQuery: 'O que significa {word}?',
             highlightInstances: 'Destacar ocorrências',

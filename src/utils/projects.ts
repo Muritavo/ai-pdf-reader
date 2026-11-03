@@ -1,7 +1,7 @@
 import { delMany, keys } from 'idb-keyval';
 
 /** Each project keeps its own references, PDFs, annotations, questions and AI cache */
-export type Project = { id: string; name: string; createdAt: string };
+export type Project = { id: string; name: string; createdAt: string; lastOpenedAt?: string };
 
 type ProjectsState = { projects: Project[]; last?: string };
 

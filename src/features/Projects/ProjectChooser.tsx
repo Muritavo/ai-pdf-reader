@@ -4,17 +4,21 @@ import Text from '@onepercentio/one-ui/components/Text';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { FolderOpen, Trash2 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectsContext';
+import type { Project } from '../../utils/projects';
 import { TestIds } from '../../testids';
 import Styles from './Projects.module.css';
+
+/** Projects opened before the date was kept count from their creation */
+const openedAt = (project: Project) => project.lastOpenedAt ?? project.createdAt;
 
 /** Shown when no project is open: the first time, or after switching projects */
 export default function ProjectChooser() {
     const { txt } = useShortIntl();
     const { projects, last, open, create, remove } = useProjects();
     const [name, setName] = useState('');
-    // The most recent first, the last one used on top of all
+    // The most recently opened first, the last one used on top of all
     const sorted = [...projects].sort((a, b) =>
-        a.id === last ? -1 : b.id === last ? 1 : b.createdAt.localeCompare(a.createdAt),
+        a.id === last ? -1 : b.id === last ? 1 : openedAt(b).localeCompare(openedAt(a)),
     );
 
     return (
@@ -53,9 +57,13 @@ export default function ProjectChooser() {
                                 <Text type="caption">
                                     {project.id === last
                                         ? txt('projects.last')
-                                        : txt('projects.createdAt', {
-                                              date: new Date(project.createdAt).toLocaleDateString('pt-BR'),
-                                          })}
+                                        : project.lastOpenedAt
+                                          ? txt('projects.lastOpenedAt', {
+                                                date: new Date(project.lastOpenedAt).toLocaleDateString('pt-BR'),
+                                            })
+                                          : txt('projects.createdAt', {
+                                                date: new Date(project.createdAt).toLocaleDateString('pt-BR'),
+                                            })}
                                 </Text>
                             </button>
                             <button

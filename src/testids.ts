@@ -134,6 +134,7 @@ export const TestIds = {
     menu: {
         root: 'features-menu',
         actions: 'features-menu-actions',
+        openDoi: 'menu-open-doi',
         searchOnGoogle: 'menu-search-on-google',
         highlight: 'menu-highlight',
         define: 'menu-define',

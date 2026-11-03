@@ -32,11 +32,21 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         setState({ projects, last, current });
     }, []);
 
-    const open = useCallback((id: string) => update(state.projects, id), [state.projects, update]);
+    const open = useCallback(
+        (id: string) => {
+            const lastOpenedAt = new Date().toISOString();
+            update(
+                state.projects.map(p => (p.id === id ? { ...p, lastOpenedAt } : p)),
+                id,
+            );
+        },
+        [state.projects, update],
+    );
 
     const create = useCallback(
         (name: string) => {
-            const project: Project = { id: newProjectId(), name: name.trim(), createdAt: new Date().toISOString() };
+            const now = new Date().toISOString();
+            const project: Project = { id: newProjectId(), name: name.trim(), createdAt: now, lastOpenedAt: now };
             update([...state.projects, project], project.id);
         },
         [state.projects, update],

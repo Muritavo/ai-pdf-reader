@@ -25,10 +25,15 @@ type MenuItem = {
     minWords?: number;
     /** The action is only recommended for a selection with at most this many words, as a term and not a statement */
     maxWords?: number;
+    /** The action is only offered for a selection in this format (as a DOI), and never set apart as not recommended */
+    textFormat?: RegExp;
 };
 
 /** More than 5 words: a passage, about which it makes sense to ask or look for a reference */
 const PASSAGE_MIN_WORDS = 6;
+
+/** A DOI, as is or with its `doi:` or `https://doi.org/` prefix */
+const DOI_FORMAT = /^(?:doi:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}\/\S+)$/i;
 
 const MAX_MENU_HEIGHT = 340;
 /** Enough for the selected text and a couple of actions, even close to the bottom of the screen */
@@ -111,6 +116,17 @@ export default forwardRef(function FeaturesMenu(
     }
 
     const menuItems: MenuItem[] = [
+        {
+            id: 'open-doi',
+            testId: TestIds.menu.openDoi,
+            textFormat: DOI_FORMAT,
+            label: txt('documentPreview.menu.openDoi'),
+            onClick: async () => {
+                const doi = DOI_FORMAT.exec(word)![1];
+                window.open(`https://doi.org/${doi}`, '_blank', 'noopener,noreferrer');
+                dismiss();
+            },
+        },
         {
             id: 'search-on-google',
             testId: TestIds.menu.searchOnGoogle,
@@ -217,9 +233,11 @@ export default forwardRef(function FeaturesMenu(
     const fitsSelection = (item: MenuItem) =>
         (item.minWords === undefined || selectedWords >= item.minWords) &&
         (item.maxWords === undefined || selectedWords <= item.maxWords);
+    // The actions bound to a text format are only offered for a selection in that format
+    const offeredItems = menuItems.filter(item => !item.textFormat || item.textFormat.test(word));
     // The actions not meant for a selection of this size are still offered, set apart after the recommended ones
-    const recommendedItems = menuItems.filter(fitsSelection);
-    const notRecommendedItems = menuItems.filter(item => !fitsSelection(item));
+    const recommendedItems = offeredItems.filter(fitsSelection);
+    const notRecommendedItems = offeredItems.filter(item => !fitsSelection(item));
 
     function renderItem(item: MenuItem) {
         return (
