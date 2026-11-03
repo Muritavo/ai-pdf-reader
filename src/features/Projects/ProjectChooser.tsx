@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import Button from '@onepercentio/one-ui/components/Button';
 import Text from '@onepercentio/one-ui/components/Text';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { FolderOpen, Trash2 } from 'lucide-react';
 import { useProjects } from '../../context/ProjectsContext';
-import type { Project } from '../../utils/projects';
+import { projectColor, type Project } from '../../utils/projects';
 import { TestIds } from '../../testids';
 import Styles from './Projects.module.css';
 
 /** Projects opened before the date was kept count from their creation */
 const openedAt = (project: Project) => project.lastOpenedAt ?? project.createdAt;
+
+const colorStyle = (project: Project) => ({ '--project-color': projectColor(project) }) as CSSProperties;
 
 /** Shown when no project is open: the first time, or after switching projects */
 export default function ProjectChooser() {
@@ -50,7 +52,12 @@ export default function ProjectChooser() {
             ) : (
                 <ul className={Styles.list}>
                     {sorted.map(project => (
-                        <li key={project.id} className={Styles.item} data-testid={TestIds.projects.item}>
+                        <li
+                            key={project.id}
+                            className={Styles.item}
+                            style={colorStyle(project)}
+                            data-testid={TestIds.projects.item}
+                        >
                             <button type="button" className={Styles.open} onClick={() => open(project.id)}>
                                 <FolderOpen size={18} strokeWidth={1.75} />
                                 <span className={Styles.name}>{project.name}</span>

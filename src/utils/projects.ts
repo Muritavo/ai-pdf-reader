@@ -1,4 +1,6 @@
 import { delMany, keys } from 'idb-keyval';
+import chroma from 'chroma-js';
+import seedrandom from 'seedrandom';
 
 /** Each project keeps its own references, PDFs, annotations, questions and AI cache */
 export type Project = { id: string; name: string; createdAt: string; lastOpenedAt?: string };
@@ -39,6 +41,12 @@ export function saveProjects(state: ProjectsState) {
 
 /** crypto.randomUUID is missing outside of secure contexts, as when opened through http://<ip> */
 export const newProjectId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+/** The color comes from the name alone (no entropy), so a project keeps its color across reloads */
+export function projectColor(project: Project) {
+    const random = seedrandom(project.name.toLocaleLowerCase());
+    return chroma.hsl(random() * 360, 0.7, 0.6).css();
+}
 
 /** The keys of the open project, without the project prefix */
 export function projectEntries() {

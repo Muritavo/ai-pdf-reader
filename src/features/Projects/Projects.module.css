@@ -42,12 +42,19 @@
     list-style: none;
 }
 
+/* --project-color is seeded by the name of the project */
 .item {
     display: flex;
     align-items: center;
     gap: 4px;
     border-radius: 12px;
-    background: var(--surface);
+    background:
+        linear-gradient(
+            to top right,
+            color-mix(in srgb, var(--project-color) 25%, transparent),
+            color-mix(in srgb, black 25%, transparent)
+        ),
+        var(--surface);
 }
 
 .open {
@@ -67,7 +74,8 @@
 }
 
 .open:hover {
-    background: var(--surface-raised);
+    /* Translucent, so the gradient of the project still shows */
+    background: color-mix(in srgb, var(--surface-raised) 50%, transparent);
 }
 
 .name {
