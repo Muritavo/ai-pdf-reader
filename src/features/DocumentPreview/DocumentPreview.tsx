@@ -24,7 +24,7 @@ import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components
 import DocumentActions from './components/DocumentActions';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion from './components/ImageQuestion';
-import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { cropImage, figureBoxesOf, imageBoxesOf, vectorFigureBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
 import { scoped } from '../../utils/projects';
@@ -351,7 +351,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await drawing.promise;
             // Kept by pdf.js on the page: the getter of the render task reads a field it never sets
-            setImageBoxes(current => ({ ...current, [pageNum]: imageBoxesOf(page.imageCoordinates) }));
+            const images = imageBoxesOf(page.imageCoordinates);
+            // The figures drawn as lines and curves, which pdf.js doesn't record as images
+            const figures = vectorFigureBoxesOf(await page.getOperatorList(), await page.getTextContent(), pageViewport);
+            setImageBoxes(current => ({ ...current, [pageNum]: figureBoxesOf(images, figures) }));
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({
