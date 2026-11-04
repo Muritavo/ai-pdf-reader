@@ -23,7 +23,7 @@ import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu
 import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
-import ImageQuestion from './components/ImageQuestion';
+import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
 import { cropImage, figureBoxesOf, imageBoxesOf, vectorFigureBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
@@ -98,6 +98,11 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [notes, setNotes] = useLocalStorage<NoteItem[]>(scoped(`notes-${hash}`), []);
     // How far the text layer is moved over the pages, for the documents where it is a bit off from the drawn text
     const [textLayerOffset, setTextLayerOffset] = useLocalStorage<Offset>(scoped(`textLayerOffset-${hash}`), { x: 0, y: 0 });
+    // The questions asked about each image, by its page and its place on the page
+    const [imageHistory, setImageHistory] = useLocalStorage<Record<string, ImageQuestionEntry[]>>(
+        scoped(`imageHistory-${hash}`),
+        {},
+    );
     const clickCounterRef = useRef(0);
 
     /** Converts viewport coordinates into percentages of the scrollable document */
@@ -555,12 +560,28 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                     // At the bottom of the image, inside it (and moved up into what is seen, when it is a tall one)
                                     top: `${(imageBoxes[page.id][askingImage.index].top + imageBoxes[page.id][askingImage.index].height) * 100}%`,
                                 }}
+                                history={imageHistory[`${page.id}-${askingImage.index}`] ?? []}
                                 onClose={() => setAskingImage(undefined)}
+                                onOpenEntry={entry => {
+                                    const image = cropImage(page.canvasRef.current!, imageBoxes[page.id][askingImage.index]);
+                                    setImageAnswer({ question: entry.question, answer: entry.answer, image });
+                                    setAskingImage(undefined);
+                                }}
                                 onSend={async question => {
                                     const box = imageBoxes[page.id][askingImage.index];
                                     const image = cropImage(page.canvasRef.current!, box);
-                                    const answer = await askAboutImage(question, image, await getNormalizedText(fullText));
-                                    setImageAnswer({ question, answer: unwrapMarkdownFence(answer), image });
+                                    const answer = unwrapMarkdownFence(
+                                        await askAboutImage(question, image, await getNormalizedText(fullText)),
+                                    );
+                                    const key = `${page.id}-${askingImage.index}`;
+                                    setImageHistory({
+                                        ...imageHistory,
+                                        [key]: [
+                                            { question, answer, timestamp: new Date().toISOString() },
+                                            ...(imageHistory[key] ?? []).filter(other => other.question !== question),
+                                        ],
+                                    });
+                                    setImageAnswer({ question, answer, image });
                                     setAskingImage(undefined);
                                 }}
                             />

@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
-import { Send, X } from 'lucide-react';
+import { History, Send, X } from 'lucide-react';
 import { TestIds } from '../../../../testids';
 import Styles from './ImageQuestion.module.scss';
+
+/** A question asked before about the image, with the answer it got */
+export type ImageQuestionEntry = { question: string; answer: string; timestamp: string };
 
 type ImageQuestionProps = {
     /** Where it is shown: centered across the image, with its bottom on the bottom of the image */
@@ -12,13 +15,17 @@ type ImageQuestionProps = {
     onClose: () => void;
     /** Asking needs the AI ready for the document */
     aiReady: boolean;
+    /** The questions asked before about this image, the last one first */
+    history: ImageQuestionEntry[];
+    /** Shows the answer of a question asked before, without asking again */
+    onOpenEntry: (entry: ImageQuestionEntry) => void;
 };
 
 /** The space kept between the field and the edges of what is seen of the document */
 const MARGIN = 8;
 
 /** A question about an image of the document, written right over it */
-export default function ImageQuestion({ style, onSend, onClose, aiReady }: ImageQuestionProps) {
+export default function ImageQuestion({ style, onSend, onClose, aiReady, history, onOpenEntry }: ImageQuestionProps) {
     const { txt } = useShortIntl();
     const [question, setQuestion] = useState('');
     const [sending, setSending] = useState(false);
@@ -27,6 +34,14 @@ export default function ImageQuestion({ style, onSend, onClose, aiReady }: Image
     const box = useRef<HTMLDivElement>(null);
     // How far it is moved from the point it is centered on, to be all inside what is seen of the document
     const [shift, setShift] = useState({ x: 0, y: 0 });
+    // Whether there are more questions below the ones seen on the history
+    const list = useRef<HTMLUListElement>(null);
+    const [moreBelow, setMoreBelow] = useState(false);
+    const checkMoreBelow = () => {
+        const element = list.current;
+        setMoreBelow(!!element && element.scrollTop + element.clientHeight < element.scrollHeight - 1);
+    };
+    useLayoutEffect(checkMoreBelow, [history]);
 
     // An image at the edge of the page (or of what is seen of it) would leave part of the field out, cut
     useLayoutEffect(() => {
@@ -120,6 +135,26 @@ export default function ImageQuestion({ style, onSend, onClose, aiReady }: Image
                     </button>
                 </div>
             </div>
+            {history.length > 0 && (
+                <div className={`${Styles.history} ${moreBelow ? Styles.moreBelow : ''}`}>
+                    <ul ref={list} className={Styles.historyList} onScroll={checkMoreBelow}>
+                        {history.map(entry => (
+                            <li key={entry.timestamp}>
+                                <button
+                                    type="button"
+                                    className={Styles.historyItem}
+                                    data-testid={TestIds.preview.imageQuestionHistoryItem}
+                                    title={entry.question}
+                                    onClick={() => onOpenEntry(entry)}
+                                >
+                                    <History size={12} strokeWidth={1.75} />
+                                    <span>{entry.question}</span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
             {failed && <p className={Styles.error}>{txt('imageQuestion.failed')}</p>}
         </div>
     );

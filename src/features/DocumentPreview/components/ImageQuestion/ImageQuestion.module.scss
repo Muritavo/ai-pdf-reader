@@ -86,3 +86,71 @@
   color: $colorDanger;
   font-size: 0.8rem;
 }
+
+// The questions asked before: two rows are seen, and the rest is scrolled to
+$historyRow: 28px;
+
+.history {
+  position: relative;
+  margin-top: 6px;
+
+  // Shown while there are more questions below the ones seen
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 14px;
+    border-bottom: 2px solid rgba($colorHighlight, 0.6);
+    border-radius: 0 0 6px 6px;
+    background: linear-gradient(to bottom, transparent, rgba($colorPanel, 0.95));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &.moreBelow::after {
+    opacity: 1;
+  }
+}
+
+.historyList {
+  max-height: $historyRow * 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.historyItem {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  height: $historyRow;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: $colorMuted;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &:hover {
+    color: $colorText;
+    background: $colorSurface;
+  }
+}
