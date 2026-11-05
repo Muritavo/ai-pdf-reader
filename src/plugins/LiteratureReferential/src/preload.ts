@@ -12,7 +12,7 @@ export async function preloadBook({ storage, ai }: PluginEnv, book: Book) {
         const content = (await Promise.all(pagesOf(book.ranges).map(async page => ({ page, text: await pageText(pdf, page) })))).filter(
             ({ text }) => text.trim(),
         );
-        await ai.complete(preloadMessages(book, content), { cache: true });
+        await ai.complete(preloadMessages(book, content), { cache: true, settings: book.ai });
         await savePreload(storage, book.id, book.ranges, content);
         setPreloadProgress(book.id, undefined);
     } catch (e) {

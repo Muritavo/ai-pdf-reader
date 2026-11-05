@@ -78,7 +78,7 @@ export default function PluginSettings() {
                             </button>
                         </div>
                         <div className={Styles.viewContent}>
-                            <opened.Settings storage={opened.env.storage} ai={opened.env.ai} />
+                            <opened.Settings {...opened.env} />
                         </div>
                     </div>,
                     document.body,

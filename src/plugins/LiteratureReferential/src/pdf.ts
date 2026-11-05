@@ -5,8 +5,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export type PdfDocument = pdfjsLib.PDFDocumentProxy;
 
-/** pdf.js takes the bytes over (detaching them), so it gets a copy and the stored ones stay usable */
-export const openPdf = (bytes: ArrayBuffer) => pdfjsLib.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise;
+/** pdf.js takes the bytes over (detaching them), so it reads its own copy from the file */
+export const openPdf = async (file: Blob) => pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
 
 /**
  * The leaders of a summary, as "Choroid plexus ........ 34", and the runs of spaces, as one space.

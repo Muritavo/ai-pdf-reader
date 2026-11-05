@@ -1,5 +1,6 @@
 import { del, get, keys, set } from 'idb-keyval';
 import { callOpenAiApi } from '../services/ai';
+import AISettingsButton from '../components/AISettingsButton';
 import type { PluginEnv } from './types';
 
 /** The same prefix the plugins used before having a storage of their own, as "plugins/uniprot/human" */
@@ -20,7 +21,8 @@ export function createPluginEnv(pluginId: string): PluginEnv {
         },
         ai: {
             // Not kept on the server unless the plugin asks to, as for a prompt it starts every question with
-            complete: (messages, { onProgress, cache = false } = {}) => callOpenAiApi(messages, onProgress, { cache }),
+            complete: (messages, { onProgress, cache = false, settings } = {}) => callOpenAiApi(messages, onProgress, { cache, settings }),
         },
+        settingsComponents: { AISettingsButton },
     };
 }

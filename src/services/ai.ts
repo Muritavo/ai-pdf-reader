@@ -12,12 +12,15 @@ export function setAIEndpoint(endpoint: string) {
 export const getAIEndpoint = () => currentEndpoint;
 import { clearCached, wrapFunction } from "../utils/hash";
 
-const MODEL =
-  // "gemma-4-26b-a4b-it-UD-MLX-4bit"
-  "mlx-community/Qwen3.8-27B-4bit"
-// "Ornith-1.0-9B-oQ4-fp16"
-// 'Ornith-1.0-9B-oQ4-fp16'
-// "Ornith-1.0-9B-mlx-4Bit"
+const MODEL = "mlx-community/Qwen3.8-27B-4bit";
+
+/** The models that can be chosen for a request. Hardcoded for now */
+export const AI_MODELS: string[] = [MODEL, "mlx-community/Qwen3.6-35B-A3B-4bit"];
+
+/** The model and the thinking mode of a request, as chosen for something (as a book of the literature) */
+export type AISettings = { name: string; thinkingEnabled: boolean };
+
+export const DEFAULT_AI_SETTINGS: AISettings = { name: MODEL, thinkingEnabled: false };
 
 /** A part of a message, for the models that read images too */
 type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
@@ -26,8 +29,11 @@ export async function callOpenAiApi(
   messages: { role: string; content: string | ContentPart[] }[],
   /** Receives each piece of the answer as it streams */
   onProgress?: (chunk: string) => void,
-  /** False tells the server not to keep the prompt on its cache, for prompts that are not asked again */
-  { cache = true }: { cache?: boolean } = {},
+  /**
+   * False tells the server not to keep the prompt on its cache, for prompts that are not asked again.
+   * `settings` chooses the model and the thinking mode; without it, the loaded model and no thinking
+   */
+  { cache = true, settings }: { cache?: boolean; settings?: AISettings } = {},
 ): Promise<string> {
   const response = await fetch(`${currentEndpoint}/v1/chat/completions`, {
     method: "POST",
@@ -37,10 +43,10 @@ export async function callOpenAiApi(
     },
     body: JSON.stringify({
       // Servers that don't report the loaded model are still used, with the default model
-      model: (await getLoadedModelId().catch(() => null)) ?? MODEL,
+      model: settings?.name ?? (await getLoadedModelId().catch(() => null)) ?? MODEL,
       messages,
       stream: true,
-      chat_template_kwargs: { enable_thinking: false },
+      chat_template_kwargs: { enable_thinking: settings?.thinkingEnabled ?? false },
       ...(cache ? {} : { cache: false }),
     }),
   });

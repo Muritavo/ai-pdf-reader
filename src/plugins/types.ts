@@ -1,4 +1,8 @@
 import type { ComponentType, ReactNode } from 'react';
+import type { AISettings } from '../services/ai';
+import type { AISettingsButtonProps } from '../components/AISettingsButton';
+
+export type { AISettings };
 
 /** What a plugin shows when its action is done, on the same window as the answers of the AI */
 export type PluginResult = {
@@ -54,13 +58,23 @@ export type PluginAIMessage = { role: 'system' | 'user' | 'assistant'; content: 
 export type PluginAI = {
     /**
      * The whole answer of the AI to the conversation, on the endpoint chosen on the AI status.
-     * `cache` keeps the prompt on the server, so the next ones starting the same way reuse it (false by default)
+     * `cache` keeps the prompt on the server, so the next ones starting the same way reuse it (false by default).
+     * `settings` chooses the model and the thinking mode of the request
      */
-    complete: (messages: PluginAIMessage[], options?: { onProgress?: (chunk: string) => void; cache?: boolean }) => Promise<string>;
+    complete: (
+        messages: PluginAIMessage[],
+        options?: { onProgress?: (chunk: string) => void; cache?: boolean; settings?: AISettings },
+    ) => Promise<string>;
+};
+
+/** Components of the app the plugins render on their own views, to configure what they do */
+export type PluginSettingsComponents = {
+    /** Opens the choice of the model and of the thinking mode */
+    AISettingsButton: ComponentType<AISettingsButtonProps>;
 };
 
 /** What the app gives to each plugin to work with */
-export type PluginEnv = { storage: PluginStorage; ai: PluginAI };
+export type PluginEnv = { storage: PluginStorage; ai: PluginAI; settingsComponents: PluginSettingsComponents };
 
 export type Plugin = {
     id: string;

@@ -43,7 +43,7 @@ async function placesOn({ storage, ai }: PluginEnv, book: Book, excerpt: string)
     const key = excerptKey(excerpt);
     if (answers.byExcerpt[key]) return answers.byExcerpt[key];
 
-    const places = parsePlaces(await ai.complete(questionMessages(book, contentOf(book.id), excerpt), { cache: true }), book);
+    const places = parsePlaces(await ai.complete(questionMessages(book, contentOf(book.id), excerpt), { cache: true, settings: book.ai }), book);
     await storage.set(answersKey(book.id), { ...answers, byExcerpt: { ...answers.byExcerpt, [key]: places } });
     return places;
 }

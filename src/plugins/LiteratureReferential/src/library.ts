@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { PluginStorage } from '../../types';
+import type { AISettings, PluginStorage } from '../../types';
 import { openPdf, type PdfDocument } from './pdf';
 
 /** Pages of the PDF, both included, counting from 1 */
@@ -15,6 +15,8 @@ export type Book = {
     cached?: { ranges: string; at: string };
     /** Added to the page numbers of the summary and of the index, as the pages before the first numbered one (cover, preface) */
     offset?: number;
+    /** The model and the thinking mode its requests use. Without it, the defaults of the app */
+    ai?: AISettings;
 };
 
 /** The page of the PDF a page number of the book is on */
@@ -85,11 +87,17 @@ async function saveBooks(storage: PluginStorage, next: Book[]) {
 /** crypto.randomUUID is missing outside of secure contexts, as when opened through http://<ip> */
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
+/** Stored as a Blob, as IndexedDB keeps it as a file and a value of bytes over ~133 MB is refused. The ones stored as bytes before still open */
+async function fileOf(storage: PluginStorage, id: string) {
+    const stored = await storage.get<Blob | ArrayBuffer>(pdfKey(id));
+    if (!stored) throw new Error('O PDF do livro não foi encontrado');
+    return stored instanceof Blob ? stored : new Blob([stored], { type: 'application/pdf' });
+}
+
 export async function addBook(storage: PluginStorage, file: File) {
-    const bytes = await file.arrayBuffer();
-    const pdf = await openPdf(bytes);
+    const pdf = await openPdf(file);
     const book: Book = { id: newId(), title: file.name.replace(/\.pdf$/i, ''), pageCount: pdf.numPages, ranges: [] };
-    await storage.set(pdfKey(book.id), bytes);
+    await storage.set(pdfKey(book.id), file);
     opened.set(book.id, Promise.resolve(pdf));
     await saveBooks(storage, [...books, book]);
 }
@@ -122,6 +130,13 @@ export async function saveOffset(storage: PluginStorage, id: string, offset: num
     );
 }
 
+export async function saveAISettings(storage: PluginStorage, id: string, ai: AISettings) {
+    await saveBooks(
+        storage,
+        books.map(book => (book.id === id ? { ...book, ai } : book)),
+    );
+}
+
 export async function savePreload(storage: PluginStorage, id: string, ranges: PageRange[], content: PageContent[]) {
     await storage.set(contentKey(id), content);
     contentByBook.set(id, content);
@@ -135,10 +150,7 @@ export async function savePreload(storage: PluginStorage, id: string, ranges: Pa
 export function fileUrlOf(storage: PluginStorage, id: string) {
     let url = fileUrls.get(id);
     if (!url) {
-        url = storage.get<ArrayBuffer>(pdfKey(id)).then(bytes => {
-            if (!bytes) throw new Error('O PDF do livro não foi encontrado');
-            return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-        });
+        url = fileOf(storage, id).then(file => URL.createObjectURL(file));
         url.catch(() => fileUrls.delete(id));
         fileUrls.set(id, url);
     }
@@ -149,10 +161,7 @@ export function fileUrlOf(storage: PluginStorage, id: string) {
 export function openBook(storage: PluginStorage, id: string) {
     let pdf = opened.get(id);
     if (!pdf) {
-        pdf = storage.get<ArrayBuffer>(pdfKey(id)).then(bytes => {
-            if (!bytes) throw new Error('O PDF do livro não foi encontrado');
-            return openPdf(bytes);
-        });
+        pdf = fileOf(storage, id).then(openPdf);
         // A failure is not kept, so opening again tries again
         pdf.catch(() => opened.delete(id));
         opened.set(id, pdf);

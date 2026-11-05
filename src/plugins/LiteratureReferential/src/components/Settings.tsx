@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Bug, Ellipsis, Play, Trash2, Upload } from 'lucide-react';
 import type { PluginEnv } from '../../../types';
-import { addBook, isPreloaded, removeBook, saveOffset, useBooks, usePreloading, type Book } from '../library';
+import { addBook, isPreloaded, removeBook, saveAISettings, saveOffset, useBooks, usePreloading, type Book } from '../library';
 import { preloadBook } from '../preload';
 import BookEditor from './BookEditor';
 import ExtractedContent from './ExtractedContent';
@@ -64,7 +64,8 @@ function OffsetInput({ book, onSave }: { book: Book; onSave: (offset: number) =>
 
 /** The references (full books), with the ranges of their summary and index, and the preload of them by the AI */
 export default function Settings(env: PluginEnv) {
-    const { storage } = env;
+    const { storage, settingsComponents } = env;
+    const { AISettingsButton } = settingsComponents;
     const books = useBooks();
     const preloading = usePreloading();
     const [editing, setEditing] = useState<string>();
@@ -155,6 +156,12 @@ export default function Settings(env: PluginEnv) {
                             <OffsetInput book={book} onSave={offset => saveOffset(storage, book.id, offset)} />
                             <BookStatus book={book} />
                             <div className={Styles.bookActions}>
+                                <AISettingsButton
+                                    value={book.ai}
+                                    disabled={running}
+                                    testId="literature-ai-settings"
+                                    onAISetup={configs => saveAISettings(storage, book.id, configs)}
+                                />
                                 <div ref={menuOf === book.id ? menuRef : undefined} className={Styles.actionMenuAnchor}>
                                     <button
                                         type="button"
