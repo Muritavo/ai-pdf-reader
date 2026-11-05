@@ -4,6 +4,20 @@ A browser-based assistant for literature reviews. Import the references selected
 
 > The interface is in Portuguese (pt-BR).
 
+<!-- TODO: replace the stub address 0x00000 (badge link and code block) and confirm the network -->
+> [!TIP]
+> **Support this project**
+>
+> Research Workflow is free and open source. If it saves you time on a review, a donation helps keep it maintained and its features growing.
+>
+> [![Donate ETH](https://img.shields.io/badge/Donate-ETH-627EEA?logo=ethereum&logoColor=white)](https://etherscan.io/address/0x00000)
+>
+> ```
+> 0x00000
+> ```
+>
+> Send only on **Ethereum mainnet** (ETH or ERC-20 tokens). Funds sent on other networks may be lost.
+
 ## Features
 
 ### Projects
