@@ -1,18 +1,12 @@
-const API_KEY = "stub";
-/** The endpoint used while none was chosen on the AI status */
-export const DEFAULT_AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://127.0.0.1:8000";
-
-let currentEndpoint = DEFAULT_AI_ENDPOINT;
-
-/** Every request goes to the endpoint chosen on the AI status, read when it is made */
-export function setAIEndpoint(endpoint: string) {
-  currentEndpoint = endpoint;
-}
-
-export const getAIEndpoint = () => currentEndpoint;
 import { clearCached, wrapFunction } from "../utils/hash";
 
+const API_KEY = "stub";
 const MODEL = "mlx-community/Qwen3.8-27B-4bit";
+
+// ─── Configuration ──────────────────────────────────────────────────────────
+
+/** The endpoint used while none was chosen on the AI status */
+export const DEFAULT_AI_ENDPOINT: string = import.meta.env.VITE_AI_ENDPOINT ?? "http://127.0.0.1:8000";
 
 /** The models that can be chosen for a request. Hardcoded for now */
 export const AI_MODELS: string[] = [MODEL, "mlx-community/Qwen3.6-35B-A3B-4bit"];
@@ -22,8 +16,55 @@ export type AISettings = { name: string; thinkingEnabled: boolean };
 
 export const DEFAULT_AI_SETTINGS: AISettings = { name: MODEL, thinkingEnabled: false };
 
-/** A part of a message, for the models that read images too */
-type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+/** What the model answers when the passage cites nothing it could find on the document */
+export const REFERENCE_NOT_FOUND = "NOT_FOUND";
+
+// ─── Main functions ─────────────────────────────────────────────────────────
+
+export const normalizePdfText = wrapFunction(_normalizePdfText);
+
+export const defineWordInContext = wrapFunction(_defineWordInContext);
+
+/** Forgets the cached definition of the word, so defining it again asks the AI */
+export const forgetWordDefinition = (word: string, context: string) => clearCached([word, context]);
+
+export const findReferenceInContext = wrapFunction(_findReferenceInContext);
+
+/** Kept by the question, the image and the document, so asking the same again is instant */
+export const askAboutImage = wrapFunction(_askAboutImage);
+
+/** Kept by the document and the images of its pages, so validating again is instant */
+export const validateAgainstPages = wrapFunction(_validateAgainstPages);
+
+export const askContext = wrapFunction(_askContext);
+
+/** Clearer wordings of the research query, to be asked about the document */
+export async function suggestPrompts(researchQuery: string, context: string): Promise<string[]> {
+  const answer = await suggestPromptsCached(SUGGEST_PROMPTS_INSTRUCTIONS, researchQuery, context);
+  return answer
+    .split("\n")
+    // The model may still number or bullet the lines
+    .map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/^"(.*)"$/, "$1").trim())
+    .filter(Boolean);
+}
+
+export const getLoadedModelId = _getLoadedModelId;
+
+/**
+ * A single request to check the server is reachable, for when it does not report the loaded model.
+ * Any answer means it is up, even an error status. Only a failure to connect means it is not.
+ */
+export async function pingServer(): Promise<boolean> {
+  try {
+    await fetch(`${currentEndpoint}/v1/models`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function callOpenAiApi(
   messages: { role: string; content: string | ContentPart[] }[],
@@ -103,20 +144,19 @@ export async function callOpenAiApi(
   }
 }
 
-async function _normalizePdfText(rawText: string): Promise<string> {
-  const prompt = `Here is unstructured text extracted from a PDF:
-
-  ${rawText}
-
-  Please return a continuous, readable text by fixing line breaks and ordering. Do not add any extra commentary. Just return the normalized text.`;
-
-  const normalizedText = await callOpenAiApi([
-    { role: "user", content: prompt },
-  ], undefined, { cache: false });
-
-  return normalizedText;
+/** Every request goes to the endpoint chosen on the AI status, read when it is made */
+export function setAIEndpoint(endpoint: string) {
+  currentEndpoint = endpoint;
 }
-export const normalizePdfText = wrapFunction(_normalizePdfText);
+
+export const getAIEndpoint = () => currentEndpoint;
+
+// ─── Internals ──────────────────────────────────────────────────────────────
+
+let currentEndpoint = DEFAULT_AI_ENDPOINT;
+
+/** A part of a message, for the models that read images too */
+type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 
 /**
  * The start of every conversation about a document: the document, and the assistant acknowledging it.
@@ -139,6 +179,22 @@ ${context}`,
   ];
 }
 
+// ─── Implementations behind the exports above ───────────────────────────────
+
+async function _normalizePdfText(rawText: string): Promise<string> {
+  const prompt = `Here is unstructured text extracted from a PDF:
+
+  ${rawText}
+
+  Please return a continuous, readable text by fixing line breaks and ordering. Do not add any extra commentary. Just return the normalized text.`;
+
+  const normalizedText = await callOpenAiApi([
+    { role: "user", content: prompt },
+  ], undefined, { cache: false });
+
+  return normalizedText;
+}
+
 async function _defineWordInContext(
   word: string,
   context: string,
@@ -151,13 +207,6 @@ async function _defineWordInContext(
     },
   ]);
 }
-export const defineWordInContext = wrapFunction(_defineWordInContext);
-
-/** Forgets the cached definition of the word, so defining it again asks the AI */
-export const forgetWordDefinition = (word: string, context: string) => clearCached([word, context]);
-
-/** What the model answers when the passage cites nothing it could find on the document */
-export const REFERENCE_NOT_FOUND = "NOT_FOUND";
 
 async function _findReferenceInContext(
   passage: string,
@@ -175,7 +224,6 @@ Answer only with each reference entry as it is written in the reference list of 
     },
   ]);
 }
-export const findReferenceInContext = wrapFunction(_findReferenceInContext);
 
 async function _askAboutImage(
   question: string,
@@ -193,8 +241,6 @@ async function _askAboutImage(
     },
   ]);
 }
-/** Kept by the question, the image and the document, so asking the same again is instant */
-export const askAboutImage = wrapFunction(_askAboutImage);
 
 async function _validateAgainstPages(
   context: string,
@@ -224,8 +270,6 @@ Answer in markdown, with each problem found under the page it is on: what the pa
     },
   ]);
 }
-/** Kept by the document and the images of its pages, so validating again is instant */
-export const validateAgainstPages = wrapFunction(_validateAgainstPages);
 
 async function _askContext(
   prompt: string,
@@ -239,7 +283,6 @@ async function _askContext(
     },
   ]);
 }
-export const askContext = wrapFunction(_askContext);
 
 /** How the suggestions are asked. Part of the cache key, so changing it asks the AI again */
 const SUGGEST_PROMPTS_INSTRUCTIONS = `Rewrite the research query above as 5 alternative wordings of the same question, to be asked about a research article. Each one must keep exactly the meaning and scope of the query: do not add new topics, details or sub-questions, and do not narrow or broaden it. Only make it clearer and simpler, in a single short sentence, in the same language as the query.
@@ -263,16 +306,6 @@ ${instructions}`,
 }
 const suggestPromptsCached = wrapFunction(_suggestPrompts);
 
-/** Clearer wordings of the research query, to be asked about the document */
-export async function suggestPrompts(researchQuery: string, context: string): Promise<string[]> {
-  const answer = await suggestPromptsCached(SUGGEST_PROMPTS_INSTRUCTIONS, researchQuery, context);
-  return answer
-    .split("\n")
-    // The model may still number or bullet the lines
-    .map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/^"(.*)"$/, "$1").trim())
-    .filter(Boolean);
-}
-
 async function _getLoadedModelId(): Promise<string | null> {
   const response = await fetch(`${currentEndpoint}/v1/models/status`, {
     method: "GET",
@@ -290,21 +323,4 @@ async function _getLoadedModelId(): Promise<string | null> {
     (m: { id: string; loaded: boolean }) => m.loaded === true,
   );
   return loadedModel?.id ?? null;
-}
-export const getLoadedModelId = _getLoadedModelId;
-
-/**
- * A single request to check the server is reachable, for when it does not report the loaded model.
- * Any answer means it is up, even an error status. Only a failure to connect means it is not.
- */
-export async function pingServer(): Promise<boolean> {
-  try {
-    await fetch(`${currentEndpoint}/v1/models`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    });
-    return true;
-  } catch {
-    return false;
-  }
 }
