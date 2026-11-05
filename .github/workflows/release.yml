@@ -103,7 +103,7 @@ jobs:
             APK=app/build/outputs/apk/debug/app-debug.apk
           fi
           mkdir -p ../out
-          cp "$APK" "../out/Research Workflow-$VERSION.apk"
+          cp "$APK" "../out/Research Toolkit-$VERSION.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: android

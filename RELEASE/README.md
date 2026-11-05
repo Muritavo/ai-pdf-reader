@@ -1,6 +1,6 @@
 # Release
 
-Packages Research Workflow as a desktop app for macOS, Windows and Linux with [Electron](https://www.electronjs.org/) and [electron-builder](https://www.electron.build/), and as an Android app with [Capacitor](https://capacitorjs.com/).
+Packages Research Toolkit as a desktop app for macOS, Windows and Linux with [Electron](https://www.electronjs.org/) and [electron-builder](https://www.electron.build/), and as an Android app with [Capacitor](https://capacitorjs.com/).
 
 This folder is self-contained: it has its own dependencies and reads only the web build of the project (`../dist`). Nothing in the project depends on it.
 

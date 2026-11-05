@@ -1,6 +1,6 @@
 {
   "appId": "io.github.muritavo.researchworkflow",
-  "appName": "Research Workflow",
+  "appName": "Research Toolkit",
   "webDir": "../dist",
   "server": {
     "androidScheme": "https",

@@ -1,8 +1,25 @@
-# Research Workflow
+# Research Toolkit
 
-A browser-based assistant for literature reviews. Import the references selected during screening, attach their full-text PDFs, and read each article with an AI model at hand to explain terms, answer questions and keep track of what was read.
+A basic environment with a set of tools that help you build up knowledge across your personal projects. Driven by needs, not hype.
 
 > The interface is in Portuguese (pt-BR).
+
+> [!TIP]
+> **Support my personal projects**
+>
+> Research Toolkit was built as a sidekick to help me synthesize knowledge on the thousand themes that suddenly grab my attention from time to time 🙂. It puts AI to work on the tedious parts of the process, handing the creativity back to ourselves.
+>
+> Right now my resources are good enough 🙌, but with better resources everyone can run faster :)
+>
+> If this project is useful to you and you'd like to see it grow, please consider donating so I can buy better hardware and test even more ideas.
+>
+> [![Donate on Base](https://img.shields.io/badge/Donate-Base-0052FF?logo=ethereum&logoColor=white)](https://basescan.org/address/0xd22ea0f2d70ff8ea089bbf50fe03cb4d14205509)
+>
+> ```
+> 0xd22ea0f2d70ff8ea089bbf50fe03cb4d14205509
+> ```
+>
+> Send only on the **Base** network (ETH or USDC). Funds sent on other networks may be lost.
 
 ## Features
 

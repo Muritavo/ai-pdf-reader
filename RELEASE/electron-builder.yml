@@ -1,5 +1,5 @@
 appId: io.github.muritavo.researchworkflow
-productName: Research Workflow
+productName: Research Toolkit
 directories:
   output: out
 files:

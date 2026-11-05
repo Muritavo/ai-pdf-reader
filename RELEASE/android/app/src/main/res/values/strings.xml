@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Research Workflow</string>
-    <string name="title_activity_main">Research Workflow</string>
+    <string name="app_name">Research Toolkit</string>
+    <string name="title_activity_main">Research Toolkit</string>
     <string name="package_name">io.github.muritavo.researchworkflow</string>
     <string name="custom_url_scheme">io.github.muritavo.researchworkflow</string>
 </resources>
