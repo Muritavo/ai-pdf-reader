@@ -6,7 +6,8 @@
   width: min(360px, 90%);
   padding: 8px;
   border-radius: 12px;
-  background: rgba($colorPanel, 0.96);
+  // A little see-through, so the image under it is not fully hidden
+  background: rgba($colorPanel, 0.78);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   // Centered across the point given by its position, ending right above it
   transform: translate(-50%, -100%);
@@ -26,7 +27,7 @@
   border: 0;
   border-radius: 8px;
   padding: 8px 10px;
-  background: $colorSurface;
+  background: rgba($colorSurface, 0.7);
   color: $colorText;
   font: inherit;
   font-size: 0.9rem;
@@ -104,7 +105,7 @@ $historyRow: 28px;
     height: 14px;
     border-bottom: 2px solid rgba($colorHighlight, 0.6);
     border-radius: 0 0 6px 6px;
-    background: linear-gradient(to bottom, transparent, rgba($colorPanel, 0.95));
+    background: linear-gradient(to bottom, transparent, rgba($colorPanel, 0.78));
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
