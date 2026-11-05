@@ -27,7 +27,8 @@ export default function useShortcut(onPressed: ((e: KeyboardEvent) => void) | nu
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.ctrlKey !== ctrl || e.metaKey !== meta || e.shiftKey !== wanted('shift') || e.altKey !== wanted('alt')) return;
-            if (key && e.key.toLowerCase() !== key) return;
+            // By the physical key too, as on macOS Option changes the character (Option + R gives "®")
+            if (key && e.key.toLowerCase() !== key && e.code.toLowerCase() !== `key${key}`) return;
             e.preventDefault();
             handlerRef.current?.(e);
         };

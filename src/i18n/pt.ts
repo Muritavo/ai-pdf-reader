@@ -132,6 +132,8 @@ export default {
         invalidEndpoint: 'Endereço inválido: use http:// ou https://',
     },
     documentPreview: {
+        // In double quotes, as a single quote before a placeholder keeps it from being filled
+        replaceText: 'Deseja substituir "{word}" por outro texto?',
         menu: {
             openDoi: 'Abrir DOI',
             searchOnGoogle: 'Pesquisar no Google',

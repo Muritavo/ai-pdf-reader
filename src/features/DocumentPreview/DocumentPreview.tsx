@@ -28,6 +28,8 @@ import { cropImage, figureBoxesOf, imageBoxesOf, vectorFigureBoxesOf, type Image
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
 import { scoped } from '../../utils/projects';
+import { replaceInPieces, type TextReplacement } from '../../utils/textReplacements';
+import useShortcut from '../../hooks/useShortcut';
 import ResponseModal from './components/ResponseModal/ResponseModal';
 import { askAboutImage, forgetWordDefinition, REFERENCE_NOT_FOUND } from '../../services/ai';
 import { googleSearchUrl, referencesOf } from '../../utils/references';
@@ -103,7 +105,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         scoped(`imageHistory-${hash}`),
         {},
     );
+    // The texts shown as other ones, for the documents whose text is not what is drawn (as a β read as an "A")
+    const [textReplacements, setTextReplacements] = useLocalStorage<TextReplacement[]>(scoped(`textReplacements-${hash}`), []);
     const clickCounterRef = useRef(0);
+
+    // Alt + R replaces the selected text, wherever it is in the document
+    useShortcut(() => {
+        const selection = window.getSelection();
+        const from = selection?.toString().trim();
+        if (!from || !previewBoxRef.current?.contains(selection!.anchorNode)) return;
+        const to = window.prompt(txt('documentPreview.replaceText', { word: from }));
+        if (to === null || to === from) return;
+        setTextReplacements(prev => [...prev.filter(replacement => replacement.from !== from), { from, to }]);
+    }, 'alt', 'r');
 
     /** Converts viewport coordinates into percentages of the scrollable document */
     function toDocumentCoordinates(clientX: number, clientY: number) {
@@ -447,9 +461,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         if (!textLayers || !highlightRules || !definitionRules) return;
         // Drawn even with no rules, so what was removed stops being highlighted
         textLayers.forEach((textLayer, layerIndex) => {
+            // From the text as read, so a changed replacement doesn't build on the one before
+            const texts = replaceInPieces(textLayer.textContentItemsStr, textReplacements);
             const pieces = textLayer.textDivs
-                .map((element, index) => ({ element, text: textLayer.textContentItemsStr[index] }))
-                .filter(piece => piece.text);
+                .map((element, index) => ({ element, text: texts[index], read: textLayer.textContentItemsStr[index] }))
+                .filter(piece => piece.read)
+                .map(({ element, text }) => ({ element, text }));
             highlightTextLayer(
                 pieces,
                 highlightRules,
@@ -478,7 +495,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
         }
         setHighlightPages(found);
-    }, [highlightRules, definitionRules, textLayers]);
+    }, [highlightRules, definitionRules, textLayers, textReplacements]);
 
     const scrollHeight = previewBoxRef.current?.scrollHeight ?? 0;
 
