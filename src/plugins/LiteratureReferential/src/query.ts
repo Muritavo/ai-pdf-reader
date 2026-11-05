@@ -1,3 +1,4 @@
+import { DEFAULT_AI_SETTINGS } from '../../../services/ai';
 import type { PluginEnv } from '../../types';
 import { answersKey, contentOf, preloadedBooks, type Book } from './library';
 import { questionMessages } from './prompt';
@@ -48,10 +49,14 @@ async function placesOn({ storage, ai }: PluginEnv, book: Book, excerpt: string)
     return places;
 }
 
+/** The books on the default model (27B) first and the ones on another (35B) last */
+const onDefaultModel = (book: Book) => !book.ai || book.ai.name === DEFAULT_AI_SETTINGS.name;
+
 /** Asks about the excerpt on each preloaded book, one after another, as the AI server handles one request at a time */
 export async function askBooks(env: PluginEnv, excerpt: string) {
     const matches: Match[] = [];
-    for (const book of preloadedBooks()) {
+    const books = [...preloadedBooks()].sort((a, b) => Number(onDefaultModel(b)) - Number(onDefaultModel(a))).reverse();
+    for (const book of books) {
         const places = await placesOn(env, book, excerpt);
         matches.push(...places.slice(0, MAX_MATCHES).map(place => ({ ...place, book })));
     }
