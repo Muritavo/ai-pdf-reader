@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import Switch from '@onepercentio/one-ui/components/Switch';
 import { BookOpen, Bug, Ellipsis, Play, Trash2, Upload } from 'lucide-react';
 import type { PluginEnv } from '../../../types';
-import { addBook, isPreloaded, removeBook, saveAISettings, saveOffset, useBooks, usePreloading, type Book } from '../library';
+import { addBook, isPreloaded, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, usePreloading, type Book } from '../library';
 import { preloadBook } from '../preload';
 import BookEditor from './BookEditor';
 import ExtractedContent from './ExtractedContent';
@@ -146,7 +147,7 @@ export default function Settings(env: PluginEnv) {
                     // Holding Ctrl, a book with ranges shows its options, as the text that is sent to the AI
                     const showingOptions = holdingCtrl && book.ranges.length > 0;
                     return (
-                        <li key={book.id} className={Styles.book} data-testid="literature-book">
+                        <li key={book.id} className={`${Styles.book} ${book.disabled ? Styles.bookDisabled : ''}`} data-testid="literature-book">
                             <button type="button" className={Styles.bookTitle} onClick={() => setEditing(book.id)} data-testid="literature-book-open">
                                 <BookOpen size={18} />
                                 <span>{book.title}</span>
@@ -156,6 +157,18 @@ export default function Settings(env: PluginEnv) {
                             <OffsetInput book={book} onSave={offset => saveOffset(storage, book.id, offset)} />
                             <BookStatus book={book} />
                             <div className={Styles.bookActions}>
+                                <span className={Styles.bookSwitch}>
+                                    <Switch
+                                        size={12}
+                                        enabled={!book.disabled}
+                                        onToggle={enabled => saveDisabled(storage, book.id, !enabled)}
+                                        data-testid="literature-book-enabled"
+                                        role="switch"
+                                        aria-checked={!book.disabled}
+                                        aria-label={book.disabled ? 'Ativar livro nas consultas' : 'Desativar livro nas consultas'}
+                                        title={book.disabled ? 'Desativado: não é consultado' : 'Ativado: consultado'}
+                                    />
+                                </span>
                                 <AISettingsButton
                                     value={book.ai}
                                     disabled={running}

@@ -17,6 +17,8 @@ export type Book = {
     offset?: number;
     /** The model and the thinking mode its requests use. Without it, the defaults of the app */
     ai?: AISettings;
+    /** Turned off on the listing: kept with its preload, but not asked about the highlights */
+    disabled?: boolean;
 };
 
 /** The page of the PDF a page number of the book is on */
@@ -67,8 +69,11 @@ export async function loadLibrary(storage: PluginStorage) {
 
 export const useBooks = () => useSyncExternalStore(subscribe, () => books);
 export const usePreloading = () => useSyncExternalStore(subscribe, () => preloading);
-export const usePreloadedCount = () => useSyncExternalStore(subscribe, () => books.filter(isPreloaded).length);
-export const preloadedBooks = () => books.filter(isPreloaded);
+/** Preloaded and not turned off */
+const isConsulted = (book: Book) => isPreloaded(book) && !book.disabled;
+
+export const usePreloadedCount = () => useSyncExternalStore(subscribe, () => books.filter(isConsulted).length);
+export const preloadedBooks = () => books.filter(isConsulted);
 export const preloadedCount = () => preloadedBooks().length;
 export const contentOf = (id: string) => contentByBook.get(id) ?? [];
 
@@ -127,6 +132,13 @@ export async function saveOffset(storage: PluginStorage, id: string, offset: num
     await saveBooks(
         storage,
         books.map(book => (book.id === id ? { ...book, offset } : book)),
+    );
+}
+
+export async function saveDisabled(storage: PluginStorage, id: string, disabled: boolean) {
+    await saveBooks(
+        storage,
+        books.map(book => (book.id === id ? { ...book, disabled } : book)),
     );
 }
 
