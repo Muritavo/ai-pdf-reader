@@ -15,7 +15,7 @@ export default {
     dataTransfer: {
         export: 'Exportar dados do projeto (sem os PDFs)',
         import: 'Importar dados para este projeto',
-        invalid: 'Este arquivo não é uma exportação do Research Workflow.',
+        invalid: 'Este arquivo não é uma exportação do Research Toolkit.',
         confirmImport: 'Importar os dados exportados em {date}? Eles substituem os dados deste projeto (os PDFs já guardados continuam).',
     },
     pluginSettings: {
