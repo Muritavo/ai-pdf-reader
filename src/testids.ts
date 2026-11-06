@@ -86,6 +86,8 @@ export const TestIds = {
         imageQuestionInput: 'image-question-input',
         imageQuestionSend: 'image-question-send',
         imageQuestionHistoryItem: 'image-question-history-item',
+        imageZone: 'image-zone',
+        imageZoneDefine: 'image-zone-define',
         imageAnswerModal: 'image-answer-modal',
         pluginModal: 'plugin-modal',
         pluginAnswer: 'plugin-answer',

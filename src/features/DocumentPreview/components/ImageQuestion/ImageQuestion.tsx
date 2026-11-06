@@ -11,21 +11,33 @@ export type ImageQuestionEntry = { question: string; answer: string; timestamp: 
 type ImageQuestionProps = {
     /** Where it is shown: centered across the image, with its bottom on the bottom of the image */
     style: CSSProperties;
-    onSend: (question: string) => Promise<void>;
     onClose: () => void;
-    /** Asking needs the AI ready for the document */
-    aiReady: boolean;
-    /** The questions asked before about this image, the last one first */
-    history: ImageQuestionEntry[];
-    /** Shows the answer of a question asked before, without asking again */
-    onOpenEntry: (entry: ImageQuestionEntry) => void;
-};
+} & (
+    | {
+          /** For a zone drawn by hand: shown instead of the question, defines the zone as an image */
+          onDefine: () => void;
+          onSend?: never;
+          aiReady?: never;
+          history?: never;
+          onOpenEntry?: never;
+      }
+    | {
+          onDefine?: never;
+          onSend: (question: string) => Promise<void>;
+          /** Asking needs the AI ready for the document */
+          aiReady: boolean;
+          /** The questions asked before about this image, the last one first */
+          history: ImageQuestionEntry[];
+          /** Shows the answer of a question asked before, without asking again */
+          onOpenEntry: (entry: ImageQuestionEntry) => void;
+      }
+);
 
 /** The space kept between the field and the edges of what is seen of the document */
 const MARGIN = 8;
 
 /** A question about an image of the document, written right over it */
-export default function ImageQuestion({ style, onSend, onClose, aiReady, history, onOpenEntry }: ImageQuestionProps) {
+export default function ImageQuestion({ style, onClose, onDefine, onSend, aiReady = false, history = [], onOpenEntry }: ImageQuestionProps) {
     const { txt } = useShortIntl();
     const [question, setQuestion] = useState('');
     const [sending, setSending] = useState(false);
@@ -72,7 +84,7 @@ export default function ImageQuestion({ style, onSend, onClose, aiReady, history
     }, [onClose]);
 
     const send = async () => {
-        if (!question.trim() || sending || !aiReady) return;
+        if (!question.trim() || sending || !aiReady || !onSend) return;
         setSending(true);
         setFailed(false);
         try {
@@ -107,29 +119,37 @@ export default function ImageQuestion({ style, onSend, onClose, aiReady, history
             onMouseUp={e => e.stopPropagation()}
         >
             <div className={Styles.row}>
-                <textarea
-                    ref={field}
-                    rows={2}
-                    className={Styles.field}
-                    data-testid={TestIds.preview.imageQuestionInput}
-                    value={question}
-                    disabled={!aiReady || sending}
-                    placeholder={aiReady ? txt('imageQuestion.placeholder') : txt('aiWarmUp.locked')}
-                    onChange={e => setQuestion(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                />
-                <div className={Styles.buttons}>
-                    <button
-                        type="button"
-                        className={Styles.send}
-                        data-testid={TestIds.preview.imageQuestionSend}
-                        disabled={!aiReady || sending || !question.trim()}
-                        title={txt('imageQuestion.send')}
-                        aria-label={txt('imageQuestion.send')}
-                        onClick={send}
-                    >
-                        {sending ? <Dots dotsCount={3} lockSize /> : <Send size={15} strokeWidth={1.75} />}
+                {onDefine ? (
+                    <button type="button" className={Styles.define} data-testid={TestIds.preview.imageZoneDefine} onClick={onDefine}>
+                        {txt('imageQuestion.define')}
                     </button>
+                ) : (
+                    <textarea
+                        ref={field}
+                        rows={2}
+                        className={Styles.field}
+                        data-testid={TestIds.preview.imageQuestionInput}
+                        value={question}
+                        disabled={!aiReady || sending}
+                        placeholder={aiReady ? txt('imageQuestion.placeholder') : txt('aiWarmUp.locked')}
+                        onChange={e => setQuestion(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                    />
+                )}
+                <div className={Styles.buttons}>
+                    {!onDefine && (
+                        <button
+                            type="button"
+                            className={Styles.send}
+                            data-testid={TestIds.preview.imageQuestionSend}
+                            disabled={!aiReady || sending || !question.trim()}
+                            title={txt('imageQuestion.send')}
+                            aria-label={txt('imageQuestion.send')}
+                            onClick={send}
+                        >
+                            {sending ? <Dots dotsCount={3} lockSize /> : <Send size={15} strokeWidth={1.75} />}
+                        </button>
+                    )}
                     <button type="button" className={Styles.close} title={txt('imageQuestion.close')} aria-label={txt('imageQuestion.close')} onClick={onClose}>
                         <X size={14} strokeWidth={1.75} />
                     </button>
@@ -145,7 +165,7 @@ export default function ImageQuestion({ style, onSend, onClose, aiReady, history
                                     className={Styles.historyItem}
                                     data-testid={TestIds.preview.imageQuestionHistoryItem}
                                     title={entry.question}
-                                    onClick={() => onOpenEntry(entry)}
+                                    onClick={() => onOpenEntry?.(entry)}
                                 >
                                     <History size={12} strokeWidth={1.75} />
                                     <span>{entry.question}</span>

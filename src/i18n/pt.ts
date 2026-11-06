@@ -30,6 +30,7 @@ export default {
         failed: 'Não foi possível responder. O modelo carregado precisa aceitar imagens.',
         title: 'Pergunta sobre a imagem',
         image: 'A imagem da pergunta',
+        define: 'Definir imagem',
     },
     documentActions: {
         methodFlowchart: {

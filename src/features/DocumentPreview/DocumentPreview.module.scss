@@ -281,6 +281,17 @@
   }
 }
 
+// A zone drawn by hand (Alt + drag), until it is defined as an image
+.imageZone {
+  position: absolute;
+  z-index: 2;
+  border-radius: 4px;
+  outline: 2px dashed rgba(124, 156, 255, 0.85);
+  outline-offset: 2px;
+  background: rgba(124, 156, 255, 0.08);
+  pointer-events: none;
+}
+
 // A subtle sign on the corner that it can be asked about, clear on hover
 .imageBoxHint {
   position: absolute;
