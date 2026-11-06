@@ -190,4 +190,18 @@ export const TestIds = {
         promptHelperSuggest: 'prompt-helper-suggest',
         promptHelperSuggestion: 'prompt-helper-suggestion',
     },
+    recall: {
+        open: 'recall-open',
+        modal: 'recall-modal',
+        question: 'recall-question',
+        start: 'recall-start',
+        newQuestion: 'recall-new-question',
+        progress: 'recall-progress',
+        synthesis: 'recall-synthesis',
+        documents: 'recall-documents',
+        tabAsk: 'recall-tab-ask',
+        tabHistory: 'recall-tab-history',
+        history: 'recall-history',
+        historyItem: 'recall-history-item',
+    },
 } as const;

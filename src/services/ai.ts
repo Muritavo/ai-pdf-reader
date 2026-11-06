@@ -48,6 +48,63 @@ export async function suggestPrompts(researchQuery: string, context: string): Pr
     .filter(Boolean);
 }
 
+/**
+ * Recall: the question about all the documents turned into one to be asked about each document alone.
+ * Kept by the question, so recalling the same again reuses it (and the answers of each document)
+ */
+export const singleDocumentPrompt = (broadPrompt: string) => singleDocumentPromptCached(SINGLE_DOCUMENT_INSTRUCTIONS, broadPrompt);
+
+/** What a document answers to the single document prompt when it has nothing about it */
+export const RECALL_NOT_ADDRESSED = "NOT_ADDRESSED";
+
+/** One document as the synthesis of the recall sees it: what is known of it, and what it answered */
+export type RecallAnswer = {
+  title: string;
+  authors: string;
+  year: string;
+  journal: string;
+  doi: string;
+  answer: string;
+};
+
+/** Recall: the answers of every document put together, to answer the question about all of them */
+export function synthesizeRecall(
+  broadPrompt: string,
+  answers: RecallAnswer[],
+  onProgress?: (chunk: string) => void,
+): Promise<string> {
+  const documents = answers
+    .map(
+      (a, i) => `### Document ${i + 1}
+- Title: ${a.title || "(unknown)"}
+- Authors: ${a.authors || "(unknown)"}
+- Year: ${a.year || "(unknown)"}
+- Journal: ${a.journal || "(unknown)"}
+- DOI: ${a.doi || "(none)"}
+
+Answer found in this document:
+${a.answer.trim()}`,
+    )
+    .join("\n\n");
+
+  return callOpenAiApi(
+    [
+      {
+        role: "user",
+        content: `A researcher asked a question about a collection of documents. The question was asked about each document alone, and each answer is below, with what is known of the document.
+
+Question: """${broadPrompt}"""
+
+${documents}
+
+Answer the question about the whole collection, in markdown and in the same language as the question. Use only the answers and the information of the documents above: do not make up anything. Name the documents by their title (and year) when you refer to them. Leave out the documents whose answer was ${RECALL_NOT_ADDRESSED} or does not help to answer the question. If no document answers it, say so.`,
+      },
+    ],
+    onProgress,
+    { cache: false },
+  );
+}
+
 export const getLoadedModelId = _getLoadedModelId;
 
 /**
@@ -305,6 +362,22 @@ ${instructions}`,
   ]);
 }
 const suggestPromptsCached = wrapFunction(_suggestPrompts);
+
+/** How the single document prompt is made. Part of the cache key, so changing it asks the AI again */
+const SINGLE_DOCUMENT_INSTRUCTIONS = `The question above is about a collection of research documents. It will be asked about each document of the collection alone, and the answers put together afterwards to answer it.
+
+Rewrite it as a single question to be asked about one document: what that one document must tell so the answers of all of them answer the question above. Keep every point of the question that one document can answer, and ask for the passages (quoted) that support the answer. Leave out the comparisons between documents, which are made when the answers are put together. End by telling to answer exactly ${RECALL_NOT_ADDRESSED} when the document does not address it. Write it in the same language as the question.
+
+Answer only with the rewritten question, without any other commentary.`;
+
+async function _singleDocumentPrompt(instructions: string, broadPrompt: string): Promise<string> {
+  return callOpenAiApi(
+    [{ role: "user", content: `Question: """${broadPrompt}"""\n\n${instructions}` }],
+    undefined,
+    { cache: false },
+  );
+}
+const singleDocumentPromptCached = wrapFunction(_singleDocumentPrompt);
 
 async function _getLoadedModelId(): Promise<string | null> {
   const response = await fetch(`${currentEndpoint}/v1/models/status`, {
