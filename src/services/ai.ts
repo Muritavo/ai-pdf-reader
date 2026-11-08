@@ -16,6 +16,9 @@ export type AISettings = { name: string; thinkingEnabled: boolean };
 
 export const DEFAULT_AI_SETTINGS: AISettings = { name: MODEL, thinkingEnabled: false };
 
+/** How soon the server handles a request, before or after the others waiting */
+export type AIPriority = "foreground" | "normal" | "background";
+
 /** What the model answers when the passage cites nothing it could find on the document */
 export const REFERENCE_NOT_FOUND = "NOT_FOUND";
 
@@ -101,7 +104,7 @@ Answer the question about the whole collection, in markdown and in the same lang
       },
     ],
     onProgress,
-    { cache: false },
+    { cache: false, priority: "normal" },
   );
 }
 
@@ -129,9 +132,10 @@ export async function callOpenAiApi(
   onProgress?: (chunk: string) => void,
   /**
    * False tells the server not to keep the prompt on its cache, for prompts that are not asked again.
-   * `settings` chooses the model and the thinking mode; without it, the loaded model and no thinking
+   * `settings` chooses the model and the thinking mode; without it, the loaded model and no thinking.
+   * `priority` tells the server how soon to handle it; without it, the server decides
    */
-  { cache = true, settings }: { cache?: boolean; settings?: AISettings } = {},
+  { cache = true, settings, priority }: { cache?: boolean; settings?: AISettings; priority?: AIPriority } = {},
 ): Promise<string> {
   const response = await fetch(`${currentEndpoint}/v1/chat/completions`, {
     method: "POST",
@@ -146,6 +150,7 @@ export async function callOpenAiApi(
       stream: true,
       chat_template_kwargs: { enable_thinking: settings?.thinkingEnabled ?? false },
       ...(cache ? {} : { cache: false }),
+      ...(priority ? { priority } : {}),
     }),
   });
 
@@ -262,7 +267,7 @@ async function _defineWordInContext(
       role: "user",
       content: `What does "${word}" mean in this context? Please provide a concise definition based on the context.`,
     },
-  ]);
+  ], undefined, { priority: "foreground" });
 }
 
 async function _findReferenceInContext(
@@ -279,7 +284,7 @@ Passage: """${passage}"""
 
 Answer only with each reference entry as it is written in the reference list of the document, one per line, in markdown. If the passage cites no reference, or it can't be found on the reference list, answer exactly ${REFERENCE_NOT_FOUND}.`,
     },
-  ]);
+  ], undefined, { priority: "foreground" });
 }
 
 async function _askAboutImage(
