@@ -31,6 +31,7 @@ export default {
         title: 'Pergunta sobre a imagem',
         image: 'A imagem da pergunta',
         define: 'Definir imagem',
+        copy: 'Copiar imagem',
     },
     documentActions: {
         methodFlowchart: {

@@ -82,6 +82,7 @@ export const TestIds = {
         scrollBar: 'scroll-bar',
         goBack: 'go-back',
         imageBox: 'image-box',
+        imageBoxCopy: 'image-box-copy',
         imageQuestion: 'image-question',
         imageQuestionInput: 'image-question-input',
         imageQuestionSend: 'image-question-send',

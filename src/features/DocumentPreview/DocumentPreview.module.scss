@@ -292,8 +292,8 @@
   pointer-events: none;
 }
 
-// A subtle sign on the corner that it can be asked about, clear on hover
-.imageBoxHint {
+// Copies the image: subtle on the corner, clear on hover
+.imageBoxCopy {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -301,13 +301,17 @@
   place-items: center;
   width: 24px;
   height: 24px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  cursor: pointer;
   background: rgba(23, 26, 33, 0.75);
   color: #e6e8ee;
   opacity: 0.35;
   transition: opacity 0.15s;
 
-  .imageBox:hover & {
+  .imageBox:hover &,
+  &:focus-visible {
     opacity: 1;
   }
 }

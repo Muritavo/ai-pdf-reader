@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { ArrowLeft, Brain, MessageCircleQuestion, Search } from 'lucide-react';
+import { ArrowLeft, Brain, Check, Copy, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -87,6 +87,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [askingImage, setAskingImage] = useState<{ page: number; index: number }>();
     // The zone being drawn with Alt + drag, and once dropped, until it is defined as an image
     const [newZone, setNewZone] = useState<{ page: number; box: ImageBox; dragging: boolean }>();
+    // The image just copied, by its page and its place on the page, shown as copied for a moment
+    const [copiedImage, setCopiedImage] = useState<string>();
     const [imageAnswer, setImageAnswer] = useState<{ question: string; answer: string; image: string }>();
     // Where the document was left the last time: the scroll to go back to, and how far down the scroll bar it is
     const [goBack, setGoBack] = useState<{ top: number; barTop: number }>();
@@ -211,6 +213,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         };
         window.addEventListener('mousemove', move);
         window.addEventListener('mouseup', drop, { once: true });
+    };
+
+    /** Copies the image, cut out of the drawn page, to the clipboard */
+    const copyImage = (canvas: HTMLCanvasElement, box: ImageBox, key: string) => {
+        // Given as a promise, so the clipboard is written in the click itself (as Safari requires)
+        const png = fetch(cropImage(canvas, box)).then(response => response.blob());
+        navigator.clipboard
+            .write([new ClipboardItem({ 'image/png': png })])
+            .then(() => {
+                setCopiedImage(key);
+                window.setTimeout(() => setCopiedImage(current => (current === key ? undefined : current)), 1200);
+            })
+            .catch(err => console.error('Could not copy the image:', err));
     };
 
     const getDocumentCoordinates = () => {
@@ -643,9 +658,24 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                     if (!e.altKey) setAskingImage({ page: page.id, index });
                                 }}
                             >
-                                <span className={Styles.imageBoxHint}>
-                                    <MessageCircleQuestion size={14} strokeWidth={1.75} />
-                                </span>
+                                <button
+                                    type="button"
+                                    className={Styles.imageBoxCopy}
+                                    data-testid={TestIds.preview.imageBoxCopy}
+                                    title={txt('imageQuestion.copy')}
+                                    aria-label={txt('imageQuestion.copy')}
+                                    onClick={e => {
+                                        // Copies without opening the question
+                                        e.stopPropagation();
+                                        copyImage(page.canvasRef.current!, box, `${page.id}-${index}`);
+                                    }}
+                                >
+                                    {copiedImage === `${page.id}-${index}` ? (
+                                        <Check size={14} strokeWidth={1.75} />
+                                    ) : (
+                                        <Copy size={14} strokeWidth={1.75} />
+                                    )}
+                                </button>
                             </div>
                         ))}
                         {newZone?.page === page.id && (
