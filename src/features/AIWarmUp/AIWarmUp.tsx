@@ -1,5 +1,5 @@
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Brain, Bug, Check, Ellipsis, Play, ScanEye, X } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
@@ -128,6 +128,7 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                             cy="24"
                             r={RADIUS}
                             strokeDasharray={`${CIRCUMFERENCE * progress} ${CIRCUMFERENCE}`}
+                            style={{ '--progress': progress } as CSSProperties}
                         />
                     )}
                 </svg>

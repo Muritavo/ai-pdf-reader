@@ -62,8 +62,9 @@
     stroke: var(--border);
 }
 
+/* From yellow at the start to green when done, by the --progress of the warm up (0 to 1) */
 .progress {
-    stroke: var(--accent);
+    stroke: color-mix(in oklch, var(--success) calc(var(--progress, 0) * 100%), var(--warning));
     stroke-linecap: round;
     transition: stroke-dasharray 200ms linear;
 }

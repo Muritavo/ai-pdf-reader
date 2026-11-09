@@ -7,6 +7,8 @@ import { callOpenAiApi } from "./ai";
 export function organizeDocumentText(
   currentPageTextWithPositions: string,
   onProgress?: (chunk: string) => void,
+  /** How much of the document the AI already read (from 0 to 1), before it starts writing */
+  onPromptProgress?: (progress: number) => void,
 ): Promise<string> {
   const prompt = `Organize this into a contiguous organized text as markdown syntax.
 
@@ -19,8 +21,9 @@ ${currentPageTextWithPositions}`;
         { role: "user", content: prompt },
       ],
       onProgress,
-      // The document is normalized only once, so the server has no reason to keep it
-      { cache: false },
+      // The document is normalized only once, so the server has no reason to keep it.
+      // A warm up runs behind what is asked meanwhile
+      { cache: false, priority: "background", onPromptProgress },
     ),
   );
 }

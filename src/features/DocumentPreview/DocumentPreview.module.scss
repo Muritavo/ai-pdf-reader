@@ -105,6 +105,24 @@
   }
 }
 
+// A piece of the text layer the AI just wrote while warming up, flashing red and fading back
+.streamedExcerpt {
+  border-radius: 4px;
+  animation: streamedFlash 1.5s ease-out;
+}
+
+@keyframes streamedFlash {
+  0% {
+    background: rgba(255, 0, 0, 0);
+  }
+  15% {
+    background: rgba(255, 0, 0, 0.35);
+  }
+  100% {
+    background: rgba(255, 0, 0, 0);
+  }
+}
+
 .readingPage {
   position: absolute;
   inset: 0;
@@ -281,8 +299,19 @@
   }
 }
 
-// A subtle sign on the corner that it can be asked about, clear on hover
-.imageBoxHint {
+// A zone drawn by hand (Alt + drag), until it is defined as an image
+.imageZone {
+  position: absolute;
+  z-index: 2;
+  border-radius: 4px;
+  outline: 2px dashed rgba(124, 156, 255, 0.85);
+  outline-offset: 2px;
+  background: rgba(124, 156, 255, 0.08);
+  pointer-events: none;
+}
+
+// Copies the image: subtle on the corner, clear on hover
+.imageBoxCopy {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -290,13 +319,17 @@
   place-items: center;
   width: 24px;
   height: 24px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  cursor: pointer;
   background: rgba(23, 26, 33, 0.75);
   color: #e6e8ee;
   opacity: 0.35;
   transition: opacity 0.15s;
 
-  .imageBox:hover & {
+  .imageBox:hover &,
+  &:focus-visible {
     opacity: 1;
   }
 }

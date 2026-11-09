@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { ArrowLeft, Brain, MessageCircleQuestion, Search } from 'lucide-react';
+import { ArrowLeft, Brain, Check, Copy, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -24,9 +24,10 @@ import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components
 import DocumentActions from './components/DocumentActions';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
-import { cropImage, figureBoxesOf, imageBoxesOf, vectorFigureBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
+import { createStreamedWords, uniqueExcerptsOfPage } from '../../utils/progressTracker';
 import { scoped } from '../../utils/projects';
 import { replaceInPieces, type TextReplacement } from '../../utils/textReplacements';
 import useShortcut from '../../hooks/useShortcut';
@@ -46,6 +47,13 @@ const SCAN_COLOR = '#7c9cff';
 
 /** The most pixels a page is drawn with, so a big screen and a long document don't run out of memory */
 const MAX_CANVAS_PIXELS = 4096 * 4096;
+
+/** The smallest side (in pixels of the screen) a zone drawn by hand has to be an image */
+const MIN_ZONE_SIDE = 12;
+/** How close (in pixels) to the top or the bottom of what is seen the mouse starts scrolling the document while drawing a zone */
+const ZONE_SCROLL_EDGE = 60;
+/** The most pixels the document scrolls at each frame while drawing a zone, with the mouse on (or past) the edge */
+const ZONE_SCROLL_SPEED = 24;
 
 type PageElement = {
     id: number;
@@ -78,6 +86,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     // The images of each page, recorded while drawing it, and the one a question is being written about
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
     const [askingImage, setAskingImage] = useState<{ page: number; index: number }>();
+    // The zone being drawn with Alt + drag, and once dropped, until it is defined as an image
+    const [newZone, setNewZone] = useState<{ page: number; box: ImageBox; dragging: boolean }>();
+    // The image just copied, by its page and its place on the page, shown as copied for a moment
+    const [copiedImage, setCopiedImage] = useState<string>();
     const [imageAnswer, setImageAnswer] = useState<{ question: string; answer: string; image: string }>();
     // Where the document was left the last time: the scroll to go back to, and how far down the scroll bar it is
     const [goBack, setGoBack] = useState<{ top: number; barTop: number }>();
@@ -105,6 +117,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         scoped(`imageHistory-${hash}`),
         {},
     );
+    // The zones defined as images by hand, by page, for the figures pdf.js doesn't record as images (as the ones drawn as vectors)
+    const [imageZones, setImageZones] = useLocalStorage<Record<number, ImageBox[]>>(scoped(`imageZones-${hash}`), {});
     // The texts shown as other ones, for the documents whose text is not what is drawn (as a β read as an "A")
     const [textReplacements, setTextReplacements] = useLocalStorage<TextReplacement[]>(scoped(`textReplacements-${hash}`), []);
     const clickCounterRef = useRef(0);
@@ -131,9 +145,88 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     }
 
     const handleTextLayerClick = (e: MouseEvent) => {
-        if (!previewBoxRef.current) return;
+        // Alt is held while drawing a zone, whose drop is not a click on the text
+        if (!previewBoxRef.current || e.altKey) return;
         clickCounterRef.current += 1;
         setLastClick({ ...toDocumentCoordinates(e.clientX, e.clientY), key: clickCounterRef.current });
+    };
+
+    /** The images of a page: the ones recorded while drawing it, then the zones defined by hand */
+    const boxesOf = (pageId: number) => [...(imageBoxes[pageId] ?? []), ...(imageZones[pageId] ?? [])];
+
+    /** Alt + drag on a page draws a zone, to be defined as an image once dropped */
+    const startZone = (e: MouseEvent<HTMLDivElement>, pageId: number) => {
+        if (!e.altKey || e.button !== 0) return;
+        // Draws instead of selecting text
+        e.preventDefault();
+        window.getSelection()?.removeAllRanges();
+        const wrapper = e.currentTarget;
+        const at = (event: { clientX: number; clientY: number }) => {
+            const rect = wrapper.getBoundingClientRect();
+            return {
+                x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+                y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
+            };
+        };
+        const start = at(e);
+        const boxTo = (event: { clientX: number; clientY: number }): ImageBox => {
+            const end = at(event);
+            return {
+                left: Math.min(start.x, end.x),
+                top: Math.min(start.y, end.y),
+                width: Math.abs(end.x - start.x),
+                height: Math.abs(end.y - start.y),
+            };
+        };
+        setAskingImage(undefined);
+        setNewZone(undefined);
+        // Where the mouse is, kept for when the document scrolls under it without the mouse moving
+        let pointer = { clientX: e.clientX, clientY: e.clientY };
+        const update = () => setNewZone({ page: pageId, box: boxTo(pointer), dragging: true });
+        const move = (event: globalThis.MouseEvent) => {
+            pointer = { clientX: event.clientX, clientY: event.clientY };
+            update();
+        };
+        // Held near the top or the bottom of what is seen (or past it), the document scrolls, faster the closer to the edge,
+        // so a zone can be taller than what is seen, as a figure of a whole page
+        const scroller = previewBoxRef.current;
+        let frame = 0;
+        const autoScroll = () => {
+            if (scroller) {
+                const { top, bottom } = scroller.getBoundingClientRect();
+                const into = (distance: number) => Math.min(1, Math.max(0, 1 - distance / ZONE_SCROLL_EDGE));
+                const speed = ZONE_SCROLL_SPEED * (into(bottom - pointer.clientY) - into(pointer.clientY - top));
+                if (speed) scroller.scrollTop += speed;
+            }
+            frame = requestAnimationFrame(autoScroll);
+        };
+        frame = requestAnimationFrame(autoScroll);
+        scroller?.addEventListener('scroll', update, { passive: true });
+        const drop = (event: globalThis.MouseEvent) => {
+            window.removeEventListener('mousemove', move);
+            cancelAnimationFrame(frame);
+            scroller?.removeEventListener('scroll', update);
+            const box = boxTo(event);
+            const { width, height } = wrapper.getBoundingClientRect();
+            // Too small to be a zone: an Alt + click, not a drag
+            const isZone = box.width * width >= MIN_ZONE_SIDE && box.height * height >= MIN_ZONE_SIDE;
+            setNewZone(isZone ? { page: pageId, box, dragging: false } : undefined);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', drop, { once: true });
+    };
+
+    /** Copies the image, cut out of the drawn page, to the clipboard */
+    const copyImage = (canvas: HTMLCanvasElement, box: ImageBox, key: string) => {
+        // Given as a promise, so the clipboard is written in the click itself (as Safari requires)
+        const png = fetch(cropImage(canvas, box)).then(response => response.blob());
+        navigator.clipboard
+            .write([new ClipboardItem({ 'image/png': png })])
+            .then(() => {
+                setCopiedImage(key);
+                window.setTimeout(() => setCopiedImage(current => (current === key ? undefined : current)), 1200);
+            })
+            .catch(err => console.error('Could not copy the image:', err));
     };
 
     const getDocumentCoordinates = () => {
@@ -370,10 +463,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await drawing.promise;
             // Kept by pdf.js on the page: the getter of the render task reads a field it never sets
-            const images = imageBoxesOf(page.imageCoordinates);
-            // The figures drawn as lines and curves, which pdf.js doesn't record as images
-            const figures = vectorFigureBoxesOf(await page.getOperatorList(), await page.getTextContent(), pageViewport);
-            setImageBoxes(current => ({ ...current, [pageNum]: figureBoxesOf(images, figures) }));
+            setImageBoxes(current => ({ ...current, [pageNum]: imageBoxesOf(page.imageCoordinates) }));
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({
@@ -497,6 +587,45 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setHighlightPages(found);
     }, [highlightRules, definitionRules, textLayers, textReplacements]);
 
+    // While warming up, the pieces of each page light up as the AI writes them
+    const streamedExcerpts = useRef<{
+        textLayers: pdfjsLib.TextLayer[];
+        words: ReturnType<typeof createStreamedWords>;
+        /** Up to where of the streamed words the pieces were already looked for */
+        searchedUpTo: number;
+        waiting: { element: HTMLElement; key: string }[];
+        lit: HTMLElement[];
+    }>();
+    useEffect(() => {
+        const current = streamedExcerpts.current;
+        // Started again for other text layers, as their pieces are other elements
+        if (current && (warmUp.state !== 'running' || current.textLayers !== textLayers)) {
+            current.lit.forEach(element => element.classList.remove(Styles.streamedExcerpt));
+            streamedExcerpts.current = undefined;
+        }
+        if (warmUp.state !== 'running' || !textLayers || !warmUp.streamed) return;
+        const tracking = (streamedExcerpts.current ??= {
+            textLayers,
+            words: createStreamedWords(),
+            searchedUpTo: 0,
+            waiting: textLayers.flatMap(textLayer =>
+                uniqueExcerptsOfPage(textLayer.textContentItemsStr).map(({ index, key }) => ({
+                    element: textLayer.textDivs[index],
+                    key,
+                })),
+            ),
+            lit: [],
+        });
+        const streamed = tracking.words.read(warmUp.streamed);
+        tracking.waiting = tracking.waiting.filter(excerpt => {
+            if (streamed.indexOf(excerpt.key, Math.max(0, tracking.searchedUpTo - excerpt.key.length)) === -1) return true;
+            excerpt.element.classList.add(Styles.streamedExcerpt);
+            tracking.lit.push(excerpt.element);
+            return false;
+        });
+        tracking.searchedUpTo = streamed.length;
+    }, [warmUp.state, warmUp.streamed, textLayers]);
+
     const scrollHeight = previewBoxRef.current?.scrollHeight ?? 0;
 
     return (
@@ -538,7 +667,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                     </div>
                 )}
                 {pages.map(page => (
-                    <div key={page.id} className={Styles.pageWrapper} data-testid={TestIds.preview.page}>
+                    <div
+                        key={page.id}
+                        className={Styles.pageWrapper}
+                        data-testid={TestIds.preview.page}
+                        onMouseDown={e => startZone(e, page.id)}
+                    >
                         <canvas ref={page.canvasRef} data-testid={TestIds.preview.canvas} />
                         <div
                             ref={page.textLayerRef}
@@ -546,7 +680,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                             className={Styles.textLayer}
                             onClick={handleTextLayerClick}
                         />
-                        {(imageBoxes[page.id] ?? []).map((box, index) => (
+                        {boxesOf(page.id).map((box, index) => (
                             <div
                                 key={index}
                                 className={Styles.imageBox}
@@ -560,32 +694,73 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                                 onClick={e => {
                                     e.stopPropagation();
-                                    setAskingImage({ page: page.id, index });
+                                    // Alt is held while drawing a zone, whose drop is not a click on the image
+                                    if (!e.altKey) setAskingImage({ page: page.id, index });
                                 }}
                             >
-                                <span className={Styles.imageBoxHint}>
-                                    <MessageCircleQuestion size={14} strokeWidth={1.75} />
-                                </span>
+                                <button
+                                    type="button"
+                                    className={Styles.imageBoxCopy}
+                                    data-testid={TestIds.preview.imageBoxCopy}
+                                    title={txt('imageQuestion.copy')}
+                                    aria-label={txt('imageQuestion.copy')}
+                                    onClick={e => {
+                                        // Copies without opening the question
+                                        e.stopPropagation();
+                                        copyImage(page.canvasRef.current!, box, `${page.id}-${index}`);
+                                    }}
+                                >
+                                    {copiedImage === `${page.id}-${index}` ? (
+                                        <Check size={14} strokeWidth={1.75} />
+                                    ) : (
+                                        <Copy size={14} strokeWidth={1.75} />
+                                    )}
+                                </button>
                             </div>
                         ))}
-                        {askingImage?.page === page.id && imageBoxes[page.id]?.[askingImage.index] && (
+                        {newZone?.page === page.id && (
+                            <div
+                                className={Styles.imageZone}
+                                data-testid={TestIds.preview.imageZone}
+                                style={{
+                                    left: `${newZone.box.left * 100}%`,
+                                    top: `${newZone.box.top * 100}%`,
+                                    width: `${newZone.box.width * 100}%`,
+                                    height: `${newZone.box.height * 100}%`,
+                                }}
+                            />
+                        )}
+                        {newZone?.page === page.id && !newZone.dragging && (
+                            <ImageQuestion
+                                style={{
+                                    left: `${(newZone.box.left + newZone.box.width / 2) * 100}%`,
+                                    top: `${(newZone.box.top + newZone.box.height) * 100}%`,
+                                }}
+                                onClose={() => setNewZone(undefined)}
+                                onDefine={() => {
+                                    setImageZones(prev => ({ ...prev, [page.id]: [...(prev[page.id] ?? []), newZone.box] }));
+                                    setNewZone(undefined);
+                                }}
+                            />
+                        )}
+                        {askingImage?.page === page.id && boxesOf(page.id)[askingImage.index] && (
                             <ImageQuestion
                                 key={askingImage.index}
                                 aiReady={warmUp.ready}
                                 style={{
-                                    left: `${(imageBoxes[page.id][askingImage.index].left + imageBoxes[page.id][askingImage.index].width / 2) * 100}%`,
+                                    left: `${(boxesOf(page.id)[askingImage.index].left + boxesOf(page.id)[askingImage.index].width / 2) * 100}%`,
                                     // At the bottom of the image, inside it (and moved up into what is seen, when it is a tall one)
-                                    top: `${(imageBoxes[page.id][askingImage.index].top + imageBoxes[page.id][askingImage.index].height) * 100}%`,
+                                    top: `${(boxesOf(page.id)[askingImage.index].top + boxesOf(page.id)[askingImage.index].height) * 100}%`,
                                 }}
                                 history={imageHistory[`${page.id}-${askingImage.index}`] ?? []}
                                 onClose={() => setAskingImage(undefined)}
                                 onOpenEntry={entry => {
-                                    const image = cropImage(page.canvasRef.current!, imageBoxes[page.id][askingImage.index]);
+                                    const image = cropImage(page.canvasRef.current!, boxesOf(page.id)[askingImage.index]);
                                     setImageAnswer({ question: entry.question, answer: entry.answer, image });
                                     setAskingImage(undefined);
                                 }}
                                 onSend={async question => {
-                                    const box = imageBoxes[page.id][askingImage.index];
+                                    const box = boxesOf(page.id)[askingImage.index];
                                     const image = cropImage(page.canvasRef.current!, box);
                                     const answer = unwrapMarkdownFence(
                                         await askAboutImage(question, image, await getNormalizedText(fullText)),

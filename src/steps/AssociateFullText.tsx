@@ -9,6 +9,7 @@ import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
 import ManualReference from '../features/ManualReference';
 import ArticleTags from '../features/ArticleTags';
+import Recall from '../features/Recall';
 import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import useShortcut from '../hooks/useShortcut';
 import { TestIds } from '../testids';
@@ -228,16 +229,19 @@ export default function AssociateFullText() {
 
     return (
         <section className={Styles.step}>
-            <input
-                ref={searchRef}
-                type="search"
-                className={Styles.search}
-                placeholder="Buscar por título"
-                aria-label="Buscar por título"
-                data-testid={TestIds.fullTexts.search}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-            />
+            <div className={Styles.searchBar}>
+                <input
+                    ref={searchRef}
+                    type="search"
+                    className={Styles.search}
+                    placeholder="Buscar por título"
+                    aria-label="Buscar por título"
+                    data-testid={TestIds.fullTexts.search}
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                />
+                <Recall />
+            </div>
             <Text type="subtitle">Associar texto completo</Text>
             <Text type="description">
                 Envie ou arraste o PDF de cada artigo. Itens tracejados ainda não possuem texto completo.

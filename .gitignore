@@ -4,3 +4,4 @@ test-results
 playwright-report
 .cert
 *.tsbuildinfo
+todo.md

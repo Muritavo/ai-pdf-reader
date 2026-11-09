@@ -1,0 +1,268 @@
+@use "../../styles/variables.scss" as *;
+
+.icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+// Over the bottom right of the brain, with a ring of the background so both are read apart
+.iconSearch {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  padding: 1px;
+  box-sizing: content-box;
+}
+
+.trigger {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.content {
+  background: $colorPanel;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 760px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  .iconSearch {
+    background: $colorPanel;
+  }
+}
+
+.tabs {
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0 1.25rem 0.25rem;
+  --tab-guide-color: #{$colorHighlight};
+}
+
+.tab {
+  padding: 0.35rem 0.75rem;
+  color: $colorMuted;
+  font-size: 0.85rem;
+}
+
+.historyList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.historyItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}
+
+.historyQuestion {
+  color: $colorText;
+  white-space: pre-wrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0.5rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.question {
+  width: 100%;
+  min-height: 96px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+
+  &:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section {
+  border-top: 1px solid $colorBorder;
+  padding-top: 12px;
+
+  summary {
+    cursor: pointer;
+  }
+
+  // Beside the arrow of the summary, not under it
+  summary .label {
+    display: inline;
+  }
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.answer {
+  line-height: 1.6;
+  word-wrap: break-word;
+  color: $colorText;
+}
+
+// A cell for each article asked, in the order they are asked
+.cells {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  // The same width on every row, the last one included
+  flex: 0 1 30px;
+  max-width: 30px;
+  height: 18px;
+  border-radius: 4px;
+  background: $colorBorder;
+  transition: background 0.2s;
+}
+
+.cellRunning {
+  background: #e3b341;
+}
+
+.cellDone {
+  background: var(--success);
+}
+
+.cellError {
+  background: var(--danger);
+}
+
+// The cell being asked, as three dots blinking in turn
+.dots {
+  display: flex;
+  gap: 2px;
+
+  span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: $colorBackground;
+    animation: blink 1s infinite ease-in-out;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--danger);
+}
