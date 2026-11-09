@@ -27,6 +27,7 @@ import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuesti
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
+import { createStreamedWords, uniqueExcerptsOfPage } from '../../utils/progressTracker';
 import { scoped } from '../../utils/projects';
 import { replaceInPieces, type TextReplacement } from '../../utils/textReplacements';
 import useShortcut from '../../hooks/useShortcut';
@@ -585,6 +586,45 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         }
         setHighlightPages(found);
     }, [highlightRules, definitionRules, textLayers, textReplacements]);
+
+    // While warming up, the pieces of each page light up as the AI writes them
+    const streamedExcerpts = useRef<{
+        textLayers: pdfjsLib.TextLayer[];
+        words: ReturnType<typeof createStreamedWords>;
+        /** Up to where of the streamed words the pieces were already looked for */
+        searchedUpTo: number;
+        waiting: { element: HTMLElement; key: string }[];
+        lit: HTMLElement[];
+    }>();
+    useEffect(() => {
+        const current = streamedExcerpts.current;
+        // Started again for other text layers, as their pieces are other elements
+        if (current && (warmUp.state !== 'running' || current.textLayers !== textLayers)) {
+            current.lit.forEach(element => element.classList.remove(Styles.streamedExcerpt));
+            streamedExcerpts.current = undefined;
+        }
+        if (warmUp.state !== 'running' || !textLayers || !warmUp.streamed) return;
+        const tracking = (streamedExcerpts.current ??= {
+            textLayers,
+            words: createStreamedWords(),
+            searchedUpTo: 0,
+            waiting: textLayers.flatMap(textLayer =>
+                uniqueExcerptsOfPage(textLayer.textContentItemsStr).map(({ index, key }) => ({
+                    element: textLayer.textDivs[index],
+                    key,
+                })),
+            ),
+            lit: [],
+        });
+        const streamed = tracking.words.read(warmUp.streamed);
+        tracking.waiting = tracking.waiting.filter(excerpt => {
+            if (streamed.indexOf(excerpt.key, Math.max(0, tracking.searchedUpTo - excerpt.key.length)) === -1) return true;
+            excerpt.element.classList.add(Styles.streamedExcerpt);
+            tracking.lit.push(excerpt.element);
+            return false;
+        });
+        tracking.searchedUpTo = streamed.length;
+    }, [warmUp.state, warmUp.streamed, textLayers]);
 
     const scrollHeight = previewBoxRef.current?.scrollHeight ?? 0;
 

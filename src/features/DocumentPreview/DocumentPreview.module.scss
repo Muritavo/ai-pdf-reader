@@ -105,6 +105,24 @@
   }
 }
 
+// A piece of the text layer the AI just wrote while warming up, flashing red and fading back
+.streamedExcerpt {
+  border-radius: 4px;
+  animation: streamedFlash 1.5s ease-out;
+}
+
+@keyframes streamedFlash {
+  0% {
+    background: rgba(255, 0, 0, 0);
+  }
+  15% {
+    background: rgba(255, 0, 0, 0.35);
+  }
+  100% {
+    background: rgba(255, 0, 0, 0);
+  }
+}
+
 .readingPage {
   position: absolute;
   inset: 0;

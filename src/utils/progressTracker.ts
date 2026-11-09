@@ -1,5 +1,5 @@
 /** How many words a text sequence of a page has (more than 3) */
-const SEQUENCE_LENGTH = 4;
+export const SEQUENCE_LENGTH = 4;
 /** How many text sequences are picked at the start and at the end of each page */
 const SEQUENCES_BY_SIDE = 3;
 
@@ -19,7 +19,26 @@ export type TrackedProgress = {
 };
 
 /** Words joined so a sequence is found only as whole words, as in ` a b c d ` */
-const asKey = (words: string[]) => ` ${words.join(' ')} `;
+export const asKey = (words: string[]) => ` ${words.join(' ')} `;
+
+/** The AI response as whole words (see `asKey`), built as it arrives so it is not tokenized again on every chunk */
+export function createStreamedWords() {
+    let key = ' ';
+    /** How much of the response was already read into `key` */
+    let consumed = 0;
+    return {
+        read(response: string) {
+            // Only whole words, as the last one may still be coming
+            const completeUpTo = response.search(/\S*$/);
+            if (completeUpTo > consumed) {
+                const words = tokenize(response.slice(consumed, completeUpTo));
+                if (words.length) key += `${words.join(' ')} `;
+                consumed = completeUpTo;
+            }
+            return key;
+        },
+    };
+}
 
 /**
  * The words of each line of the page, so a text sequence is always continuous and never stitches two blocks.
@@ -76,10 +95,8 @@ export function createProgressTracker(pageTexts: string[]) {
     const documentKey = asKey(pageLines.flat(2));
     const pages = pageLines.map(lines => pickSequences(lines, documentKey));
 
-    /** The response as whole words, built as it arrives so it is not tokenized again on every chunk */
+    const streamed = createStreamedWords();
     let responseKey = ' ';
-    /** How much of the response was already read into `responseKey` */
-    let consumed = 0;
     /** The page being reached. The response only grows, so the pages before it are never checked again */
     let scanning = 0;
     /** Whether a start of the scanning page was already found */
@@ -104,14 +121,7 @@ export function createProgressTracker(pageTexts: string[]) {
 
     return {
         track(response: string): TrackedProgress {
-            // Only whole words, as the last one may still be coming
-            const completeUpTo = response.search(/\S*$/);
-            if (completeUpTo > consumed) {
-                const words = tokenize(response.slice(consumed, completeUpTo));
-                if (words.length) responseKey += `${words.join(' ')} `;
-                consumed = completeUpTo;
-            }
-
+            responseKey = streamed.read(response);
             while (scanning < pages.length) {
                 startFound ||= isOnResponse('starts');
                 if (!startFound) break;
@@ -124,4 +134,25 @@ export function createProgressTracker(pageTexts: string[]) {
             return current();
         },
     };
+}
+
+/**
+ * The pieces of text of a page (as the divs of its text layer) that can be followed on the AI response:
+ * those with more than 3 words that are found only once on the page, each with its `asKey` to look for.
+ * A word broken by a hyphen between two pieces is dropped from both, as the AI writes it whole.
+ */
+export function uniqueExcerptsOfPage(pieces: string[]) {
+    const broken = (text: string | undefined) => !!text && /-\s*$/.test(text);
+    const words = pieces.map((text, i) => {
+        let pieceWords = tokenize(text);
+        if (broken(text)) pieceWords = pieceWords.slice(0, -1);
+        if (broken(pieces[i - 1])) pieceWords = pieceWords.slice(1);
+        return pieceWords;
+    });
+    const pageKey = asKey(words.flat());
+    return words.flatMap((pieceWords, index) => {
+        if (pieceWords.length < SEQUENCE_LENGTH) return [];
+        const key = asKey(pieceWords);
+        return pageKey.indexOf(key) === pageKey.lastIndexOf(key) ? [{ index, key }] : [];
+    });
 }

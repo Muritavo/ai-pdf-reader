@@ -13,6 +13,8 @@ export type PreprocessingProgress = {
     page?: number;
     /** How many words the AI has generated so far */
     generatedWords?: number;
+    /** What the AI has written so far, once the normalization starts */
+    streamed?: string;
 };
 
 /** Share of the progress taken by extracting the text from the pages. The rest is the AI normalization */
@@ -92,6 +94,7 @@ async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: Prepr
             progress: EXTRACTION_WEIGHT + (1 - EXTRACTION_WEIGHT) * Math.min(0.99, tracked.progress),
             page: tracked.page,
             generatedWords,
+            streamed: received,
         });
     });
     onProgress({ progress: 1 });
