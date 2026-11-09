@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import useAsyncControl from '@onepercentio/one-ui/hooks/useAsyncControl';
-import { getLoadedModelId, pingServer, setAIEndpoint } from '../services/ai';
+import { getLoadedModelId, pingServer, setAIEndpoint, warmUpDocumentContext } from '../services/ai';
 import { isValidEndpoint, loadAIEndpoints, normalizeEndpoint, saveAIEndpoints, type AIEndpoints } from '../utils/aiEndpoints';
 import type { FullText } from '../models/Article';
 import { clearNormalizedText, getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
@@ -37,7 +37,8 @@ type AIContextShape = {
     reconnect: () => Promise<void>;
     /** The warm up state by article key */
     warmUps: Record<string, WarmUp>;
-    warmUp: (fullText: FullText) => Promise<void>;
+    /** Prepares the document, or joins the preparation already running, resolving with its normalized text */
+    warmUp: (fullText: FullText) => Promise<string>;
     /** Marks the document as warmed up when it was before, without using the AI */
     checkWarmedUpBefore: (fullText: FullText) => Promise<void>;
     /** Discards the normalized text, so the document has to be warmed up again */
@@ -52,6 +53,8 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const [hasChecked, setHasChecked] = useState(false);
     const [warmUps, setWarmUps] = useState<Record<string, WarmUp>>({});
     const reportedKey = useRef<Record<string, string>>({});
+    /** The warm ups running, by article key, so an AI action started meanwhile waits for the same one */
+    const runningWarmUps = useRef(new Map<string, Promise<string>>());
     const [endpoints, setEndpoints] = useState<AIEndpoints>(() => {
         const loaded = loadAIEndpoints();
         // Before the first check, so it already goes to the chosen endpoint
@@ -157,21 +160,35 @@ export function AIProvider({ children }: { children: ReactNode }) {
     );
 
     const warmUp = useCallback(
-        async (fullText: FullText) => {
+        (fullText: FullText) => {
             const { articleKey } = fullText;
+            const running = runningWarmUps.current.get(articleKey);
+            if (running) return running;
+
             reportedKey.current[articleKey] = '';
             updateWarmUp(articleKey, { state: 'running', progress: 0 });
-            try {
-                await getNormalizedText(fullText, ({ progress, page, generatedWords, streamed }) => {
-                    const reported = `${Math.round(progress * 100)}-${page}-${generatedWords}`;
-                    if (reported === reportedKey.current[articleKey]) return;
-                    reportedKey.current[articleKey] = reported;
-                    updateWarmUp(articleKey, { state: 'running', progress, page, generatedWords, streamed });
-                });
-                updateWarmUp(articleKey, { state: 'done', progress: 1 });
-            } catch {
-                updateWarmUp(articleKey, { state: 'error', progress: 0 });
-            }
+            const processing = (async () => {
+                try {
+                    const normalized = await getNormalizedText(fullText, ({ progress, page, generatedWords, streamed }) => {
+                        const reported = `${Math.round(progress * 100)}-${page}-${generatedWords}`;
+                        if (reported === reportedKey.current[articleKey]) return;
+                        reportedKey.current[articleKey] = reported;
+                        updateWarmUp(articleKey, { state: 'running', progress, page, generatedWords, streamed });
+                    });
+                    updateWarmUp(articleKey, { state: 'done', progress: 1 });
+                    // Once processed, a stub question has the server read the document, so the first real one is quicker.
+                    // It does not hold the document from being used, and failing it changes nothing
+                    warmUpDocumentContext(normalized).catch(() => {});
+                    return normalized;
+                } catch (error) {
+                    updateWarmUp(articleKey, { state: 'error', progress: 0 });
+                    throw error;
+                } finally {
+                    runningWarmUps.current.delete(articleKey);
+                }
+            })();
+            runningWarmUps.current.set(articleKey, processing);
+            return processing;
         },
         [updateWarmUp],
     );
@@ -218,7 +235,14 @@ export function useWarmUp(fullText: FullText) {
         status,
         checking,
         ready: status === 'online' && current.state === 'done',
-        start: () => warmUp(fullText),
+        /** The AI actions can be used while online, preparing the document first when it is not yet */
+        available: status === 'online',
+        start: () => {
+            // Its failure is shown by the warm up state
+            warmUp(fullText).catch(() => {});
+        },
+        /** The normalized text, for an AI action, warming the document up first when needed (showing its progress) */
+        prepare: () => (current.state === 'done' ? getNormalizedText(fullText) : warmUp(fullText)),
         checkWarmedUpBefore: () => checkWarmedUpBefore(fullText),
         clear: () => clearWarmUp(fullText),
     };

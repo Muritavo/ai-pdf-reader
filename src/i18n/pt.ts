@@ -109,7 +109,7 @@ export default {
         generatedWords: '{count} palavras geradas',
         ready: 'Documento pronto para a IA',
         error: 'Falha ao preparar o documento. Clique para tentar novamente',
-        locked: 'Disponível quando a IA estiver online e o documento preparado',
+        locked: 'Disponível quando a IA estiver online',
         clear: 'Descartar o texto preparado pela IA',
         options: 'Opções do documento preparado',
         validateVisually: 'Validar com as páginas visualmente (experimental)',

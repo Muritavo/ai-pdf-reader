@@ -4,7 +4,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import { Workflow } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
-import { getNormalizedText } from '../../../../utils/preprocessing';
+import { useWarmUp } from '../../../../context/AIContext';
 import { unwrapMarkdownFence } from '../../../../utils/markdownFence';
 import ResponseModal from '../ResponseModal/ResponseModal';
 import Attachments from '../Attachments';
@@ -38,6 +38,7 @@ type DocumentActionsProps = {
 /** A balloon at the top left of the document, with the actions about it as a whole */
 export default function DocumentActions({ fullText, aiReady }: DocumentActionsProps) {
     const { txt } = useShortIntl();
+    const { prepare } = useWarmUp(fullText);
     const [running, setRunning] = useState<string>();
     const [failed, setFailed] = useState<string>();
     const [result, setResult] = useState<{ action: DocumentAction; answer: string }>();
@@ -46,7 +47,7 @@ export default function DocumentActions({ fullText, aiReady }: DocumentActionsPr
         setRunning(action.id);
         setFailed(undefined);
         try {
-            const answer = await askContext(action.prompt, await getNormalizedText(fullText));
+            const answer = await askContext(action.prompt, await prepare());
             setResult({ action, answer: unwrapMarkdownFence(answer) });
         } catch {
             setFailed(action.id);

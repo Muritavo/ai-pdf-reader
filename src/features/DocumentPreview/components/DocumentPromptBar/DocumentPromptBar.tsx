@@ -6,7 +6,6 @@ import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { CircleHelp, Clock, ExternalLink } from 'lucide-react';
 import type { FullText } from '../../../../models/Article';
 import { askContext } from '../../../../services/ai';
-import { getNormalizedText } from '../../../../utils/preprocessing';
 import {
     answerFor,
     entryKeyOf,
@@ -46,7 +45,7 @@ export default forwardRef(function DocumentPromptBar(
     /** An entry of the history, shown on the window with its answer, leaving the prompt as it is */
     const [pickedEntry, setPickedEntry] = useState<{ prompt: string; answer: string }>();
 
-    const { ready: aiReady } = useWarmUp(fullText);
+    const { available: aiReady, prepare } = useWarmUp(fullText);
     const { hash } = fullText;
 
     const saveHistory = useCallback(
@@ -88,7 +87,7 @@ export default forwardRef(function DocumentPromptBar(
         setAnswering(current => withKey(current, key, true));
         setFailed(current => withKey(current, key, false));
         try {
-            const answer = await askContext(entry.prompt, await getNormalizedText(fullText));
+            const answer = await askContext(entry.prompt, await prepare());
             const answered: PromptHistoryEntry = {
                 ...entry,
                 answers: { ...entry.answers, [hash]: { answer, timestamp: new Date().toISOString(), documentName: fullText.name } },
@@ -130,7 +129,7 @@ export default forwardRef(function DocumentPromptBar(
         setIsLoading(true);
         setIsError(false);
         try {
-            const context = await getNormalizedText(fullText);
+            const context = await prepare();
             const result = await askContext(prompt, context);
             setLastAnswer(result);
             // A question is always born local. Asking again with the same wording replaces the previous one

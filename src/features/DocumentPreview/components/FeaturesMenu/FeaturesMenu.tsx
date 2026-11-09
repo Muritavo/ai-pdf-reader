@@ -5,7 +5,7 @@ import ScrollendIndicator from '@onepercentio/one-ui/components/ScrollendIndicat
 import Styles from './FeaturesMenu.module.scss';
 import type { FullText } from '../../../../models/Article';
 import { defineWordInContext, findReferenceInContext } from '../../../../services/ai';
-import { getNormalizedText } from '../../../../utils/preprocessing';
+import { useWarmUp } from '../../../../context/AIContext';
 import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
 import { usePlugins } from '../../../../context/PluginsContext';
@@ -76,6 +76,7 @@ export default forwardRef(function FeaturesMenu(
     ref: ForwardedRef<FeaturesMenuHandle>,
 ) {
     const { txt } = useShortIntl();
+    const { prepare } = useWarmUp(fullText);
     const { menuOptions: pluginOptions } = usePlugins();
     const [word, setWord] = useState<string>();
     const [{ x, y }, setPosition] = useState({ x: 0, y: 0 });
@@ -159,7 +160,7 @@ export default forwardRef(function FeaturesMenu(
             hint: txt('aiWarmUp.locked'),
             onClick: async () => {
                 try {
-                    const normalizedText = await getNormalizedText(fullText);
+                    const normalizedText = await prepare();
                     const definition = await defineWordInContext(word, normalizedText);
                     onDefined(word, definition);
                     alert(definition);
@@ -191,7 +192,7 @@ export default forwardRef(function FeaturesMenu(
             hint: txt('aiWarmUp.locked'),
             // A failure is left to the button, that offers to try again with the passage still selected
             onClick: async () => {
-                const normalizedText = await getNormalizedText(fullText);
+                const normalizedText = await prepare();
                 onReferenceFound(word, await findReferenceInContext(word, normalizedText));
                 dismiss();
             },

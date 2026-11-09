@@ -5,7 +5,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import type { FullText } from '../../../../../../models/Article';
 import { suggestPrompts } from '../../../../../../services/ai';
-import { getNormalizedText } from '../../../../../../utils/preprocessing';
+import { useWarmUp } from '../../../../../../context/AIContext';
 import { TestIds } from '../../../../../../testids';
 import Styles from './PromptHelperModal.module.scss';
 
@@ -19,6 +19,7 @@ type PromptHelperModalProps = {
 /** Turns what the user is researching into structured prompts about the document */
 export default function PromptHelperModal({ fullText, onPick, onClose }: PromptHelperModalProps) {
     const { txt } = useShortIntl();
+    const { prepare } = useWarmUp(fullText);
     const [query, setQuery] = useState('');
     const [suggestions, setSuggestions] = useState<string[]>();
     const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +36,7 @@ export default function PromptHelperModal({ fullText, onPick, onClose }: PromptH
         setIsLoading(true);
         setIsError(false);
         try {
-            setSuggestions(await suggestPrompts(researchQuery, await getNormalizedText(fullText)));
+            setSuggestions(await suggestPrompts(researchQuery, await prepare()));
         } catch {
             setIsError(true);
         } finally {
