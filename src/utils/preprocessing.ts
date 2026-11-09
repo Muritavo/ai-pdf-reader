@@ -17,8 +17,8 @@ export type PreprocessingProgress = {
     streamed?: string;
 };
 
-/** Share of the progress taken by extracting the text from the pages. The rest is the AI normalization */
-const EXTRACTION_WEIGHT = 0.3;
+/** Share of the progress taken by the AI reading the document (the prefill). The rest follows the pages it writes */
+const PREFILL_WEIGHT = 0.5;
 
 async function loadPdf(pdfBytes: ArrayBuffer) {
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -74,9 +74,7 @@ export async function countWords(pdfBytes: ArrayBuffer) {
 }
 
 async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: PreprocessingProgress) => void): Promise<string> {
-    const pageTexts = await extractPageTexts(pdfBytes, (extractedPages, totalPages) =>
-        onProgress({ progress: (extractedPages / totalPages) * EXTRACTION_WEIGHT }),
-    );
+    const pageTexts = await extractPageTexts(pdfBytes);
 
     const tracker = createProgressTracker(pageTexts);
     let received = '';
@@ -91,12 +89,12 @@ async function preprocessPDF(pdfBytes: ArrayBuffer, onProgress: (progress: Prepr
         }
         const tracked = tracker.track(received);
         onProgress({
-            progress: EXTRACTION_WEIGHT + (1 - EXTRACTION_WEIGHT) * Math.min(0.99, tracked.progress),
+            progress: PREFILL_WEIGHT + (1 - PREFILL_WEIGHT) * Math.min(0.99, tracked.progress),
             page: tracked.page,
             generatedWords,
             streamed: received,
         });
-    });
+    }, read => onProgress({ progress: PREFILL_WEIGHT * read }));
     onProgress({ progress: 1 });
     return normalized;
 }

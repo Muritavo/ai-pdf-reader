@@ -133,9 +133,15 @@ export async function callOpenAiApi(
   /**
    * False tells the server not to keep the prompt on its cache, for prompts that are not asked again.
    * `settings` chooses the model and the thinking mode; without it, the loaded model and no thinking.
-   * `priority` tells the server how soon to handle it; without it, the server decides
+   * `priority` tells the server how soon to handle it; without it, the server decides.
+   * `onPromptProgress` receives how much of the prompt the server already read (from 0 to 1), before it starts answering
    */
-  { cache = true, settings, priority }: { cache?: boolean; settings?: AISettings; priority?: AIPriority } = {},
+  {
+    cache = true,
+    settings,
+    priority,
+    onPromptProgress,
+  }: { cache?: boolean; settings?: AISettings; priority?: AIPriority; onPromptProgress?: (progress: number) => void } = {},
 ): Promise<string> {
   const response = await fetch(`${currentEndpoint}/v1/chat/completions`, {
     method: "POST",
@@ -151,6 +157,8 @@ export async function callOpenAiApi(
       chat_template_kwargs: { enable_thinking: settings?.thinkingEnabled ?? false },
       ...(cache ? {} : { cache: false }),
       ...(priority ? { priority } : {}),
+      // Asks the server to report the reading of the prompt, which servers that can't do it ignore
+      ...(onPromptProgress ? { return_progress: true } : {}),
     }),
   });
 
@@ -182,6 +190,10 @@ export async function callOpenAiApi(
           if (data === "[DONE]") continue;
           try {
             const parsed = JSON.parse(data);
+            const promptProgress = parsed.prompt_progress;
+            if (onPromptProgress && promptProgress?.total) {
+              onPromptProgress(Math.min(1, promptProgress.processed / promptProgress.total));
+            }
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               accumulated += content;
