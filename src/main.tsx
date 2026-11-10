@@ -8,6 +8,7 @@ import App from './App';
 import { ProjectsProvider } from './context/ProjectsContext';
 import { PluginsProvider } from './context/PluginsContext';
 import pt from './i18n/pt';
+import { migrateCacheFromLocalStorage } from './utils/hash';
 import './index.css';
 
 const UploadIcon = () => (
@@ -16,46 +17,53 @@ const UploadIcon = () => (
     </svg>
 );
 
-createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-        <OneUIProvider
-            config={{
-                component: {
-                    text: {
-                        className: {
-                            title: 'text-title',
-                            subtitle: 'text-subtitle',
-                            description: 'text-description',
-                            caption: 'text-caption',
+/** Before rendering, so no answer is asked again to the AI while it is still being moved */
+migrateCacheFromLocalStorage()
+    .catch(e => console.error('Failed to move the AI cache to IndexedDB', e))
+    .then(render);
+
+function render() {
+    createRoot(document.getElementById('root')!).render(
+        <StrictMode>
+            <OneUIProvider
+                config={{
+                    component: {
+                        text: {
+                            className: {
+                                title: 'text-title',
+                                subtitle: 'text-subtitle',
+                                description: 'text-description',
+                                caption: 'text-caption',
+                            },
+                            htmlTag: { title: 'h1', subtitle: 'h2', description: 'p', caption: 'p' },
                         },
-                        htmlTag: { title: 'h1', subtitle: 'h2', description: 'p', caption: 'p' },
-                    },
-                    button: {
-                        className: {
-                            primary: 'btn btn-primary',
-                            outline: 'btn btn-outline',
-                            transparent: 'btn btn-transparent',
+                        button: {
+                            className: {
+                                primary: 'btn btn-primary',
+                                outline: 'btn btn-outline',
+                                transparent: 'btn btn-transparent',
+                            },
+                        },
+                        adaptiveDialog: {
+                            variant: { default: 'dialog-default' },
+                            backdropClassName: 'dialog-backdrop',
+                            dialogClassName: 'dialog-surface',
+                        },
+                        fileInput: {
+                            View: BigFactory(UploadIcon),
+                            button: { variant: 'primary' },
                         },
                     },
-                    adaptiveDialog: {
-                        variant: { default: 'dialog-default' },
-                        backdropClassName: 'dialog-backdrop',
-                        dialogClassName: 'dialog-surface',
-                    },
-                    fileInput: {
-                        View: BigFactory(UploadIcon),
-                        button: { variant: 'primary' },
-                    },
-                },
-            }}
-        >
-            <IntlProvider locale="pt-BR" messages={flatten(pt)}>
-                <ProjectsProvider>
-                    <PluginsProvider>
-                        <App />
-                    </PluginsProvider>
-                </ProjectsProvider>
-            </IntlProvider>
-        </OneUIProvider>
-    </StrictMode>,
-);
+                }}
+            >
+                <IntlProvider locale="pt-BR" messages={flatten(pt)}>
+                    <ProjectsProvider>
+                        <PluginsProvider>
+                            <App />
+                        </PluginsProvider>
+                    </ProjectsProvider>
+                </IntlProvider>
+            </OneUIProvider>
+        </StrictMode>,
+    );
+}
