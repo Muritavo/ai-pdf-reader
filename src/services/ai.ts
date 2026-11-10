@@ -33,6 +33,19 @@ export const forgetWordDefinition = (word: string, context: string) => clearCach
 
 export const findReferenceInContext = wrapFunction(_findReferenceInContext);
 
+/** What is asked to warm the document up, answered shortly so the server spends its time only reading the document */
+const WARM_UP_QUESTION = 'Reply only with "OK" and wait for the next question.';
+
+/**
+ * Asks a stub question about the document, so the server already has the document read (KV cache)
+ * when the first real question comes. Its answer is of no use, so it is not kept
+ */
+export async function warmUpDocumentContext(context: string): Promise<void> {
+  await callOpenAiApi([...documentContextMessages(context), { role: "user", content: WARM_UP_QUESTION }], undefined, {
+    priority: "background",
+  });
+}
+
 /** Kept by the question, the image and the document, so asking the same again is instant */
 export const askAboutImage = wrapFunction(_askAboutImage);
 

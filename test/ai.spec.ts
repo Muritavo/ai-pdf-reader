@@ -135,7 +135,8 @@ test.describe('warming up a document', () => {
         await expect(warmUpButton(page)).toHaveAttribute('data-state', 'idle');
         await expect(warmUpButton(page).locator('svg.lucide-play')).toBeVisible();
         expect(ai.requestsOfKind('organize')).toHaveLength(0);
-        await expect(promptInput(page)).toBeDisabled();
+        // Asking prepares the document then, so it is not locked
+        await expect(promptInput(page)).toBeEnabled();
     });
 
     test('sends the extracted text to be organized, then unlocks the AI features', async ({ page, ai }) => {
@@ -159,6 +160,21 @@ test.describe('warming up a document', () => {
         expect(ai.requestsOfKind('organize')).toHaveLength(1);
         expect(organize.text).toContain('Proteome analysis of ovarian tissue');
         expect(organize.text).toContain('Conclusion of the study');
+    });
+
+    test('asks a stub question once processed, starting like the questions so the server reuses it', async ({ page, ai }) => {
+        await openSamplePreview(page);
+        await warmUp(page);
+
+        await expect.poll(() => ai.requestsOfKind('warmUp').length).toBe(1);
+        const [stub] = ai.requestsOfKind('warmUp');
+        expect(stub.context).toContain('# Texto organizado');
+        // It is not a definition asked by the user
+        expect(ai.requestsOfKind('define')).toHaveLength(0);
+
+        await ask(page, 'Pergunta para comparar');
+        const [question] = ai.requestsOfKind('ask');
+        expect(stub.messages.slice(0, 2)).toEqual(question.messages.slice(0, 2));
     });
 
     test('keeps the text of the page hidden under the scan of the page being read', async ({ page, ai }) => {
@@ -299,7 +315,8 @@ test.describe('warming up a document', () => {
 
         await warmUpButton(page).click();
         await expect(warmUpButton(page)).toHaveAttribute('data-state', 'error');
-        await expect(promptInput(page)).toBeDisabled();
+        // Still online, so asking can try to prepare it again
+        await expect(promptInput(page)).toBeEnabled();
 
         ai.chatStatus = 200;
         await warmUpButton(page).click();
@@ -310,11 +327,16 @@ test.describe('warming up a document', () => {
 });
 
 test.describe('asking questions', () => {
-    test('is locked until the document is warmed up', async ({ page }) => {
+    test('warms the document up first when it was not yet', async ({ page, ai }) => {
         await openSamplePreview(page);
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
 
-        await expect(promptInput(page)).toBeDisabled();
-        await expect(byId(page, TestIds.ai.promptSend)).toBeDisabled();
+        await ask(page, 'Sem preparar antes?');
+
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'ready');
+        expect(ai.requestsOfKind('organize')).toHaveLength(1);
+        const [question] = ai.requestsOfKind('ask');
+        expect(question.context).toContain('# Texto organizado');
     });
 
     test('answers a question using the organized text of the document', async ({ page, ai }) => {
@@ -836,15 +858,19 @@ test.describe('defining words', () => {
         expect(definition.messages[2].content).not.toBe(question.messages[2].content);
     });
 
-    test('is locked until the document is warmed up, keeping the other actions', async ({ page }) => {
+    test('warms the document up first when it was not yet, showing its progress', async ({ page, ai }) => {
+        ai.chunkDelayMs = 80;
         await openSamplePreview(page);
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
 
-        await selectWord(page, SAMPLE_WORD);
+        const defined = defineSelected(page, SAMPLE_WORD);
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'running');
 
-        await expect(byId(page, TestIds.menu.define)).toBeDisabled();
-        await expect(byId(page, TestIds.menu.highlight)).toBeEnabled();
-        await expect(byId(page, TestIds.menu.markLocation)).toBeEnabled();
-        await expect(byId(page, TestIds.menu.searchOnGoogle)).toBeEnabled();
+        expect(await defined).toBe('Definição mock de Proteome');
+        await expect(warmUpButton(page)).toHaveAttribute('data-state', 'ready');
+        expect(ai.requestsOfKind('organize')).toHaveLength(1);
+        const [request] = ai.requestsOfKind('define');
+        expect(request.context).toContain('# Texto organizado');
     });
 
     test('is locked when the AI is offline', async ({ page, ai }) => {
@@ -884,13 +910,13 @@ test.describe('finding the reference of a passage', () => {
         await byId(page, TestIds.menu.reference).click();
     }
 
-    test('is locked until the document is warmed up', async ({ page }) => {
+    test('is available before the document is warmed up', async ({ page }) => {
         await openSamplePreview(page);
+        await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
 
         await selectWord(page, PASSAGE);
 
-        await expect(byId(page, TestIds.menu.reference)).toBeDisabled();
-        await expect(byId(page, TestIds.menu.reference)).toHaveAttribute('title', /preparado/);
+        await expect(byId(page, TestIds.menu.reference)).toBeEnabled();
     });
 
     test('is locked when the AI is offline', async ({ page, ai }) => {

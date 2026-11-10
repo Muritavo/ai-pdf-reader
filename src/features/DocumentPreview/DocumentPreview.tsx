@@ -746,7 +746,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         {askingImage?.page === page.id && boxesOf(page.id)[askingImage.index] && (
                             <ImageQuestion
                                 key={askingImage.index}
-                                aiReady={warmUp.ready}
+                                aiReady={warmUp.available}
                                 style={{
                                     left: `${(boxesOf(page.id)[askingImage.index].left + boxesOf(page.id)[askingImage.index].width / 2) * 100}%`,
                                     // At the bottom of the image, inside it (and moved up into what is seen, when it is a tall one)
@@ -763,7 +763,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                     const box = boxesOf(page.id)[askingImage.index];
                                     const image = cropImage(page.canvasRef.current!, box);
                                     const answer = unwrapMarkdownFence(
-                                        await askAboutImage(question, image, await getNormalizedText(fullText)),
+                                        await askAboutImage(question, image, await warmUp.prepare()),
                                     );
                                     const key = `${page.id}-${askingImage.index}`;
                                     setImageHistory({
@@ -811,7 +811,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 {/* Only while Ctrl is held, as it is seldom needed */}
                 {removingDefinitions && <TextLayerOffset offset={textLayerOffset} onChange={setTextLayerOffset} />}
             </div>
-            <DocumentActions fullText={fullText} aiReady={warmUp.ready} />
+            <DocumentActions fullText={fullText} aiReady={warmUp.available} />
             <AnnotationsToolbar
                 highlights={(highlightRules ?? []).map(rule => ({
                     normalizedWord: rule.normalizedWord,
@@ -832,7 +832,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 ref={menuRef}
                 addHighlight={addHighlight}
                 fullText={fullText}
-                aiReady={warmUp.ready}
+                aiReady={warmUp.available}
                 getDocumentCoordinates={getDocumentCoordinates}
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}

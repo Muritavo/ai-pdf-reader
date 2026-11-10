@@ -6,8 +6,13 @@ type ChatMessage = { role: string; content: string };
 export type AIRequest =
     | { kind: 'organize'; messages: ChatMessage[]; text: string }
     | { kind: 'define'; messages: ChatMessage[]; word: string; context: string }
+    /** The stub question asked once the document is processed, so the server has it read for the next questions */
+    | { kind: 'warmUp'; messages: ChatMessage[]; context: string }
     | { kind: 'reference'; messages: ChatMessage[]; passage: string; context: string }
     | { kind: 'ask'; messages: ChatMessage[]; prompt: string; context: string };
+
+/** The stub question asked to warm the document up */
+const WARM_UP_QUESTION = 'Reply only with "OK" and wait for the next question.';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -17,6 +22,7 @@ function classify(messages: ChatMessage[]): AIRequest {
         return { kind: 'organize', messages, text: last.split('\n\n').slice(1).join('\n\n') };
     }
     const context = messages[0].content.split('\n\n').slice(1).join('\n\n');
+    if (last === WARM_UP_QUESTION) return { kind: 'warmUp', messages, context };
     const define = last.match(/^What does "(.*)" mean in this context/);
     if (define) return { kind: 'define', messages, word: define[1], context };
     const reference = last.match(/^Find the bibliographic reference[\s\S]*?"""([\s\S]*?)"""/);
@@ -56,6 +62,8 @@ export class MockAI {
                 return `# Texto organizado\n\n${request.text}`;
             case 'define':
                 return `Definição mock de ${request.word}`;
+            case 'warmUp':
+                return 'OK';
             case 'reference':
                 return this.referenceAnswer?.(request.passage) ?? `- Referência mock para: ${request.passage}`;
             case 'ask':

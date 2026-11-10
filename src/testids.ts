@@ -193,6 +193,17 @@ export const TestIds = {
         promptHelperSuggest: 'prompt-helper-suggest',
         promptHelperSuggestion: 'prompt-helper-suggestion',
     },
+    projectNotes: {
+        open: 'project-notes-open',
+        modal: 'project-notes-modal',
+        input: 'project-notes-input',
+        add: 'project-notes-add',
+        list: 'project-notes-list',
+        item: 'project-notes-item',
+        remove: 'project-notes-remove',
+        edit: 'project-notes-edit',
+        cancel: 'project-notes-cancel',
+    },
     recall: {
         open: 'recall-open',
         modal: 'recall-modal',
