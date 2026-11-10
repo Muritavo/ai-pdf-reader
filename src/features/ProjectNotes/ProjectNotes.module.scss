@@ -114,3 +114,25 @@
   white-space: pre-wrap;
   word-wrap: break-word;
 }
+
+// The note whose text is on the input, vibrating while it is being changed
+.editing {
+  animation: vibrate 0.3s linear infinite;
+}
+
+.hiddenAction {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes vibrate {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-0.6deg);
+  }
+  75% {
+    transform: rotate(0.6deg);
+  }
+}

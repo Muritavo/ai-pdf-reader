@@ -201,6 +201,8 @@ export const TestIds = {
         list: 'project-notes-list',
         item: 'project-notes-item',
         remove: 'project-notes-remove',
+        edit: 'project-notes-edit',
+        cancel: 'project-notes-cancel',
     },
     recall: {
         open: 'recall-open',

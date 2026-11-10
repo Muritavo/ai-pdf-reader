@@ -236,5 +236,8 @@ export default {
         add: 'Adicionar nota',
         empty: 'Nenhuma nota do projeto ainda.',
         remove: 'Remover',
+        edit: 'Editar',
+        save: 'Salvar',
+        cancel: 'Cancelar',
     },
 };
