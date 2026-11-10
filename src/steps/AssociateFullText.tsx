@@ -10,6 +10,7 @@ import DocumentPreview from '../features/DocumentPreview';
 import ManualReference from '../features/ManualReference';
 import ArticleTags from '../features/ArticleTags';
 import Recall from '../features/Recall';
+import ProjectNotes from '../features/ProjectNotes';
 import { isReadToTheEnd, resetReadingProgress, useLastOpening, useReadingProgress } from '../utils/readingProgress';
 import useShortcut from '../hooks/useShortcut';
 import { TestIds } from '../testids';
@@ -241,6 +242,7 @@ export default function AssociateFullText() {
                     onChange={e => setQuery(e.target.value)}
                 />
                 <Recall />
+                <ProjectNotes />
             </div>
             <Text type="subtitle">Associar texto completo</Text>
             <Text type="description">

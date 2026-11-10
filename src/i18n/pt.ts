@@ -228,4 +228,13 @@ export default {
         historyDocuments: '{count} artigo(s) consultado(s)',
         backToHistory: 'Voltar ao histórico',
     },
+    projectNotes: {
+        open: 'Notas do projeto',
+        title: 'Notas do projeto',
+        close: 'Fechar',
+        placeholder: 'Escreva uma nota sobre o projeto...',
+        add: 'Adicionar nota',
+        empty: 'Nenhuma nota do projeto ainda.',
+        remove: 'Remover',
+    },
 };
