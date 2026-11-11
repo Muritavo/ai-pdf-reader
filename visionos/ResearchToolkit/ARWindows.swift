@@ -45,6 +45,8 @@ final class ARWindowStore: ObservableObject {
         let snapToWindow: String?
         /// Whether the window takes the focus when it opens
         let focus: Bool
+        /// How the window shows and closes: "pop" grows in like a bubble and pops when it closes
+        let effect: String?
     }
 
     @Published private(set) var entries: [String: Entry] = [:]
@@ -145,7 +147,7 @@ final class ARWindowStore: ObservableObject {
     }
 }
 
-/// Receives `window.webkit.messageHandlers.onAREntry.postMessage({ id, width, height, parent, snapToWindow, focus })`
+/// Receives `window.webkit.messageHandlers.onAREntry.postMessage({ id, width, height, parent, snapToWindow, focus, effect })`
 @MainActor
 final class ARBridgeHandler: NSObject, WKScriptMessageHandler {
     static let name = "onAREntry"
@@ -161,7 +163,8 @@ final class ARBridgeHandler: NSObject, WKScriptMessageHandler {
             size: CGSize(width: width, height: height),
             parent: body["parent"] as? String ?? ARWindowStore.mainWindowID,
             snapToWindow: body["snapToWindow"] as? String,
-            focus: body["focus"] as? Bool ?? true
+            focus: body["focus"] as? Bool ?? true,
+            effect: body["effect"] as? String
         ))
     }
 }
@@ -173,19 +176,40 @@ struct ARWindowView: View {
     @ObservedObject private var store = ARWindowStore.shared
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
+    /// Bubble effect: grows in once the page is sized, pops out before the window closes
+    @State private var bubble = Bubble.hidden
+    /// Whether the window asked for the bubble effect (`effect: "pop"`), kept as the entry is gone by the time it pops
+    @State private var pops: Bool
+
+    init(group: String, id: String) {
+        self.group = group
+        self.id = id
+        _pops = State(initialValue: ARWindowStore.shared.entries[id]?.request.effect == "pop")
+    }
+
+    private enum Bubble { case hidden, shown, popped }
 
     var body: some View {
         ZStack {
             if let entry = store.entries[id] {
-                WebViewHost(webView: entry.webView, initialSize: entry.size, returnFocusTo: entry.returnFocusTo)
+                WebViewHost(webView: entry.webView, initialSize: entry.size, returnFocusTo: entry.returnFocusTo) {
+                    guard pops else { return }
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) { bubble = .shown }
+                }
             }
         }
+        // The glass is drawn here instead of by the window (plain style), so it grows and pops along with the page
+        .glassBackgroundEffect()
+        .scaleEffect(!pops || bubble == .shown ? 1 : bubble == .popped ? 1.08 : 0.6)
+        .opacity(!pops || bubble == .shown ? 1 : 0)
         // Also closes windows restored from a previous launch, whose page is gone
-        .onAppear { arLog("window \(id) appeared (entry: \(store.entries[id] != nil))") }
+        .onAppear {
+            arLog("window \(id) appeared (entry: \(store.entries[id] != nil))")
+        }
         .onChange(of: store.entries[id] == nil, initial: true) { _, gone in
             guard gone, !store.quitting else { return }
             if store.mainWindowOpen {
-                dismissWindow(id: group, value: id)
+                pop { dismissWindow(id: group, value: id) }
                 return
             }
             // An AR window with no page behind it (e.g. restored on its own) would leave the app without any window.
@@ -200,14 +224,22 @@ struct ARWindowView: View {
         }
         .onDisappear { store.closedByUser(id) }
     }
+
+    /// Pops the bubble, if it was shown, then runs the action
+    private func pop(then action: @escaping () -> Void) {
+        guard pops, bubble == .shown else { return action() }
+        withAnimation(.easeOut(duration: 0.18)) { bubble = .popped }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: action)
+    }
 }
 
 private struct WebViewHost: UIViewRepresentable {
     let webView: WKWebView
     let initialSize: CGSize
     let returnFocusTo: WKWebView?
+    let onReveal: () -> Void
     func makeUIView(context: Context) -> SizingHost {
-        SizingHost(webView: webView, initialSize: initialSize, returnFocusTo: returnFocusTo)
+        SizingHost(webView: webView, initialSize: initialSize, returnFocusTo: returnFocusTo, onReveal: onReveal)
     }
     func updateUIView(_ view: SizingHost, context: Context) {}
 }
@@ -215,7 +247,7 @@ private struct WebViewHost: UIViewRepresentable {
 /// Sizes its window to the measured content once it's shown, then leaves resizing to the user.
 ///
 /// The window opens at the system's default size before shrinking to the measured one, so the page stays hidden
-/// until the window gets there. WebKit lays the page out a moment after each size change, so while the user resizes
+/// (or the whole window, with the bubble effect of ARWindowView) until it gets there. WebKit lays the page out a moment after each size change, so while the user resizes
 /// the window is blurred. Either way the page is shown only once it reports the new size and has painted it.
 private final class SizingHost: UIView {
     /// How long the size must hold still to count the resize as done
@@ -242,16 +274,18 @@ private final class SizingHost: UIView {
     private let webView: WKWebView
     private let initialSize: CGSize
     private weak var returnFocusTo: WKWebView?
+    private let onReveal: () -> Void
     private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .regular))
     private var sized = false
     private var revealed = false
     private var lastSize: CGSize = .zero
     private var settle: DispatchWorkItem?
 
-    init(webView: WKWebView, initialSize: CGSize, returnFocusTo: WKWebView?) {
+    init(webView: WKWebView, initialSize: CGSize, returnFocusTo: WKWebView?, onReveal: @escaping () -> Void) {
         self.webView = webView
         self.initialSize = initialSize
         self.returnFocusTo = returnFocusTo
+        self.onReveal = onReveal
         super.init(frame: .zero)
         webView.frame = bounds
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -328,6 +362,7 @@ private final class SizingHost: UIView {
         revealed = true
         arLog("revealing window at \(bounds.width)x\(bounds.height)")
         UIView.animate(withDuration: 0.2) { self.webView.alpha = 1 }
+        onReveal()
         giveFocusBack()
     }
 

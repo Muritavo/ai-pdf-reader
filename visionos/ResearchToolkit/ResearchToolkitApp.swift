@@ -36,6 +36,8 @@ struct ARWindowScenes: Scene {
         WindowGroup(id: group, for: String.self) { $id in
             if let id { ARWindowView(group: group, id: id) }
         }
+        // ARWindowView draws its own glass, so the bubble effect takes the whole window
+        .windowStyle(.plain)
         // Opens at the measured size, and with `snapToWindow: "right"` on the right of the window its ARDiv is in,
         // found by its group (a slot is told apart; the shared group is not, so the first of its windows is taken)
         .defaultWindowPlacement { _, context in

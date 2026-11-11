@@ -272,6 +272,7 @@ export default forwardRef(function FeaturesMenu(
             // Beside the document, which keeps the focus so reading goes on
             snapToWindow="right"
             focus={false}
+            effect="pop"
             // Limited, and never past the bottom of the screen, as it opens under the selection
             style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, view.innerHeight - y - 16)) }}
         >
