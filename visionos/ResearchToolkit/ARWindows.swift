@@ -63,6 +63,8 @@ final class ARWindowStore: ObservableObject {
     var mainWindowOpen = false
     /// Tells the page the user closed an AR window
     var onExit: ((String) -> Void)?
+    /// Whether the main window was closed, which ends the app
+    private(set) var quitting = false
 
     func report(_ request: Request) {
         arLog("onAREntry \(request.id) \(request.size.width)x\(request.size.height) from \(request.parent) (snap: \(request.snapToWindow ?? "none"), focus: \(request.focus))")
@@ -79,6 +81,18 @@ final class ARWindowStore: ObservableObject {
             arLog("closing a window left from the last run")
             UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
         }
+    }
+
+    /// The user closed the main window: closes every AR window and ends the app
+    func mainWindowClosed() {
+        guard !quitting else { return }
+        quitting = true
+        arLog("main window closed, closing everything")
+        for session in UIApplication.shared.openSessions {
+            UIApplication.shared.requestSceneSessionDestruction(session, options: nil)
+        }
+        // Once the windows had their moment to close, so none is restored on the next launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
     }
 
     /// The window group of a window, by its id ("main" or an AR window's)
@@ -169,7 +183,7 @@ struct ARWindowView: View {
         // Also closes windows restored from a previous launch, whose page is gone
         .onAppear { arLog("window \(id) appeared (entry: \(store.entries[id] != nil))") }
         .onChange(of: store.entries[id] == nil, initial: true) { _, gone in
-            guard gone else { return }
+            guard gone, !store.quitting else { return }
             if store.mainWindowOpen {
                 dismissWindow(id: group, value: id)
                 return
@@ -177,7 +191,7 @@ struct ARWindowView: View {
             // An AR window with no page behind it (e.g. restored on its own) would leave the app without any window.
             // Checked a moment later, as a main window opening alongside it may not have appeared yet
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                if !store.mainWindowOpen {
+                if !store.mainWindowOpen && !store.quitting {
                     arLog("no main window, opening it")
                     openWindow(id: ARWindowStore.mainWindowID)
                 }

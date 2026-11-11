@@ -1,3 +1,4 @@
+import { AI_CONFIG_KEYS } from './aiProviders';
 import { clearProjectEntries, projectEntries, scoped } from './projects';
 
 /** Tells an export of this app apart from any other JSON */
@@ -6,13 +7,21 @@ const FORMAT = 'research-workflow-export';
 export type DataExport = {
     format: typeof FORMAT;
     exportedAt: string;
-    /** Everything the project keeps in the browser storage: the references, the highlights, the questions... */
+    /** Everything the project keeps in the browser storage: the references, the highlights, the questions... but the AI configuration */
     localStorage: Record<string, string>;
 };
 
-/** All the data of the open project, except the PDFs, which stay in the browser file storage of each machine */
+const isAIConfig = (key: string) => AI_CONFIG_KEYS.includes(key);
+
+/** What the project keeps, without the AI configuration */
+const withoutAIConfig = (entries: Record<string, string>) => Object.fromEntries(Object.entries(entries).filter(([key]) => !isAIConfig(key)));
+
+/**
+ * All the data of the open project, except the PDFs, which stay in the browser file storage of each machine,
+ * and the AI configuration, which belongs to the machine and holds the API keys
+ */
 export function exportData(): DataExport {
-    return { format: FORMAT, exportedAt: new Date().toISOString(), localStorage: projectEntries() };
+    return { format: FORMAT, exportedAt: new Date().toISOString(), localStorage: withoutAIConfig(projectEntries()) };
 }
 
 /** Downloads the export as a file named with its day */
@@ -39,8 +48,13 @@ export function parseExport(text: string): DataExport | undefined {
     }
 }
 
-/** Replaces what the open project keeps with the export. The PDFs already stored stay */
+/**
+ * Replaces what the open project keeps with the export. The PDFs already stored stay, and so does the AI configuration:
+ * an export never brings one, as it could send the documents to a server of whoever made the file
+ */
 export function importData(data: DataExport) {
+    const aiConfig = Object.entries(projectEntries()).filter(([key]) => isAIConfig(key));
     clearProjectEntries();
-    for (const [key, value] of Object.entries(data.localStorage)) localStorage.setItem(scoped(key), value);
+    for (const [key, value] of Object.entries(withoutAIConfig(data.localStorage))) localStorage.setItem(scoped(key), value);
+    for (const [key, value] of aiConfig) localStorage.setItem(scoped(key), value);
 }

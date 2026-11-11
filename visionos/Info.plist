@@ -9,6 +9,20 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- The services browsed for the names of the devices of the network (see NativeBridge.swift) -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_companion-link._tcp</string>
+		<string>_airplay._tcp</string>
+		<string>_googlecast._tcp</string>
+		<string>_smb._tcp</string>
+		<string>_device-info._tcp</string>
+		<string>_workstation._tcp</string>
+		<string>_ssh._tcp</string>
+		<string>_sftp-ssh._tcp</string>
+		<string>_rfb._tcp</string>
+		<string>_http._tcp</string>
+	</array>
 	<!-- Lets the app open AR windows next to the main one (see ARWindows.swift) -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>

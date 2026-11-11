@@ -1,6 +1,5 @@
 import { clearCached, wrapFunction } from "../utils/hash";
 
-const API_KEY = "stub";
 const MODEL = "mlx-community/Qwen3.8-27B-4bit";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -131,7 +130,7 @@ export async function pingServer(): Promise<boolean> {
   try {
     await fetch(`${currentEndpoint}/v1/models`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${API_KEY}` },
+      headers: { Authorization: `Bearer ${currentApiKey}` },
     });
     return true;
   } catch {
@@ -160,11 +159,11 @@ export async function callOpenAiApi(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${currentApiKey}`,
     },
     body: JSON.stringify({
       // Servers that don't report the loaded model are still used, with the default model
-      model: settings?.name ?? (await getLoadedModelId().catch(() => null)) ?? MODEL,
+      model: settings?.name ?? currentDefaultModel ?? (await getLoadedModelId().catch(() => null)) ?? MODEL,
       messages,
       stream: true,
       chat_template_kwargs: { enable_thinking: settings?.thinkingEnabled ?? false },
@@ -231,16 +230,21 @@ export async function callOpenAiApi(
   }
 }
 
-/** Every request goes to the endpoint chosen on the AI status, read when it is made */
-export function setAIEndpoint(endpoint: string) {
+/**
+ * Every request goes to the provider chosen on the AI status, read when it is made.
+ * Without a default model, the requests use the one the server has loaded
+ */
+export function setAIProvider({ endpoint, apiKey, defaultModel }: { endpoint: string; apiKey?: string; defaultModel: string | null }) {
   currentEndpoint = endpoint;
+  currentApiKey = apiKey || "stub";
+  currentDefaultModel = defaultModel;
 }
-
-export const getAIEndpoint = () => currentEndpoint;
 
 // ─── Internals ──────────────────────────────────────────────────────────────
 
 let currentEndpoint = DEFAULT_AI_ENDPOINT;
+let currentApiKey = "stub";
+let currentDefaultModel: string | null = null;
 
 /** A part of a message, for the models that read images too */
 type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
@@ -413,7 +417,7 @@ async function _getLoadedModelId(): Promise<string | null> {
   const response = await fetch(`${currentEndpoint}/v1/models/status`, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${currentApiKey}`,
     },
   });
 

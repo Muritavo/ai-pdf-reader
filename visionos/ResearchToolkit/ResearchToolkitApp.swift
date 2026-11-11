@@ -7,7 +7,10 @@ struct ResearchToolkitApp: App {
             WebAppView()
                 .ignoresSafeArea()
                 .onAppear { ARWindowStore.shared.mainWindowOpen = true }
-                .onDisappear { ARWindowStore.shared.mainWindowOpen = false }
+                .onDisappear {
+                    ARWindowStore.shared.mainWindowOpen = false
+                    ARWindowStore.shared.mainWindowClosed()
+                }
         }
         .defaultSize(width: 1400, height: 900)
 

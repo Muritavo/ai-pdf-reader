@@ -30,6 +30,13 @@ final class WebAppViewController: UIViewController {
             forMainFrameOnly: true
         ))
         config.userContentController.add(ARBridgeHandler(), name: ARBridgeHandler.name)
+        // window.nativeBridge, as finding the devices of the network with their names (see NativeBridge.swift)
+        config.userContentController.addScriptMessageHandler(NativeBridgeHandler(), contentWorld: .page, name: NativeBridgeHandler.name)
+        config.userContentController.addUserScript(WKUserScript(
+            source: NativeBridgeHandler.script,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
         // ARDiv opens its window after measuring, which may be past the tap that triggered it
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
         #if DEBUG

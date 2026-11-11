@@ -4,6 +4,8 @@ directories:
   output: out
 files:
   - main.cjs
+  - preload.cjs
+  - devices.cjs
   - package.json
   # The web build of the project, served by main.cjs
   - from: ../dist

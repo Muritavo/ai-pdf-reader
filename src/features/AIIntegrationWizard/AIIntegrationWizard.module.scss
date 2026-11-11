@@ -1,0 +1,229 @@
+// Shared by the steps of the wizard, so they look as one flow
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 520px;
+  max-width: 100%;
+  padding: 28px;
+
+  // On AR the dialog has a window of its own, which it fills
+  :global(.ar-window) & {
+    width: auto;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  // Leaves room for the close button of the dialog, at the top right
+  padding-right: 44px;
+}
+
+.back {
+  display: grid;
+  place-items: center;
+  margin-right: 8px;
+  padding: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    color: var(--text);
+    background: var(--surface-raised);
+  }
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  aspect-ratio: 1;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.tileName {
+  font-weight: 600;
+}
+
+.tileDescription {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+  }
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.device {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.step .success {
+  color: var(--success);
+}
+
+.step .error {
+  // Above the color of the text type
+  color: var(--danger);
+}
+
+// one-ui's input, as the other fields of the app
+.input {
+  width: 100%;
+
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    // Overrides one-ui's sizing, to be as tall as the buttons beside it
+    height: 38px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+    outline: none;
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+
+    &:focus {
+      border-color: var(--accent);
+    }
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  > :first-child {
+    flex: 1;
+  }
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+  }
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--danger);
+  }
+}
