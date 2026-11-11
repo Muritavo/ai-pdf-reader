@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import Tabs from '@onepercentio/one-ui/components/Tabs';
+import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { Brain, Search } from 'lucide-react';
 import { useAI } from '../../context/AIContext';
@@ -103,15 +104,6 @@ export default function Recall() {
 
     const offline = status === 'offline' && !checking;
     const running = phase === 'preparing' || phase === 'asking' || phase === 'synthesizing';
-
-    useEffect(() => {
-        if (!open) return;
-        const closeOnEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') close();
-        };
-        window.addEventListener('keydown', closeOnEscape);
-        return () => window.removeEventListener('keydown', closeOnEscape);
-    }, [open]);
 
     const close = () => {
         run.current += 1;
@@ -222,149 +214,155 @@ export default function Recall() {
             >
                 <RecallIcon />
             </button>
-            {open && (
-                <div className={Styles.overlay} onClick={close} data-testid={TestIds.recall.modal}>
-                    <div className={Styles.content} onClick={e => e.stopPropagation()}>
-                        <div className={Styles.header}>
-                            <Text type="subtitle" className={Styles.title}>
-                                <RecallIcon />
-                                {txt('recall.title')}
-                            </Text>
-                            <Button variant="transparent" onClick={close} aria-label={txt('recall.close')}>
-                                ✕
-                            </Button>
-                        </div>
-                        <Tabs<Tab>
-                            className={Styles.tabs}
-                            itemClassName={Styles.tab}
-                            options={[
-                                { id: 'ask', label: <span data-testid={TestIds.recall.tabAsk}>{txt('recall.tabAsk')}</span> },
-                                {
-                                    id: 'history',
-                                    label: (
-                                        <span data-testid={TestIds.recall.tabHistory}>
-                                            {txt('recall.tabHistory', { count: String(history.length) })}
-                                        </span>
-                                    ),
-                                },
-                            ]}
-                            selected={tab}
-                            onSelect={next => {
-                                setTab(next);
-                                setSeen(undefined);
-                            }}
-                        />
-                        {tab === 'ask' && (
-                            <div className={Styles.body}>
-                                <Text type="caption">{txt('recall.description')}</Text>
-                                <textarea
-                                    className={Styles.question}
-                                    rows={3}
-                                    placeholder={txt('recall.placeholder')}
-                                    data-testid={TestIds.recall.question}
-                                    value={question}
-                                    // Answered, it stays as the question of the answer below until a new one is asked
-                                    disabled={running || answeredQuestion}
-                                    onChange={e => setQuestion(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !answeredQuestion) recall();
-                                    }}
-                                />
-                                <div className={Styles.actions}>
-                                    {answeredQuestion ? (
-                                        <Button variant="primary" data-testid={TestIds.recall.newQuestion} onClick={askNewQuestion}>
-                                            {txt('recall.newQuestion')}
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            variant="primary"
-                                            data-testid={TestIds.recall.start}
-                                            disabled={running || !question.trim() || offline}
-                                            onClick={recall}
-                                        >
-                                            {txt('recall.start')}
-                                        </Button>
-                                    )}
-                                    {running && (
-                                        <Text type="caption" data-testid={TestIds.recall.progress}>
-                                            {phase === 'preparing' && txt('recall.preparing')}
-                                            {phase === 'asking' &&
-                                                txt('recall.asking', { done: String(answered), total: String(documents.length) })}
-                                            {phase === 'synthesizing' && txt('recall.synthesizing')}
-                                        </Text>
-                                    )}
-                                </div>
-                                {phase === 'error' && (
-                                    <Text type="caption" className={Styles.error} role="alert">
-                                        {txt('recall.failed')}
-                                    </Text>
-                                )}
-                                {skipped > 0 && (
-                                    <Text type="caption" className={Styles.muted}>
-                                        {txt('recall.skipped', { count: String(skipped) })}
-                                    </Text>
-                                )}
-                                {phase === 'done' && documents.length === 0 && (
-                                    <Text type="description">{txt('recall.noPrepared')}</Text>
-                                )}
-                                <RecallResult synthesis={synthesis} documents={documents} />
-                            </div>
-                        )}
-                        {tab === 'history' && (
-                            <div className={Styles.body} data-testid={TestIds.recall.history}>
-                                {history.length === 0 && <Text type="description">{txt('recall.noHistory')}</Text>}
-                                {!seenEntry && history.length > 0 && (
-                                    <ul className={Styles.historyList}>
-                                        {history.map((entry, index) => (
-                                            <li key={`${entry.timestamp}-${index}`}>
-                                                <button
-                                                    type="button"
-                                                    className={Styles.historyItem}
-                                                    data-testid={TestIds.recall.historyItem}
-                                                    onClick={() => setSeen(index)}
-                                                >
-                                                    <Text type="description" className={Styles.historyQuestion}>
-                                                        {entry.question}
-                                                    </Text>
-                                                    <Text type="caption" className={Styles.muted}>
-                                                        {new Date(entry.timestamp).toLocaleString('pt-BR')}
-                                                        {' · '}
-                                                        {txt('recall.historyDocuments', { count: String(entry.documents.length) })}
-                                                    </Text>
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                                {seenEntry && (
-                                    <>
-                                        <div>
-                                            <Button variant="transparent" onClick={() => setSeen(undefined)}>
-                                                ← {txt('recall.backToHistory')}
-                                            </Button>
-                                        </div>
-                                        <Text type="description" className={Styles.historyQuestion}>
-                                            {seenEntry.question}
-                                        </Text>
-                                        <Text type="caption" className={Styles.muted}>
-                                            {new Date(seenEntry.timestamp).toLocaleString('pt-BR')}
-                                        </Text>
-                                        {seenEntry.skipped > 0 && (
-                                            <Text type="caption" className={Styles.muted}>
-                                                {txt('recall.skipped', { count: String(seenEntry.skipped) })}
-                                            </Text>
-                                        )}
-                                        <RecallResult
-                                            synthesis={seenEntry.synthesis}
-                                            documents={seenEntry.documents}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        )}
+            {/* Its own close button is in the header, so onClose (which adds one-ui's) is left out */}
+            <AdaptiveDialog open={open} onClickOut={close}>
+                <div
+                    className={Styles.content}
+                    data-testid={TestIds.recall.modal}
+                    // On the panel rather than the page, so it also works where the panel has its own window (AR)
+                    onKeyDown={e => {
+                        if (e.key === 'Escape') close();
+                    }}
+                >
+                    <div className={Styles.header}>
+                        <Text type="subtitle" className={Styles.title}>
+                            <RecallIcon />
+                            {txt('recall.title')}
+                        </Text>
+                        <Button variant="transparent" onClick={close} aria-label={txt('recall.close')}>
+                            ✕
+                        </Button>
                     </div>
+                    <Tabs<Tab>
+                        className={Styles.tabs}
+                        itemClassName={Styles.tab}
+                        options={[
+                            { id: 'ask', label: <span data-testid={TestIds.recall.tabAsk}>{txt('recall.tabAsk')}</span> },
+                            {
+                                id: 'history',
+                                label: (
+                                    <span data-testid={TestIds.recall.tabHistory}>
+                                        {txt('recall.tabHistory', { count: String(history.length) })}
+                                    </span>
+                                ),
+                            },
+                        ]}
+                        selected={tab}
+                        onSelect={next => {
+                            setTab(next);
+                            setSeen(undefined);
+                        }}
+                    />
+                    {tab === 'ask' && (
+                        <div className={Styles.body}>
+                            <Text type="caption">{txt('recall.description')}</Text>
+                            <textarea
+                                className={Styles.question}
+                                rows={3}
+                                placeholder={txt('recall.placeholder')}
+                                data-testid={TestIds.recall.question}
+                                value={question}
+                                // Answered, it stays as the question of the answer below until a new one is asked
+                                disabled={running || answeredQuestion}
+                                onChange={e => setQuestion(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !answeredQuestion) recall();
+                                }}
+                            />
+                            <div className={Styles.actions}>
+                                {answeredQuestion ? (
+                                    <Button variant="primary" data-testid={TestIds.recall.newQuestion} onClick={askNewQuestion}>
+                                        {txt('recall.newQuestion')}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="primary"
+                                        data-testid={TestIds.recall.start}
+                                        disabled={running || !question.trim() || offline}
+                                        onClick={recall}
+                                    >
+                                        {txt('recall.start')}
+                                    </Button>
+                                )}
+                                {running && (
+                                    <Text type="caption" data-testid={TestIds.recall.progress}>
+                                        {phase === 'preparing' && txt('recall.preparing')}
+                                        {phase === 'asking' &&
+                                            txt('recall.asking', { done: String(answered), total: String(documents.length) })}
+                                        {phase === 'synthesizing' && txt('recall.synthesizing')}
+                                    </Text>
+                                )}
+                            </div>
+                            {phase === 'error' && (
+                                <Text type="caption" className={Styles.error} role="alert">
+                                    {txt('recall.failed')}
+                                </Text>
+                            )}
+                            {skipped > 0 && (
+                                <Text type="caption" className={Styles.muted}>
+                                    {txt('recall.skipped', { count: String(skipped) })}
+                                </Text>
+                            )}
+                            {phase === 'done' && documents.length === 0 && (
+                                <Text type="description">{txt('recall.noPrepared')}</Text>
+                            )}
+                            <RecallResult synthesis={synthesis} documents={documents} />
+                        </div>
+                    )}
+                    {tab === 'history' && (
+                        <div className={Styles.body} data-testid={TestIds.recall.history}>
+                            {history.length === 0 && <Text type="description">{txt('recall.noHistory')}</Text>}
+                            {!seenEntry && history.length > 0 && (
+                                <ul className={Styles.historyList}>
+                                    {history.map((entry, index) => (
+                                        <li key={`${entry.timestamp}-${index}`}>
+                                            <button
+                                                type="button"
+                                                className={Styles.historyItem}
+                                                data-testid={TestIds.recall.historyItem}
+                                                onClick={() => setSeen(index)}
+                                            >
+                                                <Text type="description" className={Styles.historyQuestion}>
+                                                    {entry.question}
+                                                </Text>
+                                                <Text type="caption" className={Styles.muted}>
+                                                    {new Date(entry.timestamp).toLocaleString('pt-BR')}
+                                                    {' · '}
+                                                    {txt('recall.historyDocuments', { count: String(entry.documents.length) })}
+                                                </Text>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {seenEntry && (
+                                <>
+                                    <div>
+                                        <Button variant="transparent" onClick={() => setSeen(undefined)}>
+                                            ← {txt('recall.backToHistory')}
+                                        </Button>
+                                    </div>
+                                    <Text type="description" className={Styles.historyQuestion}>
+                                        {seenEntry.question}
+                                    </Text>
+                                    <Text type="caption" className={Styles.muted}>
+                                        {new Date(seenEntry.timestamp).toLocaleString('pt-BR')}
+                                    </Text>
+                                    {seenEntry.skipped > 0 && (
+                                        <Text type="caption" className={Styles.muted}>
+                                            {txt('recall.skipped', { count: String(seenEntry.skipped) })}
+                                        </Text>
+                                    )}
+                                    <RecallResult
+                                        synthesis={seenEntry.synthesis}
+                                        documents={seenEntry.documents}
+                                    />
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
-            )}
+            </AdaptiveDialog>
         </>
     );
 }

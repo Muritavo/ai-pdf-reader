@@ -46,27 +46,19 @@
   }
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 1rem;
-}
-
+// Inside AdaptiveDialog, whose surface draws the background, corners and shadow
 .content {
-  background: $colorPanel;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 760px;
+  width: 760px;
+  max-width: 100%;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+
+  // On AR the dialog has a window of its own, which it fills
+  :global(.ar-window) & {
+    width: auto;
+    max-height: none;
+  }
 }
 
 .header {

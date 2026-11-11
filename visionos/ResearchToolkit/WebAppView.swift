@@ -3,7 +3,12 @@ import UIKit
 import WebKit
 
 struct WebAppView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> WebAppViewController { WebAppViewController() }
+    @Environment(\.openWindow) private var openWindow
+
+    func makeUIViewController(context: Context) -> WebAppViewController {
+        ARWindowStore.shared.openWindow = { [openWindow] group, id in openWindow(id: group, value: id) }
+        return WebAppViewController()
+    }
     func updateUIViewController(_ controller: WebAppViewController, context: Context) {}
 }
 
@@ -18,6 +23,25 @@ final class WebAppViewController: UIViewController {
         config.setURLSchemeHandler(BundleSchemeHandler(), forURLScheme: BundleSchemeHandler.scheme)
         config.websiteDataStore = .default() // keeps IndexedDB between launches
 
+        // AR bridge: .ar on the body lets styles target AR, and onAREntry opens AR windows (see ARWindows.swift)
+        config.userContentController.addUserScript(WKUserScript(
+            source: "document.body.classList.add('ar')",
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+        config.userContentController.add(ARBridgeHandler(), name: ARBridgeHandler.name)
+        // ARDiv opens its window after measuring, which may be past the tap that triggered it
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
+        #if DEBUG
+        // Page errors and ARDiv's own logs, as `window.webkit.messageHandlers.arLog.postMessage(...)`
+        config.userContentController.add(ARDebugLogHandler(), name: ARDebugLogHandler.name)
+        config.userContentController.addUserScript(WKUserScript(
+            source: ARDebugLogHandler.errorForwarder,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
+        #endif
+
         webView = WKWebView(frame: view.bounds, configuration: config)
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         webView.navigationDelegate = self
@@ -26,6 +50,27 @@ final class WebAppViewController: UIViewController {
         view.addSubview(webView)
 
         webView.load(URLRequest(url: BundleSchemeHandler.startURL))
+        ARWindowStore.shared.mainWebView = webView
+        #if DEBUG
+        DOMSnapshotter.shared.start(page: webView)
+        ARMetricsLogger.shared.start(page: webView)
+        #endif
+
+        ARWindowStore.shared.onExit = { [weak self] id in
+            self?.webView.callAsyncJavaScript(
+                "window.dispatchEvent(new CustomEvent('arexit', { detail: { id } }))",
+                arguments: ["id": id],
+                in: nil,
+                in: .page
+            )
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let session = view.window?.windowScene?.session {
+            ARWindowStore.shared.closeLeftoverWindows(keeping: session)
+        }
     }
 
     fileprivate static func isExternal(_ url: URL) -> Bool {
@@ -90,7 +135,16 @@ extension WebAppViewController: WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        guard let url = action.request.url else { return nil }
+        // window.open('', id) from ARDiv, announced through onAREntry
+        let url = action.request.url
+        arLog("createWebViewWith url: \(url?.absoluteString ?? "nil")")
+        if url == nil || url?.absoluteString == "about:blank" || url?.absoluteString == "" {
+            let popup = WKWebView(frame: .zero, configuration: configuration)
+            popup.uiDelegate = self
+            if ARWindowStore.shared.adopt(popup) { return popup }
+        }
+
+        guard let url else { return nil }
 
         if Self.isExternal(url) {
             UIApplication.shared.open(url)
@@ -101,6 +155,11 @@ extension WebAppViewController: WKUIDelegate {
         let popup = PopupViewController(configuration: configuration)
         present(UINavigationController(rootViewController: popup), animated: true)
         return popup.webView
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        // ARDiv unmounted, closing its popup
+        if let id = ARWindowStore.shared.id(of: webView) { ARWindowStore.shared.remove(id) }
     }
 }
 

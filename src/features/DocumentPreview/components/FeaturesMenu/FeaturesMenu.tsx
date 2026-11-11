@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useState, type ForwardedRef, type Reac
 import { createPortal } from 'react-dom';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import ScrollendIndicator from '@onepercentio/one-ui/components/ScrollendIndicator';
+import ARDiv from '@onepercentio/one-ui/components/ARDiv';
 import Styles from './FeaturesMenu.module.scss';
 import type { FullText } from '../../../../models/Article';
 import { defineWordInContext, findReferenceInContext } from '../../../../services/ai';
@@ -45,6 +46,8 @@ type FeaturesMenuProps = {
     /** The AI backed actions are locked until the AI is online and the document warmed up */
     aiReady: boolean;
     getDocumentCoordinates: () => { x: number; y: number };
+    /** The window the document is in, whose selection it reads and where it shows (on AR, the dialog's own) */
+    getWindow: () => Window;
     onMarkLocation: (x: number, y: number, word: string) => void;
     /** Starts a question about the selected statement on the prompt */
     onAskAbout: (statement: string) => void;
@@ -67,6 +70,7 @@ export default forwardRef(function FeaturesMenu(
         fullText,
         aiReady,
         getDocumentCoordinates,
+        getWindow,
         onMarkLocation,
         onReferenceFound,
         onDefined,
@@ -86,7 +90,7 @@ export default forwardRef(function FeaturesMenu(
         () => ({
             openMenu(reopen) {
                 if (word && !reopen) return;
-                const selection = window.getSelection();
+                const selection = getWindow().getSelection();
                 if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
                     setWord(undefined);
                     return;
@@ -112,7 +116,7 @@ export default forwardRef(function FeaturesMenu(
     if (!word) return null;
 
     function dismiss() {
-        window.getSelection()?.removeAllRanges();
+        getWindow().getSelection()?.removeAllRanges();
         setWord(undefined);
     }
 
@@ -256,14 +260,20 @@ export default forwardRef(function FeaturesMenu(
         );
     }
 
-    // Rendered on the body so it stays above the dialog and positioned by viewport coordinates
+    // Rendered on the body (of the document's window) so it stays above the dialog and positioned by viewport coordinates
+    const view = getWindow();
     return createPortal(
-        <div
+        // On AR, lifted into a window of its own beside the document
+        <ARDiv
             data-testid={TestIds.menu.root}
             className={Styles.menu}
             onMouseUp={e => e.stopPropagation()}
+            onARExit={dismiss}
+            // Beside the document, which keeps the focus so reading goes on
+            snapToWindow="right"
+            focus={false}
             // Limited, and never past the bottom of the screen, as it opens under the selection
-            style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, window.innerHeight - y - 16)) }}
+            style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, view.innerHeight - y - 16)) }}
         >
             <div className={Styles.selectedWord}>{displayWord}</div>
             <div className={Styles.actions} data-testid={TestIds.menu.actions}>
@@ -277,7 +287,7 @@ export default forwardRef(function FeaturesMenu(
                 {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
                 <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
             </div>
-        </div>,
-        document.body,
+        </ARDiv>,
+        view.document.body,
     );
 });

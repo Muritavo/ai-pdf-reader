@@ -6,6 +6,12 @@
   width: min(1000px, 92vw);
   height: 90vh;
   position: relative;
+
+  // On AR the dialog has a window of its own, which it fills
+  :global(.ar-window) & {
+    width: 100%;
+    height: 100vh;
+  }
 }
 
 // How far the document was scrolled, along its left edge

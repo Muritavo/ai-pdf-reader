@@ -68,10 +68,10 @@ No data leaves your machine except to the AI endpoint you configure and to the p
 
 ## Getting started
 
-Requirements: [Node.js](https://nodejs.org/) 20+ and an OpenAI-compatible AI server.
+Requirements: [Node.js](https://nodejs.org/) 20+, [Bun](https://bun.sh/) and an OpenAI-compatible AI server.
 
 ```bash
-npm install
+bun install
 npm run dev
 ```
 

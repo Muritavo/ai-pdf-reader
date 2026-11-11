@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from 'react';
+import { useState, type ComponentProps, type MouseEvent } from 'react';
 import Button from '@onepercentio/one-ui/components/Button';
 import Text from '@onepercentio/one-ui/components/Text';
 import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
@@ -58,9 +58,11 @@ export default function ManualReference({ variant = 'outline' }: { variant?: Com
         setPasteOffer('ask');
     };
 
-    const pasteFromClipboard = async () => {
+    const pasteFromClipboard = async (e: MouseEvent<HTMLButtonElement>) => {
+        // Read through the window the button is in: on AR the dialog lives in its own window, which got the click
+        const { clipboard } = (e.currentTarget.ownerDocument.defaultView ?? window).navigator;
         try {
-            const found = offerCitationIn(await navigator.clipboard.readText());
+            const found = offerCitationIn(await clipboard.readText());
             setPasteOffer(found ? undefined : 'missing');
         } catch {
             // Refused by the user, who can still paste on a field

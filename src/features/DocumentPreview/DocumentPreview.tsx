@@ -102,7 +102,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [pdf] = useAsyncMemo(async () => {
         const response = await fetch(fullText.url);
         const pdfBytes = new Uint8Array(await response.arrayBuffer());
-        return pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        return pdfjsLib.getDocument({
+            data: pdfBytes,
+            // The fonts of the PDF are loaded into the document the pages are drawn in, which on AR is the window of the
+            // dialog: drawn with fonts loaded into another document, the text would come out as squares
+            ownerDocument: previewBoxRef.current?.ownerDocument ?? document,
+        }).promise;
     }, [fullText.url]);
     const [lastClick, setLastClick] = useLocalStorage<ClickPosition | null>(scoped(`lastClick-${hash}`), null);
     const [pointsOfInterest, setPointsOfInterest] = useLocalStorage<Array<ClickPosition & { word?: string }>>(
@@ -133,6 +138,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setTextReplacements(prev => [...prev.filter(replacement => replacement.from !== from), { from, to }]);
     }, 'alt', 'r');
 
+    /** The window the document is in: on AR the dialog has its own, where its selection and events happen */
+    const previewWindow = () => previewBoxRef.current?.ownerDocument.defaultView ?? window;
+
     /** Converts viewport coordinates into percentages of the scrollable document */
     function toDocumentCoordinates(clientX: number, clientY: number) {
         const box = previewBoxRef.current!;
@@ -159,7 +167,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         if (!e.altKey || e.button !== 0) return;
         // Draws instead of selecting text
         e.preventDefault();
-        window.getSelection()?.removeAllRanges();
+        previewWindow().getSelection()?.removeAllRanges();
         const wrapper = e.currentTarget;
         const at = (event: { clientX: number; clientY: number }) => {
             const rect = wrapper.getBoundingClientRect();
@@ -230,7 +238,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     };
 
     const getDocumentCoordinates = () => {
-        const selection = window.getSelection();
+        const selection = previewWindow().getSelection();
         if (!previewBoxRef.current || !selection || selection.rangeCount === 0) return { x: 0, y: 0 };
         const rect = selection.getRangeAt(0).getBoundingClientRect();
         return toDocumentCoordinates(rect.left, rect.top);
@@ -372,28 +380,30 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     }, [fullText.hash]);
 
     useEffect(() => {
+        const view = previewWindow();
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
-        window.addEventListener('mouseup', listener);
-        return () => window.removeEventListener('mouseup', listener);
+        view.addEventListener('mouseup', listener);
+        return () => view.removeEventListener('mouseup', listener);
     }, []);
 
     // A touch selection has no mouse up, so the menu follows the selection once it stops changing
     useEffect(() => {
+        const view = previewWindow();
         let timeout: number;
         const listener = () => {
             if (lastPointerTypeRef.current !== 'touch') return;
             window.clearTimeout(timeout);
             timeout = window.setTimeout(() => {
                 // Tapping the menu clears the selection, which must not close it while an option is working
-                const selection = window.getSelection();
+                const selection = view.getSelection();
                 if (!selection || selection.isCollapsed || !previewBoxRef.current?.contains(selection.anchorNode)) return;
                 menuRef.current?.openMenu(true);
             }, 300);
         };
-        document.addEventListener('selectionchange', listener);
+        view.document.addEventListener('selectionchange', listener);
         return () => {
             window.clearTimeout(timeout);
-            document.removeEventListener('selectionchange', listener);
+            view.document.removeEventListener('selectionchange', listener);
         };
     }, []);
 
@@ -834,6 +844,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 fullText={fullText}
                 aiReady={warmUp.available}
                 getDocumentCoordinates={getDocumentCoordinates}
+                getWindow={previewWindow}
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
                 onDefined={addDefinition}

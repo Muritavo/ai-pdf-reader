@@ -124,6 +124,18 @@ code {
     backdrop-filter: blur(4px);
 }
 
+/* On AR the dialog opens in its own window, so the page behind it stays as is.
+   !important wins over one-ui's backdrop animation, which must still run to close the dialog */
+.ar .dialog-backdrop {
+    background: transparent !important;
+    backdrop-filter: none;
+}
+
+/* The scroll end indicator ARDiv adds to AR windows, colored like the one in the features menu */
+.ar-window {
+    --main-color: rgba(217, 133, 59, 0.45);
+}
+
 .dialog-surface {
     background: var(--surface);
     color: var(--text);

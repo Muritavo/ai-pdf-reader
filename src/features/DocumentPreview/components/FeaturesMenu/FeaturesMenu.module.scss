@@ -14,6 +14,13 @@
   z-index: 10000;
   // The edges that show there is more to scroll
   --main-color: rgba(217, 133, 59, 0.45);
+
+  // On AR it's lifted into a window of its own (ARDiv), which it fills instead of floating by the selection.
+  // !important over the height limit set inline, for the screen it is no longer on
+  :global(.ar-container) > & {
+    position: static;
+    max-height: none !important;
+  }
 }
 
 // What scrolls. Not positioned, so the scroll end indicator is placed on the menu and does not scroll with it
