@@ -52,6 +52,8 @@ final class ARWindowStore: ObservableObject {
     @Published private(set) var entries: [String: Entry] = [:]
     /// Requests reported before their popup exists, in the order the page opens them
     private var pending: [Request] = []
+    /// The toggle actions (modifier keys, as "ctrl") each window shows under it, as its page asked, with whether each is on
+    @Published private(set) var toggleActions: [String: [String: Bool]] = [:]
 
     /// Opens a window of the given group, for the given AR id
     var openWindow: ((_ group: String, _ id: String) -> Void)?
@@ -137,11 +139,32 @@ final class ARWindowStore: ObservableObject {
     func remove(_ id: String) {
         arLog("page closed \(id)")
         entries[id] = nil
+        toggleActions[id] = nil
+    }
+
+    /// Shows the toggle of the action under the window, off
+    func showToggleAction(_ action: String, in id: String) {
+        guard entries[id] != nil, toggleActions[id]?[action] == nil else { return }
+        arLog("showing the \(action) toggle of \(id)")
+        toggleActions[id, default: [:]][action] = false
+    }
+
+    /// Turns the toggle of the action on or off, telling the window's page through `artoggleaction`
+    func setToggleAction(_ action: String, in id: String, _ on: Bool) {
+        guard let webView = entries[id]?.webView else { return }
+        toggleActions[id, default: [:]][action] = on
+        webView.callAsyncJavaScript(
+            "window.dispatchEvent(new CustomEvent('artoggleaction', { detail: { action, on } }))",
+            arguments: ["action": action, "on": on],
+            in: nil,
+            in: .page
+        )
     }
 
     /// The user closed the window
     func closedByUser(_ id: String) {
         guard entries.removeValue(forKey: id) != nil else { return }
+        toggleActions[id] = nil
         arLog("user closed \(id)")
         onExit?(id)
     }
@@ -168,6 +191,29 @@ final class ARBridgeHandler: NSObject, WKScriptMessageHandler {
         ))
     }
 }
+
+/// Receives `window.webkit.messageHandlers.onARToggleAction.postMessage({ window, action })` from useToggleAction,
+/// showing the toggle of that action (a modifier key, as "ctrl") under that AR window
+@MainActor
+final class ARToggleActionHandler: NSObject, WKScriptMessageHandler {
+    static let name = "onARToggleAction"
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let window = body["window"] as? String,
+              let action = body["action"] as? String
+        else { return }
+        ARWindowStore.shared.showToggleAction(action, in: window)
+    }
+}
+
+/// How each toggle action shows under its window, in this order
+private let toggleActionLabels: [(action: String, title: String, symbol: String)] = [
+    ("ctrl", "Ctrl", "control"),
+    ("alt", "Option", "option"),
+    ("shift", "Shift", "shift"),
+    ("meta", "Command", "command"),
+]
 
 struct ARWindowView: View {
     /// The window group it's in
@@ -202,6 +248,22 @@ struct ARWindowView: View {
         .glassBackgroundEffect()
         .scaleEffect(!pops || bubble == .shown ? 1 : bubble == .popped ? 1.08 : 0.6)
         .opacity(!pops || bubble == .shown ? 1 : 0)
+        // The modifier keys the page asked for, held on while toggled on, as there may be no keyboard
+        .ornament(visibility: store.toggleActions[id]?.isEmpty == false ? .visible : .hidden, attachmentAnchor: .scene(.bottom)) {
+            HStack {
+                ForEach(toggleActionLabels.filter { store.toggleActions[id]?[$0.action] != nil }, id: \.action) { label in
+                    Toggle(isOn: Binding(
+                        get: { store.toggleActions[id]?[label.action] ?? false },
+                        set: { store.setToggleAction(label.action, in: id, $0) }
+                    )) {
+                        Label(label.title, systemImage: label.symbol)
+                    }
+                    .toggleStyle(.button)
+                }
+            }
+            .padding(8)
+            .glassBackgroundEffect()
+        }
         // Also closes windows restored from a previous launch, whose page is gone
         .onAppear {
             arLog("window \(id) appeared (entry: \(store.entries[id] != nil))")

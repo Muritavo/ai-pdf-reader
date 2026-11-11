@@ -22,6 +22,7 @@ import { getLastOpening, recordReadingProgress, saveLastOpening } from '../../ut
 import FeaturesMenu, { type FeaturesMenuHandle } from './components/FeaturesMenu';
 import AnnotationsToolbar, { type MarkerItem, type NoteItem } from './components/AnnotationsToolbar';
 import DocumentActions from './components/DocumentActions';
+import useToggleAction from '../../hooks/useToggleAction';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
@@ -77,7 +78,6 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const { addHighlight, removeHighlight, highlightRules } = useHighlightsForPDF(hash);
     const { addDefinition, removeDefinitions, definitionRules } = useDefinitionsForPDF(hash);
     // While Ctrl is held, a click on a defined excerpt removes its definition
-    const [removingDefinitions, setRemovingDefinitions] = useState(false);
     // The page of each occurrence of every highlighted text, found once they are drawn
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
@@ -97,6 +97,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const menuRef = useRef<FeaturesMenuHandle>(null);
     const promptBarRef = useRef<DocumentPromptBarHandle>(null);
     const previewBoxRef = useRef<HTMLDivElement>(null);
+    // Ctrl held on the keyboard, or turned on with the toggle under the preview's window on the Vision Pro
+    const removingDefinitions = useToggleAction('ctrl', previewBoxRef);
     const lastPointerTypeRef = useRef<string>();
     const scrollBarRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
@@ -313,23 +315,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setTimeout(() => indicator.classList.remove(Styles.highlight), 2000);
     };
 
-    useEffect(() => {
-        const follow = (e: KeyboardEvent) => setRemovingDefinitions(e.ctrlKey);
-        // Released out of the window, as by changing to another one, it would stay held
-        const release = () => setRemovingDefinitions(false);
-        window.addEventListener('keydown', follow);
-        window.addEventListener('keyup', follow);
-        window.addEventListener('blur', release);
-        return () => {
-            window.removeEventListener('keydown', follow);
-            window.removeEventListener('keyup', follow);
-            window.removeEventListener('blur', release);
-        };
-    }, []);
-
     /** Removes the definitions of the defined excerpt under a Ctrl click. True when there was one */
     const removeDefinitionAt = (event: MouseEvent) => {
-        if (!event.ctrlKey) return false;
+        if (!removingDefinitions) return false;
         const mark = (event.target as HTMLElement).closest<HTMLElement>('mark[data-defined]');
         if (!mark) return false;
         event.preventDefault();
