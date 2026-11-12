@@ -6,6 +6,7 @@ files:
   - main.cjs
   - preload.cjs
   - devices.cjs
+  - sync.cjs
   - package.json
   # The web build of the project, served by main.cjs
   - from: ../dist

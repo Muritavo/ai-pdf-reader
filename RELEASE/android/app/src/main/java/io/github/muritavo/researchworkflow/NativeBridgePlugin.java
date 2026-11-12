@@ -11,7 +11,12 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -89,6 +94,105 @@ public class NativeBridgePlugin extends Plugin {
                 call.resolve(result);
             } catch (Exception e) {
                 call.reject("Could not look for the devices", e);
+            }
+        }).start();
+    }
+
+    /** The sync server, while the sync radar is open (see SyncServer) */
+    private SyncServer sync;
+
+    /** Starts the sync server with the id given, as { name } of this device */
+    @PluginMethod
+    public void syncStart(PluginCall call) {
+        String id = call.getString("id");
+        if (id == null) {
+            call.reject("Missing the id");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                synchronized (this) {
+                    if (sync != null) sync.stop();
+                    sync = new SyncServer(getContext(), id);
+                }
+                JSObject result = new JSObject();
+                result.put("name", sync.name);
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("Could not start the sync server", e);
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public synchronized void syncStop(PluginCall call) {
+        if (sync != null) sync.stop();
+        sync = null;
+        call.resolve();
+    }
+
+    /** The native apps found over mDNS, as { peers: [{ id, name, ip, port }] } */
+    @PluginMethod
+    public synchronized void syncPeers(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("peers", sync == null ? new JSArray() : sync.peers());
+        call.resolve(result);
+    }
+
+    /** What arrived since the last call, as { envelopes: [{ route, ip, body }] } */
+    @PluginMethod
+    public synchronized void syncInbox(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("envelopes", sync == null ? new JSArray() : sync.takeInbox());
+        call.resolve(result);
+    }
+
+    /** Holds the message until the browser of the id polls for it */
+    @PluginMethod
+    public synchronized void syncHold(PluginCall call) {
+        String to = call.getString("to");
+        String body = call.getString("body");
+        if (sync != null && to != null && body != null) sync.hold(to, body);
+        call.resolve();
+    }
+
+    /** POSTs the body to another device, as { status, body } */
+    @PluginMethod
+    public void syncPost(PluginCall call) {
+        String url = call.getString("url");
+        String body = call.getString("body", "");
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(url).openConnection();
+                connection.setRequestMethod("POST");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(30_000);
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "text/plain");
+                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                connection.setFixedLengthStreamingMode(bytes.length);
+                try (OutputStream output = connection.getOutputStream()) {
+                    output.write(bytes);
+                }
+                int status = connection.getResponseCode();
+                InputStream input = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+                ByteArrayOutputStream response = new ByteArrayOutputStream();
+                if (input != null) {
+                    try (InputStream stream = input) {
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = stream.read(buffer)) != -1) response.write(buffer, 0, count);
+                    }
+                }
+                JSObject result = new JSObject();
+                result.put("status", status);
+                result.put("body", response.toString("UTF-8"));
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("Could not reach the device", e);
+            } finally {
+                if (connection != null) connection.disconnect();
             }
         }).start();
     }

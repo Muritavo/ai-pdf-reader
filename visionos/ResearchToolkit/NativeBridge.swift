@@ -7,10 +7,19 @@ import WebKit
 final class NativeBridgeHandler: NSObject, WKScriptMessageHandlerWithReply {
     static let name = "nativeBridge"
 
+    /// The sync server, while the sync radar is open (see SyncServer.swift). Only touched on the main thread
+    private var sync: SyncServer?
+
     /// Defines the bridge on the page, before the app's scripts run
     static let script = """
     window.nativeBridge = {
         getDevices: () => window.webkit.messageHandlers.\(name).postMessage({ action: 'getDevices' }),
+        syncStart: id => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncStart', id }),
+        syncStop: () => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncStop' }),
+        syncPeers: () => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncPeers' }),
+        syncInbox: () => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncInbox' }),
+        syncHold: (to, body) => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncHold', to, body }),
+        syncPost: (url, body) => window.webkit.messageHandlers.\(name).postMessage({ action: 'syncPost', url, body }),
     };
     """
 
@@ -32,6 +41,38 @@ final class NativeBridgeHandler: NSObject, WKScriptMessageHandlerWithReply {
                     return entry
                 }
                 await MainActor.run { replyHandler(reply, nil) }
+            }
+        case "syncStart":
+            guard let id = body["id"] as? String else { return replyHandler(nil, "Missing the id") }
+            sync?.stop()
+            sync = nil
+            do {
+                let server = try MainActor.assumeIsolated { try SyncServer(id: id) }
+                sync = server
+                replyHandler(["name": server.name], nil)
+            } catch {
+                replyHandler(nil, "Could not start the sync server: \(error)")
+            }
+        case "syncStop":
+            sync?.stop()
+            sync = nil
+            replyHandler(nil, nil)
+        case "syncPeers":
+            replyHandler(sync?.currentPeers() ?? [], nil)
+        case "syncInbox":
+            replyHandler(sync?.takeInbox() ?? [], nil)
+        case "syncHold":
+            if let to = body["to"] as? String, let message = body["body"] as? String { sync?.hold(to: to, body: message) }
+            replyHandler(nil, nil)
+        case "syncPost":
+            guard let url = body["url"] as? String, let message = body["body"] as? String else { return replyHandler(nil, "Missing the url or body") }
+            Task {
+                do {
+                    let response = try await SyncServer.post(url: url, body: message)
+                    await MainActor.run { replyHandler(response, nil) }
+                } catch {
+                    await MainActor.run { replyHandler(nil, "Could not reach the device: \(error)") }
+                }
             }
         default:
             replyHandler(nil, "Unknown action \(action)")

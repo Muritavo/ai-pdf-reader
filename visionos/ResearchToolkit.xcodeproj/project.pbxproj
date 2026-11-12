@@ -149,7 +149,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Research Toolkit";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Connects to the AI server running on your local network.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Connects to the AI server running on your local network, and syncs projects with your other devices.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -173,7 +173,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Research Toolkit";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Connects to the AI server running on your local network.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Connects to the AI server running on your local network, and syncs projects with your other devices.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

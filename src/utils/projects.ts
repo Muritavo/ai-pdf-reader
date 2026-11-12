@@ -59,6 +59,22 @@ export function projectEntries() {
     return entries;
 }
 
+/** The keys of every project, with their project prefix (project/<id>/...) */
+export function allProjectsEntries() {
+    const entries: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)!;
+        if (key.startsWith('project/')) entries[key] = localStorage.getItem(key)!;
+    }
+    return entries;
+}
+
+/** The project a key of allProjectsEntries belongs to, and the key inside of it */
+export function splitProjectKey(key: string): { id: string; key: string } | undefined {
+    const match = /^project\/([^/]+)\/(.+)$/.exec(key);
+    return match ? { id: match[1], key: match[2] } : undefined;
+}
+
 function removeStoredWithPrefix(prefix: string) {
     const toRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
