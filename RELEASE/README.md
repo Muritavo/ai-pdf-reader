@@ -7,6 +7,7 @@ This folder is self-contained: it has its own dependencies and reads only the we
 ## How it works
 
 - `main.cjs` opens a window and serves `../dist` (bundled as `web/` once packaged) from an `app://local` origin, so the build's absolute `/assets/` paths resolve and the page gets a secure origin for its storage.
+- `preload.cjs` exposes `window.nativeBridge` (see `src/utils/nativeBridge.ts`), whose calls `main.cjs` handles with Node: `devices.cjs` finds the devices of the local network with their names, for the AI wizard. On Android the same is the `NativeBridge` Capacitor plugin (`android/.../NativeBridgePlugin.java`).
 - Web links (Google, DOIs, ChEMBL...) open in the default browser. The app's own pages, such as diagrams, open in a new app window.
 - `electron-builder.yml` lists the packages built for each OS.
 

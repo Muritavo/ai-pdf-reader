@@ -38,6 +38,8 @@ export class MockAI {
     readonly endpoint = `http://localhost:${MOCK_AI_PORT}`;
     /** The chat requests received, in order */
     requests: AIRequest[] = [];
+    /** The model and the authorization header of each chat request, in the same order */
+    sent: { model?: string; authorization?: string }[] = [];
     /** The id of the loaded model. null simulates a server with no model loaded */
     loadedModel: string | null = 'mock-model';
     /** Status code for the chat requests. Anything but 200 simulates a failure */
@@ -114,9 +116,10 @@ export class MockAI {
         if (req.method === 'POST' && req.url === '/v1/chat/completions') {
             const chunks: Buffer[] = [];
             for await (const chunk of req) chunks.push(chunk as Buffer);
-            const { messages } = JSON.parse(Buffer.concat(chunks).toString()) as { messages: ChatMessage[] };
+            const { messages, model } = JSON.parse(Buffer.concat(chunks).toString()) as { messages: ChatMessage[]; model?: string };
             const request = classify(messages);
             this.requests.push(request);
+            this.sent.push({ model, authorization: req.headers.authorization });
 
             if (this.chatStatus !== 200) return res.writeHead(this.chatStatus).end();
 

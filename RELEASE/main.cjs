@@ -1,6 +1,7 @@
-const { app, BrowserWindow, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { getDevices } = require('./devices.cjs');
 
 /** The web build sits next to this file once packaged, and on the project's dist/ while running from source */
 const WEB_ROOT = app.isPackaged ? path.join(__dirname, 'web') : path.join(__dirname, '..', 'dist');
@@ -38,7 +39,8 @@ function createWindow() {
         height: 900,
         backgroundColor: '#0f1115',
         autoHideMenuBar: true,
-        webPreferences: { contextIsolation: true, sandbox: true },
+        // The preload exposes window.nativeBridge, whose calls are handled below
+        webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
     });
     // Web pages (Google, DOIs, ChEMBL...) open on the default browser; the app's own pages, as the diagrams, stay in the app
     window.webContents.setWindowOpenHandler(({ url }) => {
@@ -53,6 +55,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
     protocol.handle(SCHEME, serve);
+    ipcMain.handle('native-bridge:get-devices', () => getDevices());
     createWindow();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import useAsyncControl from '@onepercentio/one-ui/hooks/useAsyncControl';
-import { getLoadedModelId, pingServer, setAIEndpoint, warmUpDocumentContext } from '../services/ai';
-import { isValidEndpoint, loadAIEndpoints, normalizeEndpoint, saveAIEndpoints, type AIEndpoints } from '../utils/aiEndpoints';
+import { getLoadedModelId, pingServer, setAIProvider, warmUpDocumentContext } from '../services/ai';
+import { loadAIProviders, normalizeEndpoint, saveAIProviders, type AIProviderShape } from '../utils/aiProviders';
 import type { FullText } from '../models/Article';
 import { clearNormalizedText, getNormalizedText, wasWarmedUpBefore } from '../utils/preprocessing';
 
@@ -25,12 +25,14 @@ const NOT_WARMED: WarmUp = { state: 'idle', progress: 0 };
 type AIContextShape = {
     /** Online only when the AI server answers and has a model loaded */
     status: AIStatus;
-    /** The endpoint in use, and every one added, to switch between */
-    endpoint: string;
-    endpoints: string[];
-    selectEndpoint: (endpoint: string) => void;
-    /** Adds an endpoint and starts using it. False when it is not an http(s) address */
-    addEndpoint: (endpoint: string) => boolean;
+    /** The provider in use (none while none is configured), and every one configured, to switch between */
+    provider: AIProviderShape | null;
+    providers: AIProviderShape[];
+    selectProvider: (endpoint: string) => void;
+    /** Adds a provider and starts using it. One with the same endpoint is replaced */
+    addProvider: (provider: AIProviderShape) => void;
+    /** Changes the model the requests of the provider in use go to. null is the automatic model */
+    selectDefaultModel: (model: string | null) => void;
     /** The id of the loaded model, when online */
     model: string | null;
     checking: boolean;
@@ -55,18 +57,28 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const reportedKey = useRef<Record<string, string>>({});
     /** The warm ups running, by article key, so an AI action started meanwhile waits for the same one */
     const runningWarmUps = useRef(new Map<string, Promise<string>>());
-    const [endpoints, setEndpoints] = useState<AIEndpoints>(() => {
-        const loaded = loadAIEndpoints();
-        // Before the first check, so it already goes to the chosen endpoint
-        setAIEndpoint(loaded.current);
+    const [providers, setProviders] = useState(() => {
+        const loaded = loadAIProviders();
+        // Before the first check, so it already goes to the chosen provider
+        const current = loaded.providers.find(p => p.endpoint === loaded.current);
+        if (current) setAIProvider(current);
         return loaded;
     });
+    const provider = providers.providers.find(p => p.endpoint === providers.current) ?? null;
+    const hasProvider = useRef(!!provider);
+    hasProvider.current = !!provider;
     // Changes with the endpoint, so a check of the previous one that ends late does not tell its status as the new one's
     const checkGeneration = useRef(0);
     const control = useAsyncControl({
         async checkStatus() {
             const generation = checkGeneration.current;
             const isCurrent = () => generation === checkGeneration.current;
+            // Nothing to ask while no provider is configured
+            if (!hasProvider.current) {
+                setModel(null);
+                setStatus('offline');
+                return;
+            }
             try {
                 const loadedModel = await getLoadedModelId();
                 if (!isCurrent()) return;
@@ -104,11 +116,15 @@ export function AIProvider({ children }: { children: ReactNode }) {
         reconnect();
     }, []);
 
-    const applyEndpoints = useCallback(
-        (next: AIEndpoints) => {
-            setEndpoints(next);
-            saveAIEndpoints(next);
-            setAIEndpoint(next.current);
+    const applyProviders = useCallback(
+        (next: { providers: AIProviderShape[]; current: string | null }, serverChanged = true) => {
+            setProviders(next);
+            saveAIProviders(next.providers, next.current);
+            const current = next.providers.find(p => p.endpoint === next.current);
+            hasProvider.current = !!current;
+            if (current) setAIProvider(current);
+            // Only the model changed: the same server, whose status is still the same
+            if (!serverChanged) return;
             // A new server: its status is checked again from the start
             checkGeneration.current += 1;
             checkInFlight.current = undefined;
@@ -120,23 +136,35 @@ export function AIProvider({ children }: { children: ReactNode }) {
         [reconnect],
     );
 
-    const selectEndpoint = useCallback(
+    const selectProvider = useCallback(
         (endpoint: string) => {
-            if (endpoint !== endpoints.current) applyEndpoints({ ...endpoints, current: endpoint });
+            if (endpoint !== providers.current) applyProviders({ ...providers, current: endpoint });
         },
-        [endpoints, applyEndpoints],
+        [providers, applyProviders],
     );
 
-    const addEndpoint = useCallback(
-        (typed: string) => {
-            const endpoint = normalizeEndpoint(typed);
-            if (!isValidEndpoint(endpoint)) return false;
-            // Added again, it is only chosen
-            const list = endpoints.endpoints.includes(endpoint) ? endpoints.endpoints : [...endpoints.endpoints, endpoint];
-            applyEndpoints({ endpoints: list, current: endpoint });
-            return true;
+    const addProvider = useCallback(
+        (added: AIProviderShape) => {
+            const next = { ...added, endpoint: normalizeEndpoint(added.endpoint) };
+            // Added again, it replaces the one configured before
+            const others = providers.providers.filter(p => p.endpoint !== next.endpoint);
+            applyProviders({ providers: [...others, next], current: next.endpoint });
         },
-        [endpoints, applyEndpoints],
+        [providers, applyProviders],
+    );
+
+    const selectDefaultModel = useCallback(
+        (defaultModel: string | null) => {
+            if (!provider) return;
+            applyProviders(
+                {
+                    ...providers,
+                    providers: providers.providers.map(p => (p === provider ? { ...p, defaultModel } : p)),
+                },
+                false,
+            );
+        },
+        [provider, providers, applyProviders],
     );
 
     const updateWarmUp = useCallback((articleKey: string, warmUp: WarmUp) => {
@@ -204,10 +232,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
     const value = useMemo(
         () => ({
             status,
-            endpoint: endpoints.current,
-            endpoints: endpoints.endpoints,
-            selectEndpoint,
-            addEndpoint,
+            provider,
+            providers: providers.providers,
+            selectProvider,
+            addProvider,
+            selectDefaultModel,
             model,
             checking: control.loading || !hasChecked,
             reconnect,
@@ -216,7 +245,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
             checkWarmedUpBefore,
             clearWarmUp,
         }),
-        [status, endpoints, selectEndpoint, addEndpoint, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore, clearWarmUp],
+        [status, provider, providers, selectProvider, addProvider, selectDefaultModel, model, control.loading, hasChecked, reconnect, warmUps, warmUp, checkWarmedUpBefore, clearWarmUp],
     );
 
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;

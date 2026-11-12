@@ -51,7 +51,7 @@ test.describe('the AI status', () => {
         await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'online');
         await byId(page, TestIds.ai.statusButton).click();
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Online');
-        await expect(byId(page, TestIds.ai.endpoint)).toHaveValue(ai.endpoint);
+        await expect(byId(page, TestIds.ai.provider)).toHaveValue(ai.endpoint);
         await expect(byId(page, TestIds.ai.model)).toHaveText('mock-model');
         await expect(byId(page, TestIds.ai.reconnect)).toHaveCount(0);
     });
@@ -63,7 +63,7 @@ test.describe('the AI status', () => {
         await expect(byId(page, TestIds.ai.statusButton)).toHaveAttribute('data-status', 'offline');
         await byId(page, TestIds.ai.statusButton).click();
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Offline');
-        await expect(byId(page, TestIds.ai.endpoint)).toHaveValue(ai.endpoint);
+        await expect(byId(page, TestIds.ai.provider)).toHaveValue(ai.endpoint);
 
         // Still offline: reconnecting does not change anything
         await byId(page, TestIds.ai.reconnect).click();
@@ -298,14 +298,17 @@ test.describe('warming up a document', () => {
         expect(ai.requestsOfKind('organize')).toHaveLength(1);
     });
 
-    test('shows the offline state, without being able to start', async ({ page, ai }) => {
+    test('shows the offline state, opening the AI configuration instead of starting', async ({ page, ai }) => {
         await ai.stop();
         await openSamplePreview(page);
 
         await expect(warmUpButton(page)).toHaveAttribute('data-state', 'offline');
         await expect(warmUpButton(page).locator('svg.lucide-x')).toBeVisible();
-        await expect(warmUpButton(page)).toBeDisabled();
         await expect(promptInput(page)).toBeDisabled();
+
+        await warmUpButton(page).click();
+        await expect(byId(page, TestIds.aiWizard.root)).toBeVisible();
+        expect(ai.requestsOfKind('organize')).toHaveLength(0);
     });
 
     test('fails when the AI errors, and can be retried', async ({ page, ai }) => {

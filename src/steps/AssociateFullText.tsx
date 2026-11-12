@@ -7,6 +7,7 @@ import AdaptiveContainer from '@onepercentio/one-ui/components/AdaptiveContainer
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import type { Article, FullText } from '../models/Article';
 import DocumentPreview from '../features/DocumentPreview';
+import RemountOnResize from '../components/RemountOnResize';
 import ManualReference from '../features/ManualReference';
 import ArticleTags from '../features/ArticleTags';
 import Recall from '../features/Recall';
@@ -182,9 +183,17 @@ export default function AssociateFullText() {
     const { articles, fullTexts, attachFullText, detachFullText } = useArticlesRepository();
     const [query, setQuery] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
-    const [previewKey, setPreviewKey] = useState<string>();
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const previewFullText = previewKey ? fullTexts[previewKey] : undefined;
+    // The references whose document is open, each in its own dialog (on AR, its own window), kept while closing
+    const [previews, setPreviews] = useState<{ key: string; open: boolean }[]>([]);
+    const previewOpen = previews.some(preview => preview.open);
+    const openPreview = (key: string) =>
+        setPreviews(current =>
+            current.some(preview => preview.key === key)
+                ? current.map(preview => (preview.key === key ? { ...preview, open: true } : preview))
+                : [...current, { key, open: true }],
+        );
+    const closePreview = (key: string) =>
+        setPreviews(current => current.map(preview => (preview.key === key ? { ...preview, open: false } : preview)));
     const visible = useMemo(() => {
         const q = normalize(query.trim());
         return q ? articles.filter(a => normalize(a.title).includes(q)) : articles;
@@ -217,10 +226,7 @@ export default function AssociateFullText() {
                     fullText={fullTexts[article.key]}
                     onAttach={file => attachFullText(article.key, file)}
                     onDetach={() => detachFullText(article.key)}
-                    onOpen={() => {
-                        setPreviewKey(article.key);
-                        setPreviewOpen(true);
-                    }}
+                    onOpen={() => openPreview(article.key)}
                 />
             ) : (
                 <Fragment key={`${article.key}-hidden`} />
@@ -268,14 +274,26 @@ export default function AssociateFullText() {
                 )}
                 {pending.map(renderItem)}
             </ul>
-            <AdaptiveDialog
-                open={previewOpen && !!previewFullText}
-                onClose={() => setPreviewOpen(false)}
-                onClickOut={() => setPreviewOpen(false)}
-                onClosed={() => setPreviewKey(undefined)}
-            >
-                {previewFullText && <DocumentPreview key={previewFullText.hash} fullText={previewFullText} />}
-            </AdaptiveDialog>
+            {/* Next to the list rather than in each reference, so a search hiding a reference doesn't close its document */}
+            {previews.map(({ key, open }) => {
+                const fullText = fullTexts[key];
+                return (
+                    <AdaptiveDialog
+                        key={key}
+                        open={open && !!fullText}
+                        onClose={() => closePreview(key)}
+                        onClickOut={() => closePreview(key)}
+                        onClosed={() => setPreviews(current => current.filter(preview => preview.key !== key))}
+                    >
+                        {fullText && (
+                            // Its pages are laid out at the width they had, so they are drawn again when it changes
+                            <RemountOnResize>
+                                <DocumentPreview key={fullText.hash} fullText={fullText} />
+                            </RemountOnResize>
+                        )}
+                    </AdaptiveDialog>
+                );
+            })}
         </section>
     );
 }

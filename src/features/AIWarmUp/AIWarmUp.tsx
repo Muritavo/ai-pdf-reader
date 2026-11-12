@@ -6,7 +6,9 @@ import { useWarmUp } from '../../context/AIContext';
 import { validateAgainstPages } from '../../services/ai';
 import { extractPageTexts, getNormalizedText, renderPageImages } from '../../utils/preprocessing';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
+import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import ResponseModal from '../DocumentPreview/components/ResponseModal/ResponseModal';
+import AIIntegrationWizard from '../AIIntegrationWizard';
 import { TestIds } from '../../testids';
 import Styles from './AIWarmUp.module.css';
 
@@ -23,6 +25,8 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
     const [validation, setValidation] = useState<string>();
     // What a DEBUG item of the menu shows, with its label as the title
     const [debugView, setDebugView] = useState<{ label: string; text: string }>();
+    // While the AI is offline, the button opens its configuration instead
+    const [configuring, setConfiguring] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -110,8 +114,8 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                 aria-label={label}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                disabled={!canStart && !showingOptions}
-                onClick={showingOptions ? () => setMenuOpen(true) : start}
+                disabled={!canStart && !showingOptions && !offline}
+                onClick={offline ? () => setConfiguring(true) : showingOptions ? () => setMenuOpen(true) : start}
                 // On macOS a Ctrl click is a right click, so it comes as the context menu instead
                 onContextMenu={e => {
                     if (!showingOptions) return;
@@ -186,6 +190,9 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                     </button>
                 </div>
             )}
+            <AdaptiveDialog open={configuring} onClose={() => setConfiguring(false)} onClickOut={() => setConfiguring(false)}>
+                {configuring && <AIIntegrationWizard onDone={() => setConfiguring(false)} />}
+            </AdaptiveDialog>
             {debugView && (
                 <ResponseModal
                     prompt={debugView.label}

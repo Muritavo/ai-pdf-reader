@@ -41,11 +41,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            RELEASE/package-lock.json
-      # one-ui still asks for chroma-js 2 as a peer, while the project uses 3
-      - run: npm ci --legacy-peer-deps
+          cache-dependency-path: RELEASE/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - run: npm ci
         working-directory: RELEASE
       - run: npm run dist:${{ matrix.target }} -- --publish never -c.extraMetadata.version=${{ needs.version.outputs.version }}
@@ -79,10 +77,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            RELEASE/package-lock.json
-      - run: npm ci --legacy-peer-deps
+          cache-dependency-path: RELEASE/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - run: npm ci
         working-directory: RELEASE
       - run: npm run android
