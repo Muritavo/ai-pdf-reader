@@ -4,9 +4,10 @@ import { createPluginEnv } from '../plugins/env';
 import UniprotPlugin from '../plugins/Uniprot';
 import ChemblPlugin from '../plugins/Chembl';
 import LiteratureReferentialPlugin from '../plugins/LiteratureReferential';
+import Anatomy3DPlugin from '../plugins/Anatomy3D';
 
 /** Imported for now. Later they can come from somewhere else, with the same shape */
-const PLUGINS: Plugin[] = [UniprotPlugin, ChemblPlugin, LiteratureReferentialPlugin];
+const PLUGINS: Plugin[] = [UniprotPlugin, ChemblPlugin, LiteratureReferentialPlugin, Anatomy3DPlugin];
 
 const ENVS = new Map(PLUGINS.map(plugin => [plugin.id, createPluginEnv(plugin.id)]));
 

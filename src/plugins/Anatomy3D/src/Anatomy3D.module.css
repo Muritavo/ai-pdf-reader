@@ -1,0 +1,334 @@
+/* The hierarchy on the left, the term and its sections filling the rest */
+.view {
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 12px;
+    min-height: 320px;
+}
+
+.tree {
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+}
+
+.treeItem {
+    width: 100%;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.treeItem:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+
+.current {
+    color: var(--text);
+    background: var(--accent-soft);
+    font-weight: 600;
+}
+
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.id {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.definition {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.notice {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.iconButton {
+    display: inline-flex;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-raised);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.iconButton:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.atlasLink {
+    margin-left: auto;
+}
+
+/* The outline is drawn over the image, on the same box */
+.image {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    min-height: 120px;
+}
+
+.pickable {
+    cursor: zoom-in;
+}
+
+.image img {
+    display: block;
+    width: 100%;
+}
+
+/* Over the image, on the same box. Only the paths take the pointer, and only while they are being named */
+.outline {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.outline path {
+    fill: var(--accent-soft);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+}
+
+.naming path {
+    pointer-events: all;
+    cursor: help;
+}
+
+.naming path.hovered {
+    fill: rgba(217, 133, 59, 0.3);
+    stroke: #d9853b;
+    stroke-width: 3;
+}
+
+.outlineLabel {
+    position: absolute;
+    z-index: 2;
+    max-width: 320px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(15, 17, 21, 0.85);
+    color: var(--text);
+    font-size: 0.8rem;
+    pointer-events: none;
+}
+
+/* Over the image until the next one is loaded, as the arrows wait for it */
+.loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 17, 21, 0.55);
+    color: var(--text);
+    cursor: progress;
+}
+
+.spinner {
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.caption {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+/* Above the window of the result, where the full screen is opened from */
+*:has(> .fullscreen) {
+    z-index: 2100;
+}
+
+.fullscreen {
+    width: 95vw;
+    height: 90vh;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.fullscreenContent {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+}
+
+.fullscreenHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    /* Room for the close button of the dialog */
+    padding: 18px 72px 12px 20px;
+}
+
+/* The section is dragged inside it */
+.viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #fff;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.viewport:active {
+    cursor: grabbing;
+}
+
+.viewport img {
+    position: absolute;
+    max-width: none;
+    pointer-events: none;
+}
+
+/* Loaded behind the one shown, which it replaces once it is ready */
+.viewport img.pending {
+    opacity: 0;
+}
+
+.minimap path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.5;
+}
+
+.loadingBadge {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 17, 21, 0.75);
+    color: var(--text);
+    font-size: 0.8rem;
+}
+
+.minimapBox {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    padding: 4px;
+    border-radius: 8px;
+    background: rgba(15, 17, 21, 0.75);
+    cursor: default;
+}
+
+.minimap {
+    display: block;
+    background: #fff;
+    border-radius: 4px;
+    cursor: crosshair;
+}
+
+.minimapView {
+    fill: rgba(217, 133, 59, 0.2);
+    stroke: #d9853b;
+    stroke-width: 2;
+}
+
+/* The levels of zoom, on the right */
+.zoomScaleBox {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: default;
+}
+
+.zoomScale {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+    background: rgba(15, 17, 21, 0.75);
+}
+
+.zoomScale ol {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.zoomLevel {
+    width: 100%;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    text-align: right;
+    cursor: pointer;
+}
+
+.zoomLevel:hover {
+    color: var(--text);
+}
+
+.zoomLevel.current {
+    color: var(--text);
+    background: var(--accent-soft);
+}
