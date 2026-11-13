@@ -28,6 +28,6 @@ export const questionMessages = (book: Book, content: PageContent[], excerpt: st
         role: 'user',
         content: `Is the excerpt "${excerpt}" discussed on this book? Where?
 
-Answer only with a JSON array of the pages it is discussed (or it's parent concept), considering the summary (or table of content), the sections summaries, and/or the indexes, as [{"page": 34, "term": "Choroid plexus"}]: "page" is the page number indicated at the summary/index entry, and "term" the entry or phrase of the "section associated to the page". If it is not discussed on this book, answer []. No other commentary.`,
+Answer only with a JSON array of the pages it is discussed (or it's parent/related concept), considering the summary (or table of content), the sections summaries, and/or the indexes, as [{"page": 34, "term": "Choroid plexus"}]: "page" is the page number indicated at the summary/index entry, and "term" the entry or phrase of the "section associated to the page". If it is not discussed on this book, answer []. No other commentary.`,
     },
 ];
