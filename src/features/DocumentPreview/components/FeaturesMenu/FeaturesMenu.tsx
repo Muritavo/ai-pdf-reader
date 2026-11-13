@@ -37,7 +37,7 @@ const PASSAGE_MIN_WORDS = 6;
 const DOI_FORMAT = /^(?:doi:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}\/\S+)$/i;
 
 const MAX_MENU_HEIGHT = 340;
-/** Enough for the selected text and a couple of actions, even close to the bottom of the screen */
+/** Enough for the selected text and a couple of actions, even close to the top of the screen */
 const MIN_MENU_HEIGHT = 180;
 
 type FeaturesMenuProps = {
@@ -104,7 +104,7 @@ export default forwardRef(function FeaturesMenu(
 
                 const bounds = selection.getRangeAt(0).getBoundingClientRect();
                 setWord(selectedWord);
-                setPosition({ x: bounds.left, y: bounds.bottom });
+                setPosition({ x: bounds.left, y: bounds.top });
             },
             closeMenu() {
                 if (word) setWord(undefined);
@@ -273,8 +273,12 @@ export default forwardRef(function FeaturesMenu(
             snapToWindow="right"
             focus={false}
             effect="pop"
-            // Limited, and never past the bottom of the screen, as it opens under the selection
-            style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, view.innerHeight - y - 16)) }}
+            // Opens above the selection, so it does not cover the lines that follow it, limited to never go past the top of the screen
+            style={{
+                left: x,
+                bottom: view.innerHeight - y,
+                maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, y - 16)),
+            }}
         >
             <div className={Styles.selectedWord}>{displayWord}</div>
             <div className={Styles.actions} data-testid={TestIds.menu.actions}>

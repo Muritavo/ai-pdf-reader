@@ -1,3 +1,4 @@
+import { Eye } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PluginStorage } from '../../../types';
 import { openBook, saveRanges, type Book, type PageRange } from '../library';
@@ -10,6 +11,13 @@ import Styles from '../LiteratureReferential.module.css';
 const LABEL_HEIGHT = 28;
 /** Pages this far from the screen are already drawn, so they are ready when scrolled to */
 const ROOT_MARGIN = '600px';
+
+/** "12+340" becomes "352", so the offset of the printed page numbers can be added; anything else is left as typed */
+function sumPages(value: string) {
+    const parts = value.split('+').map(part => part.trim());
+    if (parts.length < 2 || parts.some(part => !/^\d+$/.test(part))) return value;
+    return String(parts.reduce((total, part) => total + Number(part), 0));
+}
 
 /** The pages of the book side by side, as tall as the room there is, to choose the ranges of the summary and of the index */
 export default function BookEditor({ storage, book, onBack }: { storage: PluginStorage; book: Book; onBack: () => void }) {
@@ -67,8 +75,8 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
         return () => observer.current!.disconnect();
     }, [pdf]);
 
-    const fromPage = Number(from);
-    const toPage = Number(to || from);
+    const fromPage = Number(sumPages(from));
+    const toPage = Number(sumPages(to || from));
     const validRange = Number.isInteger(fromPage) && Number.isInteger(toPage) && fromPage >= 1 && fromPage <= toPage && toPage <= book.pageCount;
     const inRanges = (pageNo: number) => ranges.some(range => pageNo >= range.from && pageNo <= range.to);
 
@@ -79,6 +87,10 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
         setTo('');
     };
     const removeRange = (removed: PageRange) => setRanges(current => current.filter(range => range !== removed));
+    // Jumps straight there: a smooth scroll would draw every page on the way
+    const gotoPage = (pageNo: number) =>
+        pagesRef.current?.querySelector<HTMLElement>(`[data-page="${pageNo}"]`)?.scrollIntoView({ block: 'nearest', inline: 'start' });
+    const validFrom = Number.isInteger(fromPage) && fromPage >= 1 && fromPage <= book.pageCount;
 
     return (
         <div className={Styles.editor} data-testid="literature-editor">
@@ -95,30 +107,41 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
                     }}
                 >
                     <input
-                        type="number"
-                        min={1}
-                        max={book.pageCount}
+                        type="text"
+                        inputMode="numeric"
                         placeholder="De"
                         aria-label="Da página"
                         data-testid="literature-range-from"
                         value={from}
                         onChange={e => setFrom(e.target.value)}
+                        onBlur={e => setFrom(sumPages(e.target.value))}
                     />
                     <input
-                        type="number"
-                        min={1}
-                        max={book.pageCount}
+                        type="text"
+                        inputMode="numeric"
                         placeholder="Até"
                         aria-label="Até a página"
                         data-testid="literature-range-to"
                         value={to}
                         onChange={e => setTo(e.target.value)}
+                        onBlur={e => setTo(sumPages(e.target.value))}
                     />
                     <button type="submit" className="btn btn-outline" disabled={!validRange} data-testid="literature-range-add">
                         Adicionar
                     </button>
+                    <button
+                        type="button"
+                        className="btn btn-outline"
+                        aria-label="Ir para a página"
+                        title="Ir para a página"
+                        data-testid="literature-range-goto"
+                        disabled={!from || !validFrom}
+                        onClick={() => gotoPage(fromPage)}
+                    >
+                        <Eye size={16} />
+                    </button>
                 </form>
-                <RangePills ranges={ranges} onRemove={removeRange} />
+                <RangePills ranges={ranges} onRemove={removeRange} onGoto={range => gotoPage(range.from)} />
                 <button
                     type="button"
                     className="btn btn-primary"
