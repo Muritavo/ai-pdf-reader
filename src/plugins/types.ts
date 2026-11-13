@@ -42,15 +42,21 @@ export type PluginMenuOption = {
     onClick: (context: PluginActionContext) => Promise<void>;
 };
 
-/** What the plugin keeps, under its own prefix. Outside of the projects, as the plugins are the same for all of them */
+/** One database of the plugin. Outside of the projects, as the plugins are the same for all of them */
 export type PluginStorage = {
     get<T>(key: string): Promise<T | undefined>;
     /** Any value the browser can clone, as an ArrayBuffer of a PDF */
     set(key: string, value: unknown): Promise<void>;
     del(key: string): Promise<void>;
-    /** The keys of the plugin, without its prefix */
     keys(): Promise<string[]>;
 };
+
+/**
+ * What the plugin keeps, on databases of its own:
+ * - personal: what the user made and can't be redone, as the books they added
+ * - optimization: what can be redone by running the processes again, as downloaded lists and AI answers. Safe to clear
+ */
+export type PluginStores = { personal: PluginStorage; optimization: PluginStorage };
 
 /** A message of a conversation with the AI. Text only */
 export type PluginAIMessage = { role: 'system' | 'user' | 'assistant'; content: string };
@@ -74,7 +80,7 @@ export type PluginSettingsComponents = {
 };
 
 /** What the app gives to each plugin to work with */
-export type PluginEnv = { storage: PluginStorage; ai: PluginAI; settingsComponents: PluginSettingsComponents };
+export type PluginEnv = { storage: PluginStores; ai: PluginAI; settingsComponents: PluginSettingsComponents };
 
 export type Plugin = {
     id: string;

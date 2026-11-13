@@ -1,24 +1,24 @@
 import { del, get, keys, set } from 'idb-keyval';
 import { callOpenAiApi } from '../services/ai';
 import AISettingsButton from '../components/AISettingsButton';
-import type { PluginEnv } from './types';
+import { pluginStore, type StorageKind } from '../utils/storage';
+import type { PluginEnv, PluginStorage } from './types';
 
-/** The same prefix the plugins used before having a storage of their own, as "plugins/uniprot/human" */
-const prefixOf = (pluginId: string) => `plugins/${pluginId}/`;
-
-/** The storage and the AI given to a plugin, its storage limited to its own keys */
-export function createPluginEnv(pluginId: string): PluginEnv {
-    const prefix = prefixOf(pluginId);
+/** A database of the plugin alone, for one kind of its data */
+function createPluginStorage(pluginId: string, kind: StorageKind): PluginStorage {
+    const store = pluginStore(pluginId, kind);
     return {
-        storage: {
-            get: key => get(`${prefix}${key}`),
-            set: (key, value) => set(`${prefix}${key}`, value),
-            del: key => del(`${prefix}${key}`),
-            keys: async () =>
-                (await keys())
-                    .filter((key): key is string => typeof key === 'string' && key.startsWith(prefix))
-                    .map(key => key.slice(prefix.length)),
-        },
+        get: key => get(key, store),
+        set: (key, value) => set(key, value, store),
+        del: key => del(key, store),
+        keys: async () => (await keys(store)).filter((key): key is string => typeof key === 'string'),
+    };
+}
+
+/** The storages and the AI given to a plugin, its storages kept on databases of its own */
+export function createPluginEnv(pluginId: string): PluginEnv {
+    return {
+        storage: { personal: createPluginStorage(pluginId, 'personal'), optimization: createPluginStorage(pluginId, 'optimization') },
         ai: {
             // Not kept on the server unless the plugin asks to, as for a prompt it starts every question with
             complete: (messages, { onProgress, cache = false, settings } = {}) => callOpenAiApi(messages, onProgress, { cache, settings }),

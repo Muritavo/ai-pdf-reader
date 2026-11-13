@@ -1,6 +1,7 @@
 import { delMany, keys } from 'idb-keyval';
 import chroma from 'chroma-js';
 import seedrandom from 'seedrandom';
+import { optimizationStore, personalStore } from './storage';
 
 /** Each project keeps its own references, PDFs, annotations, questions and AI cache */
 export type Project = { id: string; name: string; createdAt: string; lastOpenedAt?: string };
@@ -89,12 +90,14 @@ export function clearProjectEntries() {
     removeStoredWithPrefix(scoped(''));
 }
 
-/** Everything the project kept, PDFs included */
+/** Everything the project kept, PDFs and AI cache included */
 export async function deleteProjectData(id: string) {
     const prefix = prefixOf(id);
     removeStoredWithPrefix(prefix);
-    const files = (await keys()).filter(key => typeof key === 'string' && key.startsWith(prefix));
-    await delMany(files);
+    for (const store of [personalStore, optimizationStore]) {
+        const stored = (await keys(store)).filter(key => typeof key === 'string' && key.startsWith(prefix));
+        await delMany(stored, store);
+    }
     await removeBrowserAttachments(id);
 }
 

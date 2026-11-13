@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import Collapsable from '@onepercentio/one-ui/components/Collapsable';
 import { ChevronDown } from 'lucide-react';
-import type { PluginStorage } from '../../../types';
+import type { PluginStores } from '../../../types';
 import { fileUrlOf, openBook, pdfPageOf, saveOffset, useBooks } from '../library';
 import type { Match } from '../query';
 import type { PdfDocument } from '../pdf';
 import PageCanvas from './PageCanvas';
 import Styles from '../LiteratureReferential.module.css';
 
-function PagePreview({ storage, match, onBack }: { storage: PluginStorage; match: Match; onBack: () => void }) {
+function PagePreview({ storage, match, onBack }: { storage: PluginStores; match: Match; onBack: () => void }) {
     // As it is now, as the offset changes when the position is adjusted
     const book = useBooks().find(book => book.id === match.book.id) ?? match.book;
     const pdfPage = pdfPageOf(book, match.page);
@@ -75,7 +75,7 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStorage; match
 }
 
 /** Where the concept is discussed on the preloaded references, each opening a preview of its page */
-export default function QueryResult({ storage, matches, searched }: { storage: PluginStorage; matches: Match[]; searched: number }) {
+export default function QueryResult({ storage, matches, searched }: { storage: PluginStores; matches: Match[]; searched: number }) {
     const [opened, setOpened] = useState<Match>();
     // Every book starts open
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());

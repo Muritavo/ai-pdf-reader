@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { AISettings, PluginStorage } from '../../types';
+import type { AISettings, PluginStores } from '../../types';
 import { openPdf, type PdfDocument } from './pdf';
 
 /** Pages of the PDF, both included, counting from 1 */
@@ -30,6 +30,7 @@ export type PageContent = { page: number; text: string };
 /** The pages of the ranges of a book being sent to the AI, or why it failed */
 export type PreloadProgress = { total: number; error?: string };
 
+/** The books and their PDFs are personal. What is read from them and asked to the AI is on the optimization storage */
 const BOOKS_KEY = 'books';
 const pdfKey = (id: string) => `pdf/${id}`;
 const contentKey = (id: string) => `content/${id}`;
@@ -59,10 +60,10 @@ export const isPreloaded = (book: Book) => book.cached?.ranges === rangesKey(boo
 export const pagesOf = (ranges: PageRange[]) =>
     ranges.flatMap(({ from, to }) => Array.from({ length: to - from + 1 }, (_, i) => from + i));
 
-export async function loadLibrary(storage: PluginStorage) {
-    books = (await storage.get<Book[]>(BOOKS_KEY)) ?? [];
+export async function loadLibrary(storage: PluginStores) {
+    books = (await storage.personal.get<Book[]>(BOOKS_KEY)) ?? [];
     await Promise.all(
-        books.filter(isPreloaded).map(async book => contentByBook.set(book.id, (await storage.get<PageContent[]>(contentKey(book.id))) ?? [])),
+        books.filter(isPreloaded).map(async book => contentByBook.set(book.id, (await storage.optimization.get<PageContent[]>(contentKey(book.id))) ?? [])),
     );
     notify();
 }
@@ -83,9 +84,9 @@ export function setPreloadProgress(id: string, progress: PreloadProgress | undef
     notify();
 }
 
-async function saveBooks(storage: PluginStorage, next: Book[]) {
+async function saveBooks(storage: PluginStores, next: Book[]) {
     books = next;
-    await storage.set(BOOKS_KEY, next);
+    await storage.personal.set(BOOKS_KEY, next);
     notify();
 }
 
@@ -93,22 +94,22 @@ async function saveBooks(storage: PluginStorage, next: Book[]) {
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
 /** Stored as a Blob, as IndexedDB keeps it as a file and a value of bytes over ~133 MB is refused. The ones stored as bytes before still open */
-async function fileOf(storage: PluginStorage, id: string) {
-    const stored = await storage.get<Blob | ArrayBuffer>(pdfKey(id));
+async function fileOf(storage: PluginStores, id: string) {
+    const stored = await storage.personal.get<Blob | ArrayBuffer>(pdfKey(id));
     if (!stored) throw new Error('O PDF do livro não foi encontrado');
     return stored instanceof Blob ? stored : new Blob([stored], { type: 'application/pdf' });
 }
 
-export async function addBook(storage: PluginStorage, file: File) {
+export async function addBook(storage: PluginStores, file: File) {
     const pdf = await openPdf(file);
     const book: Book = { id: newId(), title: file.name.replace(/\.pdf$/i, ''), pageCount: pdf.numPages, ranges: [] };
-    await storage.set(pdfKey(book.id), file);
+    await storage.personal.set(pdfKey(book.id), file);
     opened.set(book.id, Promise.resolve(pdf));
     await saveBooks(storage, [...books, book]);
 }
 
-export async function removeBook(storage: PluginStorage, id: string) {
-    await Promise.all([storage.del(pdfKey(id)), storage.del(contentKey(id)), storage.del(answersKey(id))]);
+export async function removeBook(storage: PluginStores, id: string) {
+    await Promise.all([storage.personal.del(pdfKey(id)), storage.optimization.del(contentKey(id)), storage.optimization.del(answersKey(id))]);
     contentByBook.delete(id);
     opened.get(id)?.then(pdf => pdf.loadingTask.destroy());
     opened.delete(id);
@@ -120,7 +121,7 @@ export async function removeBook(storage: PluginStorage, id: string) {
     );
 }
 
-export async function saveRanges(storage: PluginStorage, id: string, ranges: PageRange[]) {
+export async function saveRanges(storage: PluginStores, id: string, ranges: PageRange[]) {
     await saveBooks(
         storage,
         books.map(book => (book.id === id ? { ...book, ranges } : book)),
@@ -128,29 +129,29 @@ export async function saveRanges(storage: PluginStorage, id: string, ranges: Pag
 }
 
 /** Not part of what is sent to the AI, so changing it keeps the book preloaded */
-export async function saveOffset(storage: PluginStorage, id: string, offset: number) {
+export async function saveOffset(storage: PluginStores, id: string, offset: number) {
     await saveBooks(
         storage,
         books.map(book => (book.id === id ? { ...book, offset } : book)),
     );
 }
 
-export async function saveDisabled(storage: PluginStorage, id: string, disabled: boolean) {
+export async function saveDisabled(storage: PluginStores, id: string, disabled: boolean) {
     await saveBooks(
         storage,
         books.map(book => (book.id === id ? { ...book, disabled } : book)),
     );
 }
 
-export async function saveAISettings(storage: PluginStorage, id: string, ai: AISettings) {
+export async function saveAISettings(storage: PluginStores, id: string, ai: AISettings) {
     await saveBooks(
         storage,
         books.map(book => (book.id === id ? { ...book, ai } : book)),
     );
 }
 
-export async function savePreload(storage: PluginStorage, id: string, ranges: PageRange[], content: PageContent[]) {
-    await storage.set(contentKey(id), content);
+export async function savePreload(storage: PluginStores, id: string, ranges: PageRange[], content: PageContent[]) {
+    await storage.optimization.set(contentKey(id), content);
     contentByBook.set(id, content);
     await saveBooks(
         storage,
@@ -159,7 +160,7 @@ export async function savePreload(storage: PluginStorage, id: string, ranges: Pa
 }
 
 /** A URL of the PDF, for the viewer of the browser. Kept while the app is open, as the tabs opened with it still read it */
-export function fileUrlOf(storage: PluginStorage, id: string) {
+export function fileUrlOf(storage: PluginStores, id: string) {
     let url = fileUrls.get(id);
     if (!url) {
         url = fileOf(storage, id).then(file => URL.createObjectURL(file));
@@ -170,7 +171,7 @@ export function fileUrlOf(storage: PluginStorage, id: string) {
 }
 
 /** Opened once, as a book can have hundreds of pages */
-export function openBook(storage: PluginStorage, id: string) {
+export function openBook(storage: PluginStores, id: string) {
     let pdf = opened.get(id);
     if (!pdf) {
         pdf = fileOf(storage, id).then(openPdf);

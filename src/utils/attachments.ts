@@ -1,6 +1,7 @@
 import { get, set } from 'idb-keyval';
 import type { FullText } from '../models/Article';
 import { scoped } from './projects';
+import { personalStore } from './storage';
 
 /** The folder the attachments of every document of the project are kept on, chosen once */
 const FOLDER_KEY = 'attachments_folder';
@@ -29,14 +30,14 @@ export async function getBrowserAttachmentsFolder() {
 
 /** The handle is kept on IndexedDB, as it can't be serialized to localStorage */
 export async function getAttachmentsFolder() {
-    return (await get(scoped(FOLDER_KEY))) as FileSystemDirectoryHandle | undefined;
+    return (await get(scoped(FOLDER_KEY), personalStore)) as FileSystemDirectoryHandle | undefined;
 }
 
 /** Opens the folder picker of the system. Undefined when the user gives up choosing */
 export async function chooseAttachmentsFolder() {
     try {
         const folder = await window.showDirectoryPicker({ id: 'attachments', mode: 'readwrite' });
-        await set(scoped(FOLDER_KEY), folder);
+        await set(scoped(FOLDER_KEY), folder, personalStore);
         return folder;
     } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return undefined;

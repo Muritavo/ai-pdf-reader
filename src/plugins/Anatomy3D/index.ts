@@ -11,7 +11,7 @@ import AnatomyView from './src/components/AnatomyView';
 const Anatomy3DPlugin: Plugin = {
     id: 'anatomy3d',
     async setup(env) {
-        await Promise.all([loadUberon(env.storage), loadSections(env.storage)]);
+        await Promise.all([loadUberon(env.storage.optimization), loadSections(env.storage.optimization)]);
     },
     menuOptions: [
         {

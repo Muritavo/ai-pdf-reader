@@ -8,6 +8,7 @@ export async function sha256(message: string): Promise<string> {
 
 import { del, get, set, setMany } from 'idb-keyval';
 import { scoped } from './projects';
+import { optimizationStore } from './storage';
 
 const CACHE_PREFIX = 'cache-';
 
@@ -15,22 +16,22 @@ const cacheKeyOf = async (args: string[]) => scoped(`${CACHE_PREFIX}${await sha2
 
 /** Whether the answer for these arguments was already cached, so the AI is not needed */
 export async function isCached(args: string[]) {
-    return (await get<string>(await cacheKeyOf(args))) !== undefined;
+    return (await get<string>(await cacheKeyOf(args), optimizationStore)) !== undefined;
 }
 
 /** Forgets the cached answer for these arguments, so the AI is asked again next time */
 export async function clearCached(args: string[]) {
-    await del(await cacheKeyOf(args));
+    await del(await cacheKeyOf(args), optimizationStore);
 }
 
-/** Caches the (expensive) AI answers on IndexedDB, keyed by the hash of the arguments, since they don't fit the quota of localStorage */
+/** Caches the (expensive) AI answers on the optimization database of IndexedDB, keyed by the hash of the arguments, since they don't fit the quota of localStorage */
 export async function withCache(args: string[], produce: () => Promise<string>) {
     const cacheKey = await cacheKeyOf(args);
-    const cached = await get<string>(cacheKey);
+    const cached = await get<string>(cacheKey, optimizationStore);
     if (cached) return cached;
 
     const response = await produce();
-    await set(cacheKey, response);
+    await set(cacheKey, response, optimizationStore);
     return response;
 }
 
@@ -41,7 +42,7 @@ const LEGACY_CACHE_KEY = new RegExp(`^project/[^/]+/${CACHE_PREFIX}[0-9a-f]{64}$
 export async function migrateCacheFromLocalStorage() {
     const legacyKeys = Object.keys(localStorage).filter(key => LEGACY_CACHE_KEY.test(key));
     if (!legacyKeys.length) return;
-    await setMany(legacyKeys.map(key => [key, localStorage.getItem(key)!]));
+    await setMany(legacyKeys.map(key => [key, localStorage.getItem(key)!]), optimizationStore);
     legacyKeys.forEach(key => localStorage.removeItem(key));
 }
 

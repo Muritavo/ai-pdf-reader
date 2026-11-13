@@ -1,6 +1,6 @@
 import { Eye } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { PluginStorage } from '../../../types';
+import type { PluginStores } from '../../../types';
 import { openBook, saveRanges, type Book, type PageRange } from '../library';
 import type { PdfDocument } from '../pdf';
 import PageCanvas from './PageCanvas';
@@ -20,7 +20,7 @@ function sumPages(value: string) {
 }
 
 /** The pages of the book side by side, as tall as the room there is, to choose the ranges of the summary and of the index */
-export default function BookEditor({ storage, book, onBack }: { storage: PluginStorage; book: Book; onBack: () => void }) {
+export default function BookEditor({ storage, book, onBack }: { storage: PluginStores; book: Book; onBack: () => void }) {
     const [pdf, setPdf] = useState<PdfDocument>();
     const [error, setError] = useState<string>();
     const [aspect, setAspect] = useState(1 / Math.SQRT2);

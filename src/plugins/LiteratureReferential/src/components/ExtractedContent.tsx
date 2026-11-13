@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import type { PluginStorage } from '../../../types';
+import type { PluginStores } from '../../../types';
 import { openBook, pagesOf, type Book } from '../library';
 import { pageText } from '../pdf';
 import Styles from '../LiteratureReferential.module.css';
 
 /** The text of each page of the ranges, as the preload sends it to the AI, to check it before preloading */
-export default function ExtractedContent({ storage, book, onClose }: { storage: PluginStorage; book: Book; onClose: () => void }) {
+export default function ExtractedContent({ storage, book, onClose }: { storage: PluginStores; book: Book; onClose: () => void }) {
     const [pages, setPages] = useState<{ page: number; text: string }[]>();
     const [error, setError] = useState<string>();
 
