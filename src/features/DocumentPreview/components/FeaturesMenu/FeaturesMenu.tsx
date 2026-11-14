@@ -267,6 +267,8 @@ export default forwardRef(function FeaturesMenu(
             snapToWindow="right"
             focus={false}
             effect="pop"
+            // Opens with the size the last menu was left with
+            group="featureMenu"
             // Opens above the selection, so it does not cover the lines that follow it, limited to never go past the top of the screen
             style={{
                 left: x,

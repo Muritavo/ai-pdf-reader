@@ -58,6 +58,7 @@
 				A10000000000000000000020 /* Frameworks */,
 				A10000000000000000000022 /* Resources */,
 				A10000000000000000000023 /* Copy web app */,
+				A10000000000000000000024 /* Copy debug settings */,
 			);
 			buildRules = (
 			);
@@ -125,6 +126,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "DIST=\"${PROJECT_DIR}/../dist\"\nif [ ! -f \"$DIST/index.html\" ]; then\n  echo \"error: dist/ not found. Run 'npm run build' in the project root first.\"\n  exit 1\nfi\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/web\"\nrm -rf \"$DEST\"\nmkdir -p \"$DEST\"\ncp -R \"$DIST/\" \"$DEST/\"\n";
+		};
+		A10000000000000000000024 /* Copy debug settings */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy debug settings";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Debug builds only: the options of the app in the Settings app, as resetting the kept window sizes\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Settings.bundle\"\nrm -rf \"$DEST\"\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  cp -R \"${PROJECT_DIR}/DebugSettings/Settings.bundle\" \"$DEST\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

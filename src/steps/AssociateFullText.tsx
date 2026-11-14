@@ -284,6 +284,8 @@ export default function AssociateFullText() {
                         onClose={() => closePreview(key)}
                         onClickOut={() => closePreview(key)}
                         onClosed={() => setPreviews(current => current.filter(preview => preview.key !== key))}
+                        // On AR, every article preview opens with the size the last one was left with
+                        arGroup="articlePreview"
                     >
                         {fullText && (
                             // Its pages are laid out at the width they had, so they are drawn again when it changes
