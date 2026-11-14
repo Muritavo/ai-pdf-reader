@@ -107,6 +107,28 @@
     cursor: not-allowed;
 }
 
+/** The glossary of the PDF, sent to the AI */
+.glossaryOn,
+.glossaryOn:hover:not(:disabled) {
+    position: relative;
+    color: var(--success);
+}
+
+.glossaryCheck {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    border-radius: 50%;
+    background: var(--success);
+    color: var(--surface, #fff);
+}
+
+/* Over the colors of .pill, which come after */
+.pill.glossaryPill {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+}
+
 .done {
     color: var(--success);
     font-size: 13px;
@@ -134,6 +156,13 @@
     font-size: 14px;
 }
 
+.pillsCell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
 .pills {
     display: flex;
     flex-wrap: wrap;
@@ -152,6 +181,14 @@
     background: var(--accent-soft);
     color: var(--accent);
     font-size: 13px;
+}
+
+/** The page of the bounds, told apart from the ranges */
+.pillOutline {
+    /* As a border: an outline is drawn solid on rounded corners by some browsers */
+    padding: 0 8px;
+    border: 2px dotted var(--accent);
+    background: transparent;
 }
 
 .pill button {
@@ -181,7 +218,20 @@
 }
 
 .editorTitle {
+    max-width: 30vw;
     margin-right: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editorTags {
+    flex-basis: 100%;
+}
+
+.editorTags:empty,
+.editorTags:has(> ul:empty) {
+    display: none;
 }
 
 .rangeForm {

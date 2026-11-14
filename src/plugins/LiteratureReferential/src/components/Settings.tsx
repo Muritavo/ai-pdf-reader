@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Switch from '@onepercentio/one-ui/components/Switch';
 import { BookOpen, Bug, Ellipsis, FileWarning, Play, Trash2, Upload } from 'lucide-react';
 import type { PluginEnv } from '../../../types';
-import { addBook, isPreloaded, relinkBook, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, useMissingPdfs, usePreloading, type Book } from '../library';
+import { addBook, hasContent, isPreloaded, pagesOf, relinkBook, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, useMissingPdfs, usePreloading, type Book } from '../library';
 import { preloadBook } from '../preload';
 import BookEditor from './BookEditor';
 import ExtractedContent from './ExtractedContent';
@@ -31,7 +31,7 @@ function BookStatus({ book }: { book: Book }) {
         );
     return (
         <span className="text-caption" data-testid="literature-status">
-            {book.ranges.length ? 'Não pré-carregado' : 'Clique no livro para escolher as páginas do sumário e do índice'}
+            {hasContent(book) ? 'Não pré-carregado' : 'Clique no livro para escolher as páginas do sumário e do índice'}
         </span>
     );
 }
@@ -63,7 +63,7 @@ function OffsetInput({ book, onSave }: { book: Book; onSave: (offset: number) =>
     );
 }
 
-/** The references (full books), with the ranges of their summary and index, and the preload of them by the AI */
+/** The references (full books), with the pages of their summary and index, and the preload of them by the AI */
 export default function Settings(env: PluginEnv) {
     const { storage, settingsComponents } = env;
     const { AISettingsButton } = settingsComponents;
@@ -171,8 +171,8 @@ export default function Settings(env: PluginEnv) {
             <ul className={Styles.books}>
                 {books.map(book => {
                     const running = !!preloading[book.id] && !preloading[book.id].error;
-                    // Holding Ctrl, a book with ranges shows its options, as the text that is sent to the AI
-                    const showingOptions = holdingCtrl && book.ranges.length > 0;
+                    // Holding Ctrl, a book with pages shows its options, as the text that is sent to the AI
+                    const showingOptions = holdingCtrl && hasContent(book);
                     return (
                         <li key={book.id} className={`${Styles.book} ${book.disabled ? Styles.bookDisabled : ''}`} data-testid="literature-book">
                             <button type="button" className={Styles.bookTitle} onClick={() => setEditing(book.id)} data-testid="literature-book-open">
@@ -180,7 +180,15 @@ export default function Settings(env: PluginEnv) {
                                 <span>{book.title}</span>
                                 <span className="text-caption">{book.pageCount} páginas</span>
                             </button>
-                            <RangePills ranges={book.ranges} />
+                            {/* One cell of the row, as the tag would take the place of the next one */}
+                            <div className={Styles.pillsCell}>
+                                <RangePills pages={pagesOf(book)} />
+                                {book.glossary && (
+                                    <span className={`${Styles.pill} ${Styles.glossaryPill}`} data-testid="literature-glossary-tag">
+                                        Built-in glossary
+                                    </span>
+                                )}
+                            </div>
                             <OffsetInput book={book} onSave={offset => saveOffset(storage, book.id, offset)} />
                             <BookStatus book={book} />
                             <div className={Styles.bookActions}>
@@ -226,7 +234,7 @@ export default function Settings(env: PluginEnv) {
                                         aria-haspopup="menu"
                                         aria-expanded={menuOf === book.id}
                                         data-testid="literature-preload"
-                                        disabled={!showingOptions && (running || book.ranges.length === 0)}
+                                        disabled={!showingOptions && (running || !hasContent(book))}
                                         onClick={() => (showingOptions ? setMenuOf(book.id) : preloadBook(env, book))}
                                         // On macOS a Ctrl click is a right click, so it comes as the context menu instead
                                         onContextMenu={e => {

@@ -3,25 +3,28 @@ import type { AISettings, PluginStores } from '../../types';
 import type { ImageBox } from '../../../utils/pageImages';
 import { openPdf, type PdfDocument } from './pdf';
 
-/** Pages of the PDF, both included, counting from 1 */
+/** A page of the PDF whose text is read, counting from 1. With a boundary, only the text within it, as fractions of the page */
+export type BookPage = { page: number; boundary?: ImageBox };
+
+/** Consecutive pages, both included, as they are shown */
 export type PageRange = { from: number; to: number };
 
 export type Book = {
     id: string;
     title: string;
     pageCount: number;
-    /** The pages of the summary and of the index, which are read by the AI */
-    ranges: PageRange[];
-    /** Where on each page of the ranges the text is read from, as fractions of the page. Without it, the whole page */
-    bounds?: ImageBox;
-    /** The ranges (and bounds) whose text was sent to the AI, kept on its cache to ask about each highlight */
-    cached?: { ranges: string; at: string };
+    /** The pages of the summary and of the index, which are read by the AI, in order */
+    pages: BookPage[];
+    /** The pages (and boundaries) whose text was sent to the AI, kept on its cache to ask about each highlight */
+    cached?: { pages: string; at: string };
     /** Added to the page numbers of the summary and of the index, as the pages before the first numbered one (cover, preface) */
     offset?: number;
     /** The model and the thinking mode its requests use. Without it, the defaults of the app */
     ai?: AISettings;
     /** Turned off on the listing: kept with its preload, but not asked about the highlights */
     disabled?: boolean;
+    /** Sends the outline of the PDF (its bookmarks), a glossary built in it, along with the pages */
+    glossary?: boolean;
     /** The file the PDF was added from, to find the same one on another device, as the PDF itself isn't synced. The browser doesn't give its path */
     source?: { name: string; size: number; lastModified: number };
 };
@@ -29,16 +32,17 @@ export type Book = {
 /** The page of the PDF a page number of the book is on */
 export const pdfPageOf = (book: Book, page: number) => page + (book.offset ?? 0);
 
-/** The text of a page of the ranges, as extracted from the PDF */
+/** The text of a page of the book, as extracted from the PDF */
 export type PageContent = { page: number; text: string };
 
-/** The pages of the ranges of a book being sent to the AI, or why it failed */
+/** The pages of a book being sent to the AI, or why it failed */
 export type PreloadProgress = { total: number; error?: string };
 
 /** The books and their PDFs are personal. What is read from them and asked to the AI is on the optimization storage */
 const BOOKS_KEY = 'books';
 const pdfKey = (id: string) => `pdf/${id}`;
 const contentKey = (id: string) => `content/${id}`;
+const outlineKey = (id: string) => `outline/${id}`;
 /** The answers kept for the highlights, by the query */
 export const answersKey = (id: string) => `answers/${id}`;
 
@@ -48,6 +52,8 @@ let preloading: Record<string, PreloadProgress> = {};
 let missingPdfs: ReadonlySet<string> = new Set();
 /** Kept as it was sent, so every question starts exactly as the preload did and reuses the cache of the AI */
 const contentByBook = new Map<string, PageContent[]>();
+/** The outline sent with the pages, of the books preloaded with their glossary */
+const outlineByBook = new Map<string, string>();
 const opened = new Map<string, Promise<PdfDocument>>();
 const fileUrls = new Map<string, Promise<string>>();
 const listeners = new Set<() => void>();
@@ -58,25 +64,44 @@ const subscribe = (listener: () => void) => {
     return () => listeners.delete(listener);
 };
 
-export const rangesKey = (ranges: PageRange[]) => ranges.map(({ from, to }) => `${from}-${to}`).join(',');
+/** The pages of the book, empty for one saved before they replaced the ranges */
+export const pagesOf = (book: Pick<Book, 'pages'>) => book.pages ?? [];
 
-const boundsKey = (bounds?: ImageBox) => (bounds ? `@${[bounds.left, bounds.top, bounds.width, bounds.height].map(n => n.toFixed(4)).join(',')}` : '');
-/** What is read from the book: its ranges, and the bounds on their pages */
-const readKey = (book: Pick<Book, 'ranges' | 'bounds'>) => rangesKey(book.ranges) + boundsKey(book.bounds);
+const boundaryKey = (boundary?: ImageBox) =>
+    boundary ? `@${[boundary.left, boundary.top, boundary.width, boundary.height].map(n => n.toFixed(4)).join(',')}` : '';
+/** What is read from the book: its pages, their boundaries and, with the glossary, the offset its page numbers are printed with */
+const readKey = (book: Pick<Book, 'pages' | 'glossary' | 'offset'>) =>
+    pagesOf(book)
+        .map(({ page, boundary }) => page + boundaryKey(boundary))
+        .join(',') + (book.glossary ? `|glossary${book.offset ?? 0}` : '');
 
-/** Read with the ranges and bounds it has now. Changing them asks for reading it again */
-export const isPreloaded = (book: Book) => book.cached?.ranges === readKey(book);
+/** Has something to send to the AI: pages, or the glossary */
+export const hasContent = (book: Pick<Book, 'pages' | 'glossary'>) => pagesOf(book).length > 0 || !!book.glossary;
 
-/** Every page of the ranges, in order */
-export const pagesOf = (ranges: PageRange[]) =>
-    ranges.flatMap(({ from, to }) => Array.from({ length: to - from + 1 }, (_, i) => from + i));
+/** Read with the pages, boundaries and glossary it has now. Changing them asks for reading it again */
+export const isPreloaded = (book: Book) => book.cached?.pages === readKey(book);
+
+/** The pages as runs of consecutive ones, a page with a boundary always on its own, to be shown */
+export function rangesOf(pages: BookPage[]): (PageRange & { boundary?: ImageBox })[] {
+    const ranges: (PageRange & { boundary?: ImageBox })[] = [];
+    for (const { page, boundary } of pages) {
+        const last = ranges.at(-1);
+        if (last && !last.boundary && !boundary && last.to === page - 1) last.to = page;
+        else ranges.push({ from: page, to: page, boundary });
+    }
+    return ranges;
+}
 
 export async function loadLibrary(storage: PluginStores) {
     books = (await storage.personal.get<Book[]>(BOOKS_KEY)) ?? [];
     const stored = new Set(await storage.personal.keys());
     missingPdfs = new Set(books.filter(book => !stored.has(pdfKey(book.id))).map(book => book.id));
     await Promise.all(
-        books.filter(isPreloaded).map(async book => contentByBook.set(book.id, (await storage.optimization.get<PageContent[]>(contentKey(book.id))) ?? [])),
+        books.filter(isPreloaded).map(async book => {
+            contentByBook.set(book.id, (await storage.optimization.get<PageContent[]>(contentKey(book.id))) ?? []);
+            const outline = book.glossary ? await storage.optimization.get<string>(outlineKey(book.id)) : undefined;
+            if (outline) outlineByBook.set(book.id, outline);
+        }),
     );
     notify();
 }
@@ -91,6 +116,7 @@ export const usePreloadedCount = () => useSyncExternalStore(subscribe, () => boo
 export const preloadedBooks = () => books.filter(isConsulted);
 export const preloadedCount = () => preloadedBooks().length;
 export const contentOf = (id: string) => contentByBook.get(id) ?? [];
+export const outlineOf = (id: string) => outlineByBook.get(id);
 
 export function setPreloadProgress(id: string, progress: PreloadProgress | undefined) {
     const { [id]: _, ...others } = preloading;
@@ -123,7 +149,7 @@ export async function addBook(storage: PluginStores, file: File) {
         id: newId(),
         title: file.name.replace(/\.pdf$/i, ''),
         pageCount: pdf.numPages,
-        ranges: [],
+        pages: [],
         source: { name: file.name, size: file.size, lastModified: file.lastModified },
     };
     await storage.personal.set(pdfKey(book.id), file);
@@ -131,7 +157,7 @@ export async function addBook(storage: PluginStores, file: File) {
     await saveBooks(storage, [...books, book]);
 }
 
-/** Gives a book its PDF again, as on a device it was synced to. Its pages must be the same, as its ranges point to them */
+/** Gives a book its PDF again, as on a device it was synced to. Its pages must be the same, as its pages point to them */
 export async function relinkBook(storage: PluginStores, id: string, file: File) {
     const book = books.find(book => book.id === id);
     if (!book) throw new Error('O livro não foi encontrado');
@@ -153,8 +179,14 @@ export async function relinkBook(storage: PluginStores, id: string, file: File) 
 }
 
 export async function removeBook(storage: PluginStores, id: string) {
-    await Promise.all([storage.personal.del(pdfKey(id)), storage.optimization.del(contentKey(id)), storage.optimization.del(answersKey(id))]);
+    await Promise.all([
+        storage.personal.del(pdfKey(id)),
+        storage.optimization.del(contentKey(id)),
+        storage.optimization.del(outlineKey(id)),
+        storage.optimization.del(answersKey(id)),
+    ]);
     contentByBook.delete(id);
+    outlineByBook.delete(id);
     opened.get(id)?.then(pdf => pdf.loadingTask.destroy());
     opened.delete(id);
     fileUrls.get(id)?.then(url => URL.revokeObjectURL(url));
@@ -165,10 +197,10 @@ export async function removeBook(storage: PluginStores, id: string) {
     );
 }
 
-export async function saveRanges(storage: PluginStores, id: string, ranges: PageRange[], bounds?: ImageBox) {
+export async function savePages(storage: PluginStores, id: string, pages: BookPage[], glossary: boolean) {
     await saveBooks(
         storage,
-        books.map(book => (book.id === id ? { ...book, ranges, bounds } : book)),
+        books.map(book => (book.id === id ? { ...book, pages, glossary } : book)),
     );
 }
 
@@ -194,12 +226,25 @@ export async function saveAISettings(storage: PluginStores, id: string, ai: AISe
     );
 }
 
-export async function savePreload(storage: PluginStores, id: string, read: Pick<Book, 'ranges' | 'bounds'>, content: PageContent[]) {
+export async function savePreload(
+    storage: PluginStores,
+    id: string,
+    read: Pick<Book, 'pages' | 'glossary' | 'offset'>,
+    content: PageContent[],
+    outline?: string,
+) {
     await storage.optimization.set(contentKey(id), content);
     contentByBook.set(id, content);
+    if (outline) {
+        await storage.optimization.set(outlineKey(id), outline);
+        outlineByBook.set(id, outline);
+    } else {
+        await storage.optimization.del(outlineKey(id));
+        outlineByBook.delete(id);
+    }
     await saveBooks(
         storage,
-        books.map(book => (book.id === id ? { ...book, cached: { ranges: readKey(read), at: new Date().toISOString() } } : book)),
+        books.map(book => (book.id === id ? { ...book, cached: { pages: readKey(read), at: new Date().toISOString() } } : book)),
     );
 }
 
@@ -225,3 +270,4 @@ export function openBook(storage: PluginStores, id: string) {
     }
     return pdf;
 }
+

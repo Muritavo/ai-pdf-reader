@@ -40,6 +40,8 @@ final class WebAppViewController: UIViewController {
         ))
         // ARDiv opens its window after measuring, which may be past the tap that triggered it
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
+        // No gaze highlight over clickable elements (popups inherit this configuration)
+        config.preferences.disableWebKitFeature("InteractionRegionsEnabled")
         #if DEBUG
         // Page errors and ARDiv's own logs, as `window.webkit.messageHandlers.arLog.postMessage(...)`
         config.userContentController.add(ARDebugLogHandler(), name: ARDebugLogHandler.name)
@@ -194,5 +196,28 @@ private final class PopupViewController: UIViewController, WKUIDelegate {
 
     func webViewDidClose(_ webView: WKWebView) {
         dismiss(animated: true)
+    }
+}
+
+// MARK: - WebKit features without public API
+
+private extension WKPreferences {
+    /// Turns off a WebKit feature by its key, looked up in WebKit's feature lists; does nothing if it isn't there.
+    func disableWebKitFeature(_ key: String) {
+        let setter = NSSelectorFromString("_setEnabled:forFeature:")
+        guard let method = class_getInstanceMethod(WKPreferences.self, setter) else { return }
+        typealias SetEnabled = @convention(c) (AnyObject, Selector, Bool, AnyObject) -> Void
+        let setEnabled = unsafeBitCast(method_getImplementation(method), to: SetEnabled.self)
+
+        for list in ["_features", "_internalDebugFeatures", "_experimentalFeatures"] {
+            let selector = NSSelectorFromString(list)
+            guard WKPreferences.responds(to: selector),
+                  let features = (WKPreferences.perform(selector)?.takeUnretainedValue() as? [NSObject])
+            else { continue }
+            for feature in features where (feature.value(forKey: "key") as? String) == key {
+                setEnabled(self, setter, false, feature)
+                return
+            }
+        }
     }
 }

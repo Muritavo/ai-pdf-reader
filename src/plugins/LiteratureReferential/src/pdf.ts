@@ -39,3 +39,37 @@ export async function pageText(pdf: PdfDocument, pageNo: number, bounds?: ImageB
     }
     return collapseLeaders(text);
 }
+
+type OutlineItem = Awaited<ReturnType<PdfDocument['getOutline']>>[number];
+
+/** The page of the PDF an entry of the outline points to, counting from 1, if it can be found */
+async function pageOfDest(pdf: PdfDocument, dest: OutlineItem['dest']) {
+    try {
+        const explicit = typeof dest === 'string' ? await pdf.getDestination(dest) : dest;
+        const ref = explicit?.[0];
+        if (ref == null) return undefined;
+        return (typeof ref === 'number' ? ref : await pdf.getPageIndex(ref)) + 1;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Whether the PDF has an outline (its bookmarks), as a glossary built in it */
+export const hasOutline = async (pdf: PdfDocument) => ((await pdf.getOutline()) ?? []).length > 0;
+
+/**
+ * The outline of the PDF, one entry a line, indented by its level, with the page number printed on the book
+ * (the page of the PDF less the offset), as the summary and the index give it
+ */
+export async function outlineText(pdf: PdfDocument, offset: number) {
+    const lines: string[] = [];
+    const walk = async (items: OutlineItem[], depth: number) => {
+        for (const item of items) {
+            const page = await pageOfDest(pdf, item.dest);
+            lines.push(`${'  '.repeat(depth)}${item.title}${page === undefined ? '' : ` - ${page - offset}`}`);
+            await walk(item.items ?? [], depth + 1);
+        }
+    };
+    await walk((await pdf.getOutline()) ?? [], 0);
+    return lines.join('\n');
+}
