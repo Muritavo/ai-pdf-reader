@@ -260,6 +260,11 @@ export default {
             suggestions: 'Sugestões',
             error: 'Não foi possível sugerir perguntas. Tente novamente.',
         },
+        definitionModal: {
+            title: 'Definição',
+            term: 'Termo selecionado',
+            definition: 'Definição',
+        },
         referenceModal: {
             title: 'Referência',
             passage: 'Trecho selecionado',

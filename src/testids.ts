@@ -187,6 +187,8 @@ export const TestIds = {
         openResponseModal: 'open-response-modal',
         responseModal: 'response-modal',
         responseModalAnswer: 'response-modal-answer',
+        definitionModal: 'definition-modal',
+        definitionModalAnswer: 'definition-modal-answer',
         referenceModal: 'reference-modal',
         referenceModalAnswer: 'reference-modal-answer',
         referenceSearch: 'reference-search',

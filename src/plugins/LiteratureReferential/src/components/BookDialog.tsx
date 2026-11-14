@@ -17,24 +17,8 @@ const BookDialog = forwardRef<BookDialogHandle, { storage: PluginStores; bookId?
     function BookDialog({ storage, bookId, open, onClose }, ref) {
         const book = useBooks().find(book => book.id === bookId);
         const [page, setPage] = useState(1);
-        const [pdf, setPdf] = useState<PdfDocument>();
-        const [error, setError] = useState<string>();
 
         useImperativeHandle(ref, () => ({ goToPage: setPage }), []);
-
-        useEffect(() => {
-            setPdf(undefined);
-            setError(undefined);
-            if (!bookId) return;
-            let current = true;
-            openBook(storage, bookId).then(
-                opened => current && setPdf(opened),
-                e => current && setError(e instanceof Error ? e.message : String(e)),
-            );
-            return () => {
-                current = false;
-            };
-        }, [storage, bookId]);
 
         const pageCount = book?.pageCount ?? 0;
         const shown = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
@@ -67,7 +51,7 @@ const BookDialog = forwardRef<BookDialogHandle, { storage: PluginStores; bookId?
                                 <ChevronRight size={18} />
                             </button>
                         </div>
-                        {error ? <p className="text-caption">{error}</p> : <BookPage pdf={pdf} page={shown} />}
+                        <BookPage storage={storage} bookId={book.id} page={shown} />
                     </div>
                 )}
             </AdaptiveDialog>
@@ -75,10 +59,28 @@ const BookDialog = forwardRef<BookDialogHandle, { storage: PluginStores; bookId?
     },
 );
 
-/** The page as tall as the room under the header */
-function BookPage({ pdf, page }: { pdf?: PdfDocument; page: number }) {
+/**
+ * The page as tall as the room under the header. The book is opened here, once the dialog is open, in the document the
+ * page is drawn in, which on AR is the window of the dialog
+ */
+function BookPage({ storage, bookId, page }: { storage: PluginStores; bookId: string; page: number }) {
     const boxRef = useRef<HTMLDivElement>(null);
     const [height, setHeight] = useState(0);
+    const [pdf, setPdf] = useState<PdfDocument>();
+    const [error, setError] = useState<string>();
+
+    useEffect(() => {
+        setPdf(undefined);
+        setError(undefined);
+        let current = true;
+        openBook(storage, bookId, boxRef.current?.ownerDocument).then(
+            opened => current && setPdf(opened),
+            e => current && setError(e instanceof Error ? e.message : String(e)),
+        );
+        return () => {
+            current = false;
+        };
+    }, [storage, bookId]);
 
     useLayoutEffect(() => {
         const box = boxRef.current!;
@@ -89,6 +91,7 @@ function BookPage({ pdf, page }: { pdf?: PdfDocument; page: number }) {
 
     return (
         <div ref={boxRef} className={Styles.bookReaderPage}>
+            {error && <p className="text-caption">{error}</p>}
             {pdf && height > 0 && <PageCanvas pdf={pdf} pageNo={page} height={height} />}
         </div>
     );

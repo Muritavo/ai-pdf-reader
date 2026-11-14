@@ -816,16 +816,13 @@ test.describe('asking questions', () => {
 });
 
 test.describe('defining words', () => {
+    /** The definition shown on the page */
     async function defineSelected(page: Page, word: string) {
-        let message: string | undefined;
-        page.once('dialog', dialog => {
-            message = dialog.message();
-            dialog.accept();
-        });
         await selectWord(page, word);
         await byId(page, TestIds.menu.define).click();
-        await expect.poll(() => message).toBeDefined();
-        return message!;
+        const answer = byId(page, TestIds.ai.definitionModalAnswer);
+        await expect(answer).toBeVisible();
+        return (await answer.textContent())!;
     }
 
     test('defines the selected word using the organized text of the document', async ({ page, ai }) => {
@@ -891,9 +888,11 @@ test.describe('defining words', () => {
         await warmUp(page);
         ai.chatStatus = 500;
 
-        const message = await defineSelected(page, SAMPLE_WORD);
+        await selectWord(page, SAMPLE_WORD);
+        await byId(page, TestIds.menu.define).click();
 
-        expect(message).toMatch(/^Error:/);
+        // The button offers to try again, with the word still selected
+        await expect(byId(page, TestIds.menu.define)).toHaveText('Tentar novamente');
     });
 });
 

@@ -54,7 +54,8 @@ let missingPdfs: ReadonlySet<string> = new Set();
 const contentByBook = new Map<string, PageContent[]>();
 /** The outline sent with the pages, of the books preloaded with their glossary */
 const outlineByBook = new Map<string, string>();
-const opened = new Map<string, Promise<PdfDocument>>();
+/** The PDFs opened, by the document they are drawn in (on AR, the window of a dialog) and then by book */
+const opened = new Map<Document, Map<string, Promise<PdfDocument>>>();
 const fileUrls = new Map<string, Promise<string>>();
 const listeners = new Set<() => void>();
 
@@ -153,7 +154,7 @@ export async function addBook(storage: PluginStores, file: File) {
         source: { name: file.name, size: file.size, lastModified: file.lastModified },
     };
     await storage.personal.set(pdfKey(book.id), file);
-    opened.set(book.id, Promise.resolve(pdf));
+    openedIn(document).set(book.id, Promise.resolve(pdf));
     await saveBooks(storage, [...books, book]);
 }
 
@@ -167,8 +168,8 @@ export async function relinkBook(storage: PluginStores, id: string, file: File) 
         throw new Error(`O PDF tem ${pdf.numPages} páginas, mas o livro tem ${book.pageCount}`);
     }
     await storage.personal.set(pdfKey(id), file);
-    opened.get(id)?.then(previous => previous.loadingTask.destroy(), () => {});
-    opened.set(id, Promise.resolve(pdf));
+    closeBook(id);
+    openedIn(document).set(id, Promise.resolve(pdf));
     fileUrls.get(id)?.then(url => URL.revokeObjectURL(url), () => {});
     fileUrls.delete(id);
     missingPdfs = new Set([...missingPdfs].filter(missing => missing !== id));
@@ -187,8 +188,7 @@ export async function removeBook(storage: PluginStores, id: string) {
     ]);
     contentByBook.delete(id);
     outlineByBook.delete(id);
-    opened.get(id)?.then(pdf => pdf.loadingTask.destroy());
-    opened.delete(id);
+    closeBook(id);
     fileUrls.get(id)?.then(url => URL.revokeObjectURL(url));
     fileUrls.delete(id);
     await saveBooks(
@@ -259,14 +259,45 @@ export function fileUrlOf(storage: PluginStores, id: string) {
     return url;
 }
 
-/** Opened once, as a book can have hundreds of pages */
-export function openBook(storage: PluginStores, id: string) {
-    let pdf = opened.get(id);
+/** The PDFs opened for a document. Those of another window are closed with it, as the worker keeps each PDF until it is destroyed */
+function openedIn(ownerDocument: Document) {
+    let byBook = opened.get(ownerDocument);
+    if (!byBook) {
+        byBook = new Map();
+        opened.set(ownerDocument, byBook);
+        if (ownerDocument !== document)
+            ownerDocument.defaultView?.addEventListener(
+                'pagehide',
+                () => {
+                    opened.get(ownerDocument)?.forEach(pdf => pdf.then(pdf => pdf.loadingTask.destroy(), () => {}));
+                    opened.delete(ownerDocument);
+                },
+                { once: true },
+            );
+    }
+    return byBook;
+}
+
+/** Closes the PDF of a book in every document it was opened for */
+function closeBook(id: string) {
+    for (const byBook of opened.values()) {
+        byBook.get(id)?.then(pdf => pdf.loadingTask.destroy(), () => {});
+        byBook.delete(id);
+    }
+}
+
+/**
+ * Opened once for each document its pages are drawn in, as a book can have hundreds of pages.
+ * On AR a dialog has a window of its own, whose document has to load the fonts of the PDF
+ */
+export function openBook(storage: PluginStores, id: string, ownerDocument: Document = document) {
+    const byBook = openedIn(ownerDocument);
+    let pdf = byBook.get(id);
     if (!pdf) {
-        pdf = fileOf(storage, id).then(openPdf);
+        pdf = fileOf(storage, id).then(file => openPdf(file, ownerDocument));
         // A failure is not kept, so opening again tries again
-        pdf.catch(() => opened.delete(id));
-        opened.set(id, pdf);
+        pdf.catch(() => byBook.delete(id));
+        byBook.set(id, pdf);
     }
     return pdf;
 }

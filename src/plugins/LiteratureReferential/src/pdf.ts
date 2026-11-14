@@ -7,8 +7,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export type PdfDocument = pdfjsLib.PDFDocumentProxy;
 
-/** pdf.js takes the bytes over (detaching them), so it reads its own copy from the file */
-export const openPdf = async (file: Blob) => pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+/**
+ * pdf.js takes the bytes over (detaching them), so it reads its own copy from the file.
+ * The fonts of the PDF are loaded into the document its pages are drawn in, which on AR is the window of the dialog:
+ * drawn with fonts loaded into another document, the text would come out as squares
+ */
+export const openPdf = async (file: Blob, ownerDocument: Document = document) =>
+    pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), ownerDocument }).promise;
 
 /**
  * The leaders of a summary, as "Choroid plexus ........ 34", and the runs of spaces, as one space.

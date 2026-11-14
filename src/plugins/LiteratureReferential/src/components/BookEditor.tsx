@@ -41,7 +41,8 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
     const observer = useRef<IntersectionObserver>();
 
     useEffect(() => {
-        openBook(storage, book.id)
+        // In the document the pages are drawn in, which on AR is the window of the dialog
+        openBook(storage, book.id, pagesRef.current?.ownerDocument)
             .then(async opened => {
                 const viewport = (await opened.getPage(1)).getViewport({ scale: 1 });
                 setAspect(viewport.width / viewport.height);

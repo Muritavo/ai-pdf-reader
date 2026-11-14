@@ -498,3 +498,33 @@
     display: block;
     background: #fff;
 }
+
+/* Asks which page number is printed on the page of the preview */
+.adjustPosition {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(420px, 85vw);
+}
+
+.adjustPosition label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.adjustPosition input {
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+
+.adjustPositionActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}

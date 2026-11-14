@@ -76,6 +76,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
+    const [definition, setDefinition] = useState<{ word: string; definition: string }>();
     const [pluginResult, setPluginResult] = useState<PluginResult>();
     // The images of each page, recorded while drawing it, and the one a question is being written about
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
@@ -846,7 +847,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 getWindow={previewWindow}
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
-                onDefined={addDefinition}
+                onDefined={(word, text) => {
+                    addDefinition(word, text);
+                    setDefinition({ word, definition: text });
+                }}
                 onAskAbout={statement => promptBarRef.current?.askAbout(statement)}
                 onPluginResult={setPluginResult}
             />
@@ -873,6 +877,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         answer: txt('documentPreview.responseModal.answer'),
                     }}
                     testIds={{ modal: TestIds.preview.imageAnswerModal, answer: TestIds.preview.imageAnswer }}
+                />
+            )}
+            {definition && (
+                <ResponseModal
+                    prompt={definition.word}
+                    answer={definition.definition}
+                    onClose={() => setDefinition(undefined)}
+                    labels={{
+                        title: txt('documentPreview.definitionModal.title'),
+                        prompt: txt('documentPreview.definitionModal.term'),
+                        answer: txt('documentPreview.definitionModal.definition'),
+                    }}
+                    testIds={{ modal: TestIds.ai.definitionModal, answer: TestIds.ai.definitionModalAnswer }}
                 />
             )}
             {reference && (

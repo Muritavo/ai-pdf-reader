@@ -162,17 +162,11 @@ export default forwardRef(function FeaturesMenu(
             label: txt('documentPreview.menu.define'),
             disabled: !aiReady,
             hint: txt('aiWarmUp.locked'),
+            // A failure is left to the button, that offers to try again with the word still selected
             onClick: async () => {
-                try {
-                    const normalizedText = await prepare();
-                    const definition = await defineWordInContext(word, normalizedText);
-                    onDefined(word, definition);
-                    alert(definition);
-                } catch (error) {
-                    alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
-                } finally {
-                    dismiss();
-                }
+                const normalizedText = await prepare();
+                onDefined(word, await defineWordInContext(word, normalizedText));
+                dismiss();
             },
         },
         {

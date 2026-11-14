@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import Collapsable from '@onepercentio/one-ui/components/Collapsable';
 import useIsAR from '@onepercentio/one-ui/hooks/useIsAR';
 import { ChevronDown } from 'lucide-react';
@@ -39,9 +40,11 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
     const boxRef = useRef<HTMLDivElement>(null);
     const books = useBooksProvider();
     const isAR = useIsAR();
+    const [adjusting, setAdjusting] = useState(false);
 
     useEffect(() => {
-        openBook(storage, match.book.id).then(setPdf, e => setError(e instanceof Error ? e.message : String(e)));
+        // In the document the page is drawn in, which on AR is the window of the dialog
+        openBook(storage, match.book.id, boxRef.current?.ownerDocument).then(setPdf, e => setError(e instanceof Error ? e.message : String(e)));
     }, [storage, match.book.id]);
     // Ready before the click, as a tab opened after waiting for the storage is taken for a popup and blocked
     useEffect(() => {
@@ -78,17 +81,21 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
                     type="button"
                     className="btn btn-outline"
                     data-testid="literature-adjust-position"
-                    onClick={() => {
-                        const answer = window.prompt(`Esta deveria ser a página ${match.page}. Qual número de página aparece nela?`);
-                        const hit = Number(answer);
-                        if (!answer?.trim() || !Number.isInteger(hit)) return;
-                        // Showing 262 when 282 was wanted: the page wanted is 20 pages further on the PDF
-                        saveOffset(storage, book.id, (book.offset ?? 0) + match.page - hit);
-                    }}
+                    onClick={() => setAdjusting(true)}
                 >
                     Ajustar posição
                 </button>
             </div>
+            <AdjustPositionDialog
+                open={adjusting}
+                page={match.page}
+                onClose={() => setAdjusting(false)}
+                onAdjust={hit => {
+                    setAdjusting(false);
+                    // Showing 262 when 282 was wanted: the page wanted is 20 pages further on the PDF
+                    saveOffset(storage, book.id, (book.offset ?? 0) + match.page - hit);
+                }}
+            />
             <div ref={boxRef} className={Styles.previewPage}>
                 {error ? (
                     <p className="text-caption">{error}</p>
@@ -99,6 +106,64 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
                 )}
             </div>
         </div>
+    );
+}
+
+/**
+ * Asks which page number is printed on the page shown. A dialog, as the prompt of the browser doesn't show on the app
+ * of the Vision Pro
+ */
+function AdjustPositionDialog({
+    open,
+    page,
+    onClose,
+    onAdjust,
+}: {
+    open: boolean;
+    page: number;
+    onClose: () => void;
+    onAdjust: (hit: number) => void;
+}) {
+    const [answer, setAnswer] = useState('');
+    const hit = Number(answer);
+    const valid = !!answer.trim() && Number.isInteger(hit);
+
+    // Empty every time it opens
+    useEffect(() => {
+        if (open) setAnswer('');
+    }, [open]);
+
+    return (
+        <AdaptiveDialog open={open} onClose={onClose} onClickOut={onClose}>
+            <form
+                className={Styles.adjustPosition}
+                data-testid="literature-adjust-position-dialog"
+                onSubmit={e => {
+                    e.preventDefault();
+                    if (valid) onAdjust(hit);
+                }}
+            >
+                <label>
+                    Esta deveria ser a página {page}. Qual número de página aparece nela?
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        autoFocus
+                        data-testid="literature-adjust-position-input"
+                        value={answer}
+                        onChange={e => setAnswer(e.target.value)}
+                    />
+                </label>
+                <div className={Styles.adjustPositionActions}>
+                    <button type="button" className="btn btn-transparent" onClick={onClose}>
+                        Cancelar
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={!valid} data-testid="literature-adjust-position-confirm">
+                        Ajustar
+                    </button>
+                </div>
+            </form>
+        </AdaptiveDialog>
     );
 }
 
