@@ -225,9 +225,18 @@
 }
 
 .pageSheet {
+    position: relative;
     background: #fff;
     border-radius: 2px;
     outline: 3px solid transparent;
+}
+
+/** The part of the page the text is read from */
+.bounds {
+    position: absolute;
+    border: 2px dashed var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    pointer-events: none;
 }
 
 .selected .pageSheet {

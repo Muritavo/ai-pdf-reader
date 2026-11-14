@@ -9,11 +9,11 @@ export async function preloadBook({ storage, ai }: PluginEnv, book: Book) {
     setPreloadProgress(book.id, { total });
     try {
         const pdf = await openBook(storage, book.id);
-        const content = (await Promise.all(pagesOf(book.ranges).map(async page => ({ page, text: await pageText(pdf, page) })))).filter(
+        const content = (await Promise.all(pagesOf(book.ranges).map(async page => ({ page, text: await pageText(pdf, page, book.bounds) })))).filter(
             ({ text }) => text.trim(),
         );
         await ai.complete(preloadMessages(book, content), { cache: true, settings: book.ai });
-        await savePreload(storage, book.id, book.ranges, content);
+        await savePreload(storage, book.id, book, content);
         setPreloadProgress(book.id, undefined);
     } catch (e) {
         setPreloadProgress(book.id, { total, error: e instanceof Error ? e.message : String(e) });

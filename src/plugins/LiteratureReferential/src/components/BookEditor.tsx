@@ -1,6 +1,8 @@
-import { Eye } from 'lucide-react';
+import { Eye, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PluginStores } from '../../../types';
+import type { ImageBox } from '../../../../utils/pageImages';
+import { dragZone } from '../../../../utils/dragZone';
 import { openBook, saveRanges, type Book, type PageRange } from '../library';
 import type { PdfDocument } from '../pdf';
 import PageCanvas from './PageCanvas';
@@ -25,6 +27,9 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
     const [error, setError] = useState<string>();
     const [aspect, setAspect] = useState(1 / Math.SQRT2);
     const [ranges, setRanges] = useState(book.ranges);
+    // Where the text of the pages is read from, the same on every page, drawn with Alt + drag on any of them
+    const [bounds, setBounds] = useState(book.bounds);
+    const [drawing, setDrawing] = useState<ImageBox>();
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const [saving, setSaving] = useState(false);
@@ -142,6 +147,16 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
                     </button>
                 </form>
                 <RangePills ranges={ranges} onRemove={removeRange} onGoto={range => gotoPage(range.from)} />
+                {bounds ? (
+                    <span className={Styles.pill} data-testid="literature-bounds">
+                        Limite
+                        <button type="button" aria-label="Remover limite" onClick={() => setBounds(undefined)}>
+                            <X size={12} />
+                        </button>
+                    </span>
+                ) : (
+                    <span className="text-caption">Alt + arrastar numa página define o limite do texto</span>
+                )}
                 <button
                     type="button"
                     className="btn btn-primary"
@@ -149,7 +164,7 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
                     disabled={saving}
                     onClick={async () => {
                         setSaving(true);
-                        await saveRanges(storage, book.id, ranges);
+                        await saveRanges(storage, book.id, ranges, bounds);
                         onBack();
                     }}
                 >
@@ -161,8 +176,31 @@ export default function BookEditor({ storage, book, onBack }: { storage: PluginS
                 {height > 0 &&
                     Array.from({ length: book.pageCount }, (_, i) => i + 1).map(pageNo => (
                         <figure key={pageNo} data-page={pageNo} className={`${Styles.page} ${inRanges(pageNo) ? Styles.selected : ''}`}>
-                            <div className={Styles.pageSheet} style={{ height, width: height * aspect }}>
+                            <div
+                                className={Styles.pageSheet}
+                                style={{ height, width: height * aspect }}
+                                onMouseDown={e =>
+                                    dragZone(e, {
+                                        onChange: setDrawing,
+                                        onDrop: box => {
+                                            setDrawing(undefined);
+                                            if (box) setBounds(box);
+                                        },
+                                    })
+                                }
+                            >
                                 {pdf && visible.has(pageNo) && <PageCanvas pdf={pdf} pageNo={pageNo} height={height} />}
+                                {(drawing ?? bounds) && (
+                                    <div
+                                        className={Styles.bounds}
+                                        style={(box => ({
+                                            left: `${box.left * 100}%`,
+                                            top: `${box.top * 100}%`,
+                                            width: `${box.width * 100}%`,
+                                            height: `${box.height * 100}%`,
+                                        }))((drawing ?? bounds)!)}
+                                    />
+                                )}
                             </div>
                             <figcaption>{pageNo}</figcaption>
                         </figure>

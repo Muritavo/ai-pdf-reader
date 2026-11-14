@@ -26,6 +26,7 @@ import useToggleAction from '../../hooks/useToggleAction';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
 import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { dragZone } from '../../utils/dragZone';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
 import { createStreamedWords, uniqueExcerptsOfPage } from '../../utils/progressTracker';
@@ -48,13 +49,6 @@ const SCAN_COLOR = '#7c9cff';
 
 /** The most pixels a page is drawn with, so a big screen and a long document don't run out of memory */
 const MAX_CANVAS_PIXELS = 4096 * 4096;
-
-/** The smallest side (in pixels of the screen) a zone drawn by hand has to be an image */
-const MIN_ZONE_SIDE = 12;
-/** How close (in pixels) to the top or the bottom of what is seen the mouse starts scrolling the document while drawing a zone */
-const ZONE_SCROLL_EDGE = 60;
-/** The most pixels the document scrolls at each frame while drawing a zone, with the mouse on (or past) the edge */
-const ZONE_SCROLL_SPEED = 24;
 
 type PageElement = {
     id: number;
@@ -166,64 +160,14 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
 
     /** Alt + drag on a page draws a zone, to be defined as an image once dropped */
     const startZone = (e: MouseEvent<HTMLDivElement>, pageId: number) => {
-        if (!e.altKey || e.button !== 0) return;
-        // Draws instead of selecting text
-        e.preventDefault();
-        previewWindow().getSelection()?.removeAllRanges();
-        const wrapper = e.currentTarget;
-        const at = (event: { clientX: number; clientY: number }) => {
-            const rect = wrapper.getBoundingClientRect();
-            return {
-                x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
-                y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
-            };
-        };
-        const start = at(e);
-        const boxTo = (event: { clientX: number; clientY: number }): ImageBox => {
-            const end = at(event);
-            return {
-                left: Math.min(start.x, end.x),
-                top: Math.min(start.y, end.y),
-                width: Math.abs(end.x - start.x),
-                height: Math.abs(end.y - start.y),
-            };
-        };
+        const started = dragZone(e, {
+            scroller: previewBoxRef.current,
+            onChange: box => setNewZone({ page: pageId, box, dragging: true }),
+            onDrop: box => setNewZone(box ? { page: pageId, box, dragging: false } : undefined),
+        });
+        if (!started) return;
         setAskingImage(undefined);
         setNewZone(undefined);
-        // Where the mouse is, kept for when the document scrolls under it without the mouse moving
-        let pointer = { clientX: e.clientX, clientY: e.clientY };
-        const update = () => setNewZone({ page: pageId, box: boxTo(pointer), dragging: true });
-        const move = (event: globalThis.MouseEvent) => {
-            pointer = { clientX: event.clientX, clientY: event.clientY };
-            update();
-        };
-        // Held near the top or the bottom of what is seen (or past it), the document scrolls, faster the closer to the edge,
-        // so a zone can be taller than what is seen, as a figure of a whole page
-        const scroller = previewBoxRef.current;
-        let frame = 0;
-        const autoScroll = () => {
-            if (scroller) {
-                const { top, bottom } = scroller.getBoundingClientRect();
-                const into = (distance: number) => Math.min(1, Math.max(0, 1 - distance / ZONE_SCROLL_EDGE));
-                const speed = ZONE_SCROLL_SPEED * (into(bottom - pointer.clientY) - into(pointer.clientY - top));
-                if (speed) scroller.scrollTop += speed;
-            }
-            frame = requestAnimationFrame(autoScroll);
-        };
-        frame = requestAnimationFrame(autoScroll);
-        scroller?.addEventListener('scroll', update, { passive: true });
-        const drop = (event: globalThis.MouseEvent) => {
-            window.removeEventListener('mousemove', move);
-            cancelAnimationFrame(frame);
-            scroller?.removeEventListener('scroll', update);
-            const box = boxTo(event);
-            const { width, height } = wrapper.getBoundingClientRect();
-            // Too small to be a zone: an Alt + click, not a drag
-            const isZone = box.width * width >= MIN_ZONE_SIDE && box.height * height >= MIN_ZONE_SIDE;
-            setNewZone(isZone ? { page: pageId, box, dragging: false } : undefined);
-        };
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', drop, { once: true });
     };
 
     /** Copies the image, cut out of the drawn page, to the clipboard */

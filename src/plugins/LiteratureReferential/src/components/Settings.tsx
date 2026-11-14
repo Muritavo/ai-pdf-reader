@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Switch from '@onepercentio/one-ui/components/Switch';
-import { BookOpen, Bug, Ellipsis, Play, Trash2, Upload } from 'lucide-react';
+import { BookOpen, Bug, Ellipsis, FileWarning, Play, Trash2, Upload } from 'lucide-react';
 import type { PluginEnv } from '../../../types';
-import { addBook, isPreloaded, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, usePreloading, type Book } from '../library';
+import { addBook, isPreloaded, relinkBook, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, useMissingPdfs, usePreloading, type Book } from '../library';
 import { preloadBook } from '../preload';
 import BookEditor from './BookEditor';
 import ExtractedContent from './ExtractedContent';
@@ -72,6 +72,10 @@ export default function Settings(env: PluginEnv) {
     const [editing, setEditing] = useState<string>();
     const [adding, setAdding] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
+    const missingPdfs = useMissingPdfs();
+    /** The book whose PDF is being picked again, as on a device it was synced to */
+    const relinking = useRef<Book>();
+    const relinkInput = useRef<HTMLInputElement>(null);
     const [holdingCtrl, setHoldingCtrl] = useState(false);
     /** The book whose options (shown holding Ctrl) are open */
     const [menuOf, setMenuOf] = useState<string>();
@@ -139,6 +143,29 @@ export default function Settings(env: PluginEnv) {
                         }
                     }}
                 />
+                <input
+                    ref={relinkInput}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    hidden
+                    data-testid="literature-relink-input"
+                    onChange={async e => {
+                        const file = e.target.files?.item(0);
+                        e.target.value = '';
+                        const book = relinking.current;
+                        relinking.current = undefined;
+                        if (!file || !book) return;
+                        const { source } = book;
+                        if (source && (source.name !== file.name || source.size !== file.size)) {
+                            if (!window.confirm(`O livro foi adicionado de ${source.name}, mas o arquivo escolhido é ${file.name}. Usar mesmo assim?`)) return;
+                        }
+                        try {
+                            await relinkBook(storage, book.id, file);
+                        } catch (error) {
+                            alert(`Não foi possível usar o PDF: ${error instanceof Error ? error.message : String(error)}`);
+                        }
+                    }}
+                />
             </div>
             {books.length === 0 && <p className="text-description">Nenhum livro ainda.</p>}
             <ul className={Styles.books}>
@@ -157,6 +184,21 @@ export default function Settings(env: PluginEnv) {
                             <OffsetInput book={book} onSave={offset => saveOffset(storage, book.id, offset)} />
                             <BookStatus book={book} />
                             <div className={Styles.bookActions}>
+                                {missingPdfs.has(book.id) && (
+                                    <button
+                                        type="button"
+                                        className={Styles.iconButton}
+                                        title={`PDF ausente neste dispositivo${book.source ? ` (arquivo original: ${book.source.name})` : ''}. Clique para escolher o PDF`}
+                                        aria-label="Escolher o PDF do livro"
+                                        data-testid="literature-relink"
+                                        onClick={() => {
+                                            relinking.current = book;
+                                            relinkInput.current?.click();
+                                        }}
+                                    >
+                                        <FileWarning size={18} />
+                                    </button>
+                                )}
                                 <span className={Styles.bookSwitch}>
                                     <Switch
                                         size={12}

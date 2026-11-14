@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { AISettings, PluginStores } from '../../types';
+import type { ImageBox } from '../../../utils/pageImages';
 import { openPdf, type PdfDocument } from './pdf';
 
 /** Pages of the PDF, both included, counting from 1 */
@@ -11,7 +12,9 @@ export type Book = {
     pageCount: number;
     /** The pages of the summary and of the index, which are read by the AI */
     ranges: PageRange[];
-    /** The ranges whose text was sent to the AI, kept on its cache to ask about each highlight */
+    /** Where on each page of the ranges the text is read from, as fractions of the page. Without it, the whole page */
+    bounds?: ImageBox;
+    /** The ranges (and bounds) whose text was sent to the AI, kept on its cache to ask about each highlight */
     cached?: { ranges: string; at: string };
     /** Added to the page numbers of the summary and of the index, as the pages before the first numbered one (cover, preface) */
     offset?: number;
@@ -19,6 +22,8 @@ export type Book = {
     ai?: AISettings;
     /** Turned off on the listing: kept with its preload, but not asked about the highlights */
     disabled?: boolean;
+    /** The file the PDF was added from, to find the same one on another device, as the PDF itself isn't synced. The browser doesn't give its path */
+    source?: { name: string; size: number; lastModified: number };
 };
 
 /** The page of the PDF a page number of the book is on */
@@ -39,6 +44,8 @@ export const answersKey = (id: string) => `answers/${id}`;
 
 let books: Book[] = [];
 let preloading: Record<string, PreloadProgress> = {};
+/** The books whose PDF isn't on this device, as when they came from another one */
+let missingPdfs: ReadonlySet<string> = new Set();
 /** Kept as it was sent, so every question starts exactly as the preload did and reuses the cache of the AI */
 const contentByBook = new Map<string, PageContent[]>();
 const opened = new Map<string, Promise<PdfDocument>>();
@@ -53,8 +60,12 @@ const subscribe = (listener: () => void) => {
 
 export const rangesKey = (ranges: PageRange[]) => ranges.map(({ from, to }) => `${from}-${to}`).join(',');
 
-/** Read with the ranges it has now. Changing them asks for reading it again */
-export const isPreloaded = (book: Book) => book.cached?.ranges === rangesKey(book.ranges);
+const boundsKey = (bounds?: ImageBox) => (bounds ? `@${[bounds.left, bounds.top, bounds.width, bounds.height].map(n => n.toFixed(4)).join(',')}` : '');
+/** What is read from the book: its ranges, and the bounds on their pages */
+const readKey = (book: Pick<Book, 'ranges' | 'bounds'>) => rangesKey(book.ranges) + boundsKey(book.bounds);
+
+/** Read with the ranges and bounds it has now. Changing them asks for reading it again */
+export const isPreloaded = (book: Book) => book.cached?.ranges === readKey(book);
 
 /** Every page of the ranges, in order */
 export const pagesOf = (ranges: PageRange[]) =>
@@ -62,6 +73,8 @@ export const pagesOf = (ranges: PageRange[]) =>
 
 export async function loadLibrary(storage: PluginStores) {
     books = (await storage.personal.get<Book[]>(BOOKS_KEY)) ?? [];
+    const stored = new Set(await storage.personal.keys());
+    missingPdfs = new Set(books.filter(book => !stored.has(pdfKey(book.id))).map(book => book.id));
     await Promise.all(
         books.filter(isPreloaded).map(async book => contentByBook.set(book.id, (await storage.optimization.get<PageContent[]>(contentKey(book.id))) ?? [])),
     );
@@ -70,6 +83,7 @@ export async function loadLibrary(storage: PluginStores) {
 
 export const useBooks = () => useSyncExternalStore(subscribe, () => books);
 export const usePreloading = () => useSyncExternalStore(subscribe, () => preloading);
+export const useMissingPdfs = () => useSyncExternalStore(subscribe, () => missingPdfs);
 /** Preloaded and not turned off */
 const isConsulted = (book: Book) => isPreloaded(book) && !book.disabled;
 
@@ -96,16 +110,46 @@ const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slic
 /** Stored as a Blob, as IndexedDB keeps it as a file and a value of bytes over ~133 MB is refused. The ones stored as bytes before still open */
 async function fileOf(storage: PluginStores, id: string) {
     const stored = await storage.personal.get<Blob | ArrayBuffer>(pdfKey(id));
-    if (!stored) throw new Error('O PDF do livro não foi encontrado');
+    if (!stored) {
+        const source = books.find(book => book.id === id)?.source;
+        throw new Error(source ? `O PDF do livro não foi encontrado (arquivo original: ${source.name})` : 'O PDF do livro não foi encontrado');
+    }
     return stored instanceof Blob ? stored : new Blob([stored], { type: 'application/pdf' });
 }
 
 export async function addBook(storage: PluginStores, file: File) {
     const pdf = await openPdf(file);
-    const book: Book = { id: newId(), title: file.name.replace(/\.pdf$/i, ''), pageCount: pdf.numPages, ranges: [] };
+    const book: Book = {
+        id: newId(),
+        title: file.name.replace(/\.pdf$/i, ''),
+        pageCount: pdf.numPages,
+        ranges: [],
+        source: { name: file.name, size: file.size, lastModified: file.lastModified },
+    };
     await storage.personal.set(pdfKey(book.id), file);
     opened.set(book.id, Promise.resolve(pdf));
     await saveBooks(storage, [...books, book]);
+}
+
+/** Gives a book its PDF again, as on a device it was synced to. Its pages must be the same, as its ranges point to them */
+export async function relinkBook(storage: PluginStores, id: string, file: File) {
+    const book = books.find(book => book.id === id);
+    if (!book) throw new Error('O livro não foi encontrado');
+    const pdf = await openPdf(file);
+    if (pdf.numPages !== book.pageCount) {
+        pdf.loadingTask.destroy();
+        throw new Error(`O PDF tem ${pdf.numPages} páginas, mas o livro tem ${book.pageCount}`);
+    }
+    await storage.personal.set(pdfKey(id), file);
+    opened.get(id)?.then(previous => previous.loadingTask.destroy(), () => {});
+    opened.set(id, Promise.resolve(pdf));
+    fileUrls.get(id)?.then(url => URL.revokeObjectURL(url), () => {});
+    fileUrls.delete(id);
+    missingPdfs = new Set([...missingPdfs].filter(missing => missing !== id));
+    await saveBooks(
+        storage,
+        books.map(other => (other.id === id ? { ...other, source: { name: file.name, size: file.size, lastModified: file.lastModified } } : other)),
+    );
 }
 
 export async function removeBook(storage: PluginStores, id: string) {
@@ -121,10 +165,10 @@ export async function removeBook(storage: PluginStores, id: string) {
     );
 }
 
-export async function saveRanges(storage: PluginStores, id: string, ranges: PageRange[]) {
+export async function saveRanges(storage: PluginStores, id: string, ranges: PageRange[], bounds?: ImageBox) {
     await saveBooks(
         storage,
-        books.map(book => (book.id === id ? { ...book, ranges } : book)),
+        books.map(book => (book.id === id ? { ...book, ranges, bounds } : book)),
     );
 }
 
@@ -150,12 +194,12 @@ export async function saveAISettings(storage: PluginStores, id: string, ai: AISe
     );
 }
 
-export async function savePreload(storage: PluginStores, id: string, ranges: PageRange[], content: PageContent[]) {
+export async function savePreload(storage: PluginStores, id: string, read: Pick<Book, 'ranges' | 'bounds'>, content: PageContent[]) {
     await storage.optimization.set(contentKey(id), content);
     contentByBook.set(id, content);
     await saveBooks(
         storage,
-        books.map(book => (book.id === id ? { ...book, cached: { ranges: rangesKey(ranges), at: new Date().toISOString() } } : book)),
+        books.map(book => (book.id === id ? { ...book, cached: { ranges: readKey(read), at: new Date().toISOString() } } : book)),
     );
 }
 

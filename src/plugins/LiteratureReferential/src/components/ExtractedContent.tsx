@@ -13,7 +13,7 @@ export default function ExtractedContent({ storage, book, onClose }: { storage: 
 
     useEffect(() => {
         openBook(storage, book.id)
-            .then(pdf => Promise.all(pagesOf(book.ranges).map(async page => ({ page, text: await pageText(pdf, page) }))))
+            .then(pdf => Promise.all(pagesOf(book.ranges).map(async page => ({ page, text: await pageText(pdf, page, book.bounds) }))))
             .then(setPages, e => setError(e instanceof Error ? e.message : String(e)));
     }, [storage, book]);
 
