@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { ArrowLeft, Brain, Check, Copy, Search } from 'lucide-react';
+import { ArrowLeft, Brain, Check, Copy, RotateCw, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -25,7 +25,7 @@ import DocumentActions from './components/DocumentActions';
 import useToggleAction from '../../hooks/useToggleAction';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
-import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { cropImage, imageBoxesOf, rotateBox, unrotateBox, type ImageBox, type PageRotation } from '../../utils/pageImages';
 import { dragZone } from '../../utils/dragZone';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
@@ -122,6 +122,16 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [imageZones, setImageZones] = useLocalStorage<Record<number, ImageBox[]>>(scoped(`imageZones-${hash}`), {});
     // The texts shown as other ones, for the documents whose text is not what is drawn (as a β read as an "A")
     const [textReplacements, setTextReplacements] = useLocalStorage<TextReplacement[]>(scoped(`textReplacements-${hash}`), []);
+    // The pages shown turned a quarter clockwise, for the ones printed sideways (as wide tables)
+    const [landscapePages, setLandscapePages] = useLocalStorage<number[]>(scoped(`landscapePages-${hash}`), []);
+    const rotationOf = (pageId: number): PageRotation => (landscapePages.includes(pageId) ? 90 : 0);
+    // Read by the drawing of every page, which is not started again when a page is turned
+    const rotationOfRef = useRef(rotationOf);
+    rotationOfRef.current = rotationOf;
+    // The text layer of each page, so turning one page draws only that page again
+    const textLayerOfPage = useRef<Record<number, pdfjsLib.TextLayer>>({});
+    // How each page was turned the first time it was drawn: pdf.js keeps the images it recorded then, as they were drawn
+    const imagesRecordedRotation = useRef<Record<number, PageRotation>>({});
     const clickCounterRef = useRef(0);
 
     // Alt + R replaces the selected text, wherever it is in the document
@@ -155,8 +165,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setLastClick({ ...toDocumentCoordinates(e.clientX, e.clientY), key: clickCounterRef.current });
     };
 
-    /** The images of a page: the ones recorded while drawing it, then the zones defined by hand */
-    const boxesOf = (pageId: number) => [...(imageBoxes[pageId] ?? []), ...(imageZones[pageId] ?? [])];
+    /** The images of a page, where they are on the page as shown: the ones recorded while drawing it, then the zones defined by hand */
+    const boxesOf = (pageId: number) =>
+        [...(imageBoxes[pageId] ?? []), ...(imageZones[pageId] ?? [])].map(box => rotateBox(box, rotationOf(pageId)));
 
     /** Alt + drag on a page draws a zone, to be defined as an image once dropped */
     const startZone = (e: MouseEvent<HTMLDivElement>, pageId: number) => {
@@ -357,6 +368,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
 
     useEffect(() => {
         if (!pdf) return;
+        textLayerOfPage.current = {};
+        imagesRecordedRotation.current = {};
         setLoading(true);
         setTextLayers(undefined);
         setPages(
@@ -369,15 +382,22 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setLoading(false);
     }, [pdf]);
 
-    const renderPage = async (pdfDoc: pdfjsLib.PDFDocumentProxy, pageNum: number, element: PageElement) => {
+    const renderPage = async (
+        pdfDoc: pdfjsLib.PDFDocumentProxy,
+        pageNum: number,
+        element: PageElement,
+        rotation: PageRotation,
+    ) => {
         try {
             const page = await pdfDoc.getPage(pageNum);
-            const pageViewport = page.getViewport({ scale: 1 });
+            // Turned by pdf.js, so the canvas is drawn wide and the page fills the width of the preview as a wide one
+            const pageViewport = page.getViewport({ scale: 1, rotation });
 
             // Scales the page to fit the container width
             const containerWidth = previewBoxRef.current?.clientWidth || 800;
             const scale = containerWidth / pageViewport.width;
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale, rotation });
+            // Not turned: the text layer is turned with the transform below, along with its scale
             const textLayerViewport = page.getViewport({ scale: 1 });
 
             const canvas = element.canvasRef.current;
@@ -405,7 +425,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await drawing.promise;
             // Kept by pdf.js on the page: the getter of the render task reads a field it never sets
-            setImageBoxes(current => ({ ...current, [pageNum]: imageBoxesOf(page.imageCoordinates) }));
+            // Recorded only on the first drawing of the page, so they are turned as the page was then. Kept as on the page in the PDF
+            const recordedRotation = (imagesRecordedRotation.current[pageNum] ??= rotation);
+            setImageBoxes(current => ({
+                ...current,
+                [pageNum]: imageBoxesOf(page.imageCoordinates).map(box => unrotateBox(box, recordedRotation)),
+            }));
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({
@@ -415,7 +440,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await textLayer.render();
             // Moved before scaling, so the offset is in pixels of the screen. Read from the preview, so changing it does not draw the pages again
-            textLayerContainer.style.transform = `translate(var(--text-layer-x, 0px), var(--text-layer-y, 0px)) scale(${scale})`;
+            // A turned page has its text layer turned around its top left corner, then moved back down over the page
+            const turn = rotation ? ` rotate(${rotation}deg)` : '';
+            const backOver = rotation ? ' translateY(-100%)' : '';
+            textLayerContainer.style.transform = `translate(var(--text-layer-x, 0px), var(--text-layer-y, 0px))${turn} scale(${scale})${backOver}`;
             textLayerContainer.style.width = `${textLayerViewport.width}px`;
             textLayerContainer.style.height = `${textLayerViewport.height}px`;
 
@@ -431,8 +459,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         (async () => {
             const rendered: pdfjsLib.TextLayer[] = [];
             for (let i = 0; i < pages.length; i++) {
-                const textLayer = await renderPage(pdf, i + 1, pages[i]);
-                if (textLayer) rendered.push(textLayer);
+                const textLayer = await renderPage(pdf, i + 1, pages[i], rotationOfRef.current(i + 1));
+                if (!textLayer) continue;
+                textLayerOfPage.current[i + 1] = textLayer;
+                rendered.push(textLayer);
             }
             if (!cancelled) setTextLayers(rendered);
         })();
@@ -440,6 +470,23 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             cancelled = true;
         };
     }, [pages, pdf]);
+
+    /** Shows a page wide (turned a quarter clockwise) or back as it is in the PDF, drawing only that page again */
+    const toggleLandscape = async (page: PageElement) => {
+        // Only once every page is drawn, as a canvas can't be drawn twice at once
+        if (!pdf || !textLayers) return;
+        const rotation: PageRotation = rotationOf(page.id) ? 0 : 90;
+        setLandscapePages(prev => (rotation ? [...prev, page.id] : prev.filter(id => id !== page.id)));
+        // Not about the page before
+        setAskingImage(current => (current?.page === page.id ? undefined : current));
+        setNewZone(current => (current?.page === page.id ? undefined : current));
+        const before = textLayerOfPage.current[page.id];
+        const textLayer = await renderPage(pdf, page.id, page, rotation);
+        if (!textLayer) return;
+        textLayerOfPage.current[page.id] = textLayer;
+        // A new text layer, so the highlights are put on it again
+        setTextLayers(current => current?.map(other => (other === before ? textLayer : other)));
+    };
 
     // Keeps how far the document was read, once every page is rendered and the height is known
     useEffect(() => {
@@ -680,7 +727,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                                 onClose={() => setNewZone(undefined)}
                                 onDefine={() => {
-                                    setImageZones(prev => ({ ...prev, [page.id]: [...(prev[page.id] ?? []), newZone.box] }));
+                                    // Kept as on the page in the PDF, so it stays on its image when the page is turned
+                                    const zone = unrotateBox(newZone.box, rotationOf(page.id));
+                                    setImageZones(prev => ({ ...prev, [page.id]: [...(prev[page.id] ?? []), zone] }));
                                     setNewZone(undefined);
                                 }}
                             />
@@ -720,6 +769,24 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                             />
                         )}
+                        {/* Seen only with the mouse near the top right corner of the page */}
+                        <div className={Styles.pageLandscapeZone} onMouseDown={e => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                className={Styles.pageLandscape}
+                                data-testid={TestIds.preview.pageLandscape}
+                                data-landscape={rotationOf(page.id) ? '' : undefined}
+                                disabled={!textLayers}
+                                title={txt(rotationOf(page.id) ? 'documentPreview.showPortrait' : 'documentPreview.showLandscape')}
+                                aria-label={txt(rotationOf(page.id) ? 'documentPreview.showPortrait' : 'documentPreview.showLandscape')}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    toggleLandscape(page);
+                                }}
+                            >
+                                <RotateCw size={14} strokeWidth={1.75} />
+                            </button>
+                        </div>
                         {warmUp.state === 'running' && warmUp.page === page.id && (
                             <div className={Styles.readingPage}>
                                 <PixelatedScan

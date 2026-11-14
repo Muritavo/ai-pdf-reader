@@ -94,6 +94,7 @@ export const TestIds = {
         highlight: 'word-highlight',
         scrollBar: 'scroll-bar',
         goBack: 'go-back',
+        pageLandscape: 'page-landscape',
         imageBox: 'image-box',
         imageBoxCopy: 'image-box-copy',
         imageQuestion: 'image-question',

@@ -268,6 +268,8 @@ export default {
             searchOnGoogle: 'Pesquisar no Google',
         },
         goBack: 'Voltar para onde parei',
+        showLandscape: 'Mostrar a página na horizontal',
+        showPortrait: 'Mostrar a página na vertical',
         textLayerOffset: {
             title: 'Deslocamento do texto (px)',
             up: 'Mover o texto para cima',

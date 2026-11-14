@@ -33,6 +33,21 @@ export function imageBoxesOf(coordinates: ArrayLike<number> | null | undefined):
     return boxes;
 }
 
+/** How a page is turned when shown: 90 is a quarter turn clockwise, for the pages printed sideways (as wide tables) */
+export type PageRotation = 0 | 90;
+
+/** Where a box of the page (as it is in the PDF) is on the page as shown, turned by `rotation` */
+export function rotateBox(box: ImageBox, rotation: PageRotation): ImageBox {
+    if (rotation === 0) return box;
+    return { left: 1 - box.top - box.height, top: box.left, width: box.height, height: box.width };
+}
+
+/** Where a box of the page as shown, turned by `rotation`, is on the page as it is in the PDF */
+export function unrotateBox(box: ImageBox, rotation: PageRotation): ImageBox {
+    if (rotation === 0) return box;
+    return { left: box.top, top: 1 - box.left - box.width, width: box.height, height: box.width };
+}
+
 /** The longest side the image is sent to the AI with, so it is sharp but not huge */
 const MAX_SIDE = 1280;
 
