@@ -23,8 +23,10 @@
   }
 }
 
-// What scrolls. Not positioned, so the scroll end indicator is placed on the menu and does not scroll with it
+// What scrolls. Positioned, so the scroll end indicator spans the list it measures instead of the whole menu (or, on AR,
+// the whole window); its bands stay in view while the list scrolls
 .actions {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;

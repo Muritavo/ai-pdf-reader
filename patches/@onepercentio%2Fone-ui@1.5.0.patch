@@ -85,3 +85,42 @@ index d580a8bbba1151902d2ab46e0173199c6d26e445..1ab9c5d458d43ae4c32e7cdb5fc7adde
                          (CloseButtonComponent ? (_jsx(CloseButtonComponent, { onClick: onClose })) : (_jsx("button", { className: Styles.closeBtn, onClick: onClose, children: _jsx(MutableHamburgerButton, { state: "closed", size: 24 }) }))), _jsx("div", { onClick: () => setExpanded((p) => !p) }), children] }) }) }));
      return isVisible || open ? (inline ? (content) : (_jsx(_Fragment, { children: ReactDOM.createPortal(content, document.body) }))) : null;
  }
+diff --git a/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js b/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
+index 2de203d1d492f0612d7b5f2ee70737e9d2e8523c..a389283d0ac3468372f9647358b7e6f1544d2926 100644
+--- a/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
++++ b/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
+@@ -16,9 +16,12 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+         const el = ref.current?.parentElement;
+         if (!el)
+             return;
++        // The window it is rendered in, which may not be this script's (as content portaled into a popup window).
++        // Another window's ResizeObserver never reports the elements of this one
++        const view = el.ownerDocument.defaultView ?? window;
+         let scrollParent = el;
+-        while (scrollParent && scrollParent !== document.documentElement) {
+-            const style = getComputedStyle(scrollParent);
++        while (scrollParent && scrollParent !== view.document.documentElement) {
++            const style = view.getComputedStyle(scrollParent);
+             if (style.overflow !== "visible" ||
+                 style.overflowX !== "visible" ||
+                 style.overflowY !== "visible") {
+@@ -29,7 +32,7 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+         if (!scrollParent)
+             return;
+         if (forceRelativePosition) {
+-            const currentPos = getComputedStyle(scrollParent).position;
++            const currentPos = view.getComputedStyle(scrollParent).position;
+             if (currentPos !== "static" && currentPos !== "initial") {
+                 console.warn(`[ScrollendIndicator] Parent element has position "${currentPos}". ` +
+                     `Setting to "relative" may cause layout conflicts.`);
+@@ -83,8 +86,8 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+                     rightRef.current.style.setProperty("--radius", `${rightRadius}%`);
+             }
+         };
+-        const observer = typeof ResizeObserver !== "undefined"
+-            ? new ResizeObserver(() => {
++        const observer = typeof view.ResizeObserver !== "undefined"
++            ? new view.ResizeObserver(() => {
+                 syncViewport();
+                 handleScroll();
+             })

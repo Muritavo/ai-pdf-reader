@@ -285,7 +285,7 @@ export default forwardRef(function FeaturesMenu(
                         {notRecommendedItems.map(renderItem)}
                     </div>
                 )}
-                {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
+                {/* Shows there are more actions above or below */}
                 <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
             </div>
         </ARDiv>,
