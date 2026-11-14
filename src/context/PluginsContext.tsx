@@ -50,7 +50,13 @@ export function PluginsProvider({ children }: { children: ReactNode }) {
         [ready],
     );
 
-    return <PluginsContext.Provider value={value}>{children}</PluginsContext.Provider>;
+    // Mounted from the start, so a plugin's own state above the app is never reset by its setup
+    const wrapped = PLUGINS.reduceRight<ReactNode>(
+        (inner, plugin) => (plugin.Provider ? <plugin.Provider {...ENVS.get(plugin.id)!}>{inner}</plugin.Provider> : inner),
+        children,
+    );
+
+    return <PluginsContext.Provider value={value}>{wrapped}</PluginsContext.Provider>;
 }
 
 export const usePlugins = () => useContext(PluginsContext);

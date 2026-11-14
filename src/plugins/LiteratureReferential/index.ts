@@ -5,6 +5,7 @@ import { askBooks } from './src/query';
 import MenuLabel from './src/components/MenuLabel';
 import QueryResult from './src/components/QueryResult';
 import Settings from './src/components/Settings';
+import BooksProvider from './src/components/BooksProvider';
 
 /** Kept from the setup, for the actions of the menu */
 let env: PluginEnv;
@@ -19,6 +20,7 @@ const LiteratureReferentialPlugin: Plugin = {
         await loadLibrary(env.storage);
     },
     Settings,
+    Provider: BooksProvider,
     menuOptions: [
         {
             id: 'literature-query',

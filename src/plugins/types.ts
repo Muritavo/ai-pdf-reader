@@ -91,5 +91,7 @@ export type Plugin = {
     setup?: (env: PluginEnv) => Promise<void>;
     /** The configuration of the plugin, opened from the settings of the header */
     Settings?: ComponentType<PluginEnv>;
+    /** Wraps the app, for what must outlive the windows it is opened from (as a book being read) */
+    Provider?: ComponentType<PluginEnv & { children: ReactNode }>;
     menuOptions: PluginMenuOption[];
 };

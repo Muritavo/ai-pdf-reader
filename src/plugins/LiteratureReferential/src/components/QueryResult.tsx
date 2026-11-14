@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import Collapsable from '@onepercentio/one-ui/components/Collapsable';
+import useIsAR from '@onepercentio/one-ui/hooks/useIsAR';
 import { ChevronDown } from 'lucide-react';
 import type { PluginStores } from '../../../types';
 import { fileUrlOf, openBook, pdfPageOf, saveOffset, useBooks } from '../library';
 import type { Match } from '../query';
 import type { PdfDocument } from '../pdf';
 import PageCanvas from './PageCanvas';
+import { useBooksProvider } from './BooksProvider';
 import Styles from '../LiteratureReferential.module.css';
 
 function PagePreview({ storage, match, onBack }: { storage: PluginStores; match: Match; onBack: () => void }) {
@@ -17,14 +19,17 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
     const [error, setError] = useState<string>();
     const [width, setWidth] = useState(0);
     const boxRef = useRef<HTMLDivElement>(null);
+    const books = useBooksProvider();
+    const isAR = useIsAR();
 
     useEffect(() => {
         openBook(storage, match.book.id).then(setPdf, e => setError(e instanceof Error ? e.message : String(e)));
     }, [storage, match.book.id]);
     // Ready before the click, as a tab opened after waiting for the storage is taken for a popup and blocked
     useEffect(() => {
+        if (isAR) return;
         fileUrlOf(storage, match.book.id).then(setFileUrl, () => {});
-    }, [storage, match.book.id]);
+    }, [storage, match.book.id, isAR]);
     useEffect(() => setWidth(boxRef.current!.clientWidth), []);
 
     return (
@@ -40,9 +45,14 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
                     type="button"
                     className="btn btn-outline"
                     data-testid="literature-open-book"
-                    disabled={!fileUrl}
-                    // The viewer of the browser opens on the page of the fragment
-                    onClick={() => window.open(`${fileUrl}#page=${pdfPage}`, '_blank')}
+                    disabled={!isAR && !fileUrl}
+                    onClick={() =>
+                        isAR
+                            ? // On AR the book is a window of its own, kept when this result is closed
+                              books.open(book.id, pdfPage)
+                            : // The viewer of the browser opens on the page of the fragment
+                              window.open(`${fileUrl}#page=${pdfPage}`, '_blank')
+                    }
                 >
                     Abrir o livro
                 </button>
