@@ -14,11 +14,13 @@ export type StorageKind = 'personal' | 'optimization';
 export const personalStore = createStore(`${DB_PREFIX}/personal`, STORE_NAME);
 export const optimizationStore = createStore(`${DB_PREFIX}/optimization`, STORE_NAME);
 
+/** Followed by `<plugin id>/<kind>` */
+export const PLUGIN_DB_PREFIX = `${DB_PREFIX}/plugin/`;
 const pluginStores = new Map<string, UseStore>();
 
 /** The database of the plugin for that kind of data, created on its first use */
 export function pluginStore(pluginId: string, kind: StorageKind) {
-    const name = `${DB_PREFIX}/plugin/${pluginId}/${kind}`;
+    const name = `${PLUGIN_DB_PREFIX}${pluginId}/${kind}`;
     let store = pluginStores.get(name);
     if (!store) {
         store = createStore(name, STORE_NAME);

@@ -44,20 +44,21 @@ final class NativeBridgeHandler: NSObject, WKScriptMessageHandlerWithReply {
             }
         case "syncStart":
             guard let id = body["id"] as? String else { return replyHandler(nil, "Missing the id") }
-            sync?.stop()
-            sync = nil
-            do {
-                let server = try MainActor.assumeIsolated { try SyncServer(id: id) }
-                sync = server
-                replyHandler(["name": server.name], nil)
-            } catch {
-                replyHandler(nil, "Could not start the sync server: \(error)")
+            // The port only frees once the previous server ended, so the new one waits for it
+            stopSync {
+                do {
+                    let server = try MainActor.assumeIsolated { try SyncServer(id: id) }
+                    self.sync = server
+                    replyHandler(["name": server.name], nil)
+                } catch {
+                    replyHandler(nil, "Could not start the sync server: \(error)")
+                }
             }
         case "syncStop":
-            sync?.stop()
-            sync = nil
-            replyHandler(nil, nil)
+            stopSync { replyHandler(nil, nil) }
         case "syncPeers":
+            // Rejecting tells the web app why the server isn't working, logged by its sync loop
+            if let failure = sync?.currentFailure() { return replyHandler(nil, failure) }
             replyHandler(sync?.currentPeers() ?? [], nil)
         case "syncInbox":
             replyHandler(sync?.takeInbox() ?? [], nil)
@@ -77,6 +78,14 @@ final class NativeBridgeHandler: NSObject, WKScriptMessageHandlerWithReply {
         default:
             replyHandler(nil, "Unknown action \(action)")
         }
+    }
+
+    /// Stops the sync server, if there is one, calling back on the main thread once its port is free
+    private func stopSync(then completion: @escaping () -> Void) {
+        guard let server = sync else { return completion() }
+        sync = nil
+        nonisolated(unsafe) let completion = completion
+        server.stop { DispatchQueue.main.async { completion() } }
     }
 }
 

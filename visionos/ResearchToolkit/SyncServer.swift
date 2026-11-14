@@ -24,6 +24,11 @@ final class SyncServer: @unchecked Sendable {
     private var held: [String: [String]] = [:]
     /// The native apps found, by their Bonjour endpoint
     private var peers: [NWEndpoint: [String: Any]] = [:]
+    /// Why the server or the browsing isn't working, told to the web app on its next call for the peers
+    private var failure: String?
+    /// Whether the listener ended, freeing the port, and who waits for it to
+    private var ended = false
+    private var onEnded: [@Sendable () -> Void] = []
 
     @MainActor
     init(id: String) throws {
@@ -36,14 +41,60 @@ final class SyncServer: @unchecked Sendable {
         browser = NWBrowser(for: .bonjourWithTXTRecord(type: Self.serviceType, domain: nil), using: .tcp)
 
         listener.newConnectionHandler = { [weak self] connection in self?.serve(connection) }
+        listener.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .failed(let error), .waiting(let error): self?.report("server", state: state, error: error)
+            default: self?.report("server", state: state, error: nil)
+            }
+            switch state {
+            case .failed, .cancelled: self?.listenerEnded()
+            default: break
+            }
+        }
+        listener.serviceRegistrationUpdateHandler = { change in
+            if case .add(let endpoint) = change { print("[SyncServer] announced as \(endpoint)") }
+        }
         listener.start(queue: queue)
         browser.browseResultsChangedHandler = { [weak self] results, _ in self?.update(results) }
+        browser.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .failed(let error), .waiting(let error): self?.report("browsing", state: state, error: error)
+            default: self?.report("browsing", state: state, error: nil)
+            }
+        }
         browser.start(queue: queue)
     }
 
-    func stop() {
+    /// Runs on the queue. Keeps the failure of the server or the browsing, clearing it once working again
+    private func report(_ what: String, state: Any, error: NWError?) {
+        print("[SyncServer] \(what): \(state)")
+        if let error {
+            failure = "The sync \(what) failed on port \(Self.port): \(error)"
+        } else if "\(state)" == "ready", failure?.contains("sync \(what) ") == true {
+            failure = nil
+        }
+    }
+
+    /// Why the server or the browsing isn't working, if it isn't
+    func currentFailure() -> String? {
+        queue.sync { failure }
+    }
+
+    /// Calls back on the queue once the port is free again, the listener having ended
+    func stop(completion: @escaping @Sendable () -> Void) {
         listener.cancel()
         browser.cancel()
+        queue.async {
+            if self.ended { completion() } else { self.onEnded.append(completion) }
+        }
+    }
+
+    /// Runs on the queue
+    private func listenerEnded() {
+        ended = true
+        let waiting = onEnded
+        onEnded = []
+        waiting.forEach { $0() }
     }
 
     func currentPeers() -> [[String: Any]] {

@@ -148,10 +148,26 @@ function browserName() {
     return system ? `${browser} · ${system}` : browser;
 }
 
+/**
+ * Ends once the last native session has stopped. The native shell keeps a single server, so a session only starts
+ * after the previous one stopped, or that stop, arriving late, would close the server of the new one
+ */
+let lastNativeSession: Promise<void> = Promise.resolve();
+
 /** The sync server of the native app, finding the other native apps over mDNS and receiving the browsers */
 async function startNative(bridge: NativeBridge, { onDevices, onMessage }: Listeners): Promise<SyncNetwork> {
     const id = newId();
-    const { name } = await bridge.syncStart(id);
+    const previous = lastNativeSession;
+    let ended!: () => void;
+    lastNativeSession = new Promise(resolve => (ended = resolve));
+    await previous;
+    let name: string;
+    try {
+        ({ name } = await bridge.syncStart(id));
+    } catch (e) {
+        ended();
+        throw e;
+    }
     let stopped = false;
     const roster = new Roster(id, onDevices);
     const announce: Announce = { app: APP, id, name, kind: 'native', port: SYNC_PORT };
@@ -197,8 +213,12 @@ async function startNative(bridge: NativeBridge, { onDevices, onMessage }: Liste
             if (status >= 300) throw new Error(`The device refused the message (${status})`);
         },
         stop: () => {
+            if (stopped) return;
             stopped = true;
-            bridge.syncStop().catch(e => console.error('Could not stop the sync server', e));
+            bridge
+                .syncStop()
+                .catch(e => console.error('Could not stop the sync server', e))
+                .finally(ended);
         },
     };
 }

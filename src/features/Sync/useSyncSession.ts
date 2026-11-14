@@ -78,7 +78,7 @@ export default function useSyncSession() {
             setResult(undefined);
             setIncoming(current);
             try {
-                const sealed = await seal(code, JSON.stringify(exportAllProjects()));
+                const sealed = await seal(code, JSON.stringify(await exportAllProjects()));
                 if (incomingRef.current?.session !== message.session) return;
                 await send(device, { type: 'payload', from: self.id, session: message.session, sealed });
                 setIncoming(previous => (previous?.session === message.session ? { ...previous, status: 'sent' } : previous));
@@ -192,7 +192,7 @@ export default function useSyncSession() {
                 setOutgoing(undefined);
                 return setFailure('invalid');
             }
-            const added = mergeSyncExport(data);
+            const added = await mergeSyncExport(data);
             send(current.device, { type: 'done', from: network.current.self.id, session: current.session }).catch(() => undefined);
             setOutgoing(undefined);
             setResult(added);
