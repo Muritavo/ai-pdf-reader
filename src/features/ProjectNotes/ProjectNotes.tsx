@@ -53,17 +53,13 @@ export default function ProjectNotes() {
             >
                 <NotebookPen size={20} strokeWidth={1.8} aria-hidden />
             </button>
-            {/* Its own close button is in the header, so onClose (which adds one-ui's) is left out */}
-            <AdaptiveDialog open={open} onClickOut={() => setOpen(false)}>
+            <AdaptiveDialog open={open} onClose={() => setOpen(false)} onClickOut={() => setOpen(false)}>
                 <div className={Styles.content} data-testid={TestIds.projectNotes.modal}>
                     <div className={Styles.header}>
                         <Text type="subtitle" className={Styles.title}>
                             <NotebookPen size={20} strokeWidth={1.8} aria-hidden />
                             {txt('projectNotes.title')}
                         </Text>
-                        <Button variant="transparent" onClick={() => setOpen(false)} aria-label={txt('projectNotes.close')}>
-                            ✕
-                        </Button>
                     </div>
                     <div className={Styles.body}>
                         <textarea

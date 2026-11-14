@@ -1,10 +1,10 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import Button from '@onepercentio/one-ui/components/Button';
 import Text from '@onepercentio/one-ui/components/Text';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { useIntl } from 'react-intl';
-import { Eye, EyeOff, Globe, MonitorSmartphone, RefreshCw, X } from 'lucide-react';
+import { Eye, EyeOff, Globe, MonitorSmartphone, RefreshCw } from 'lucide-react';
 import { getNativeBridge } from '../../utils/nativeBridge';
 import { TestIds } from '../../testids';
 import useSyncSession, { MAX_ATTEMPTS } from './useSyncSession';
@@ -15,6 +15,15 @@ import Styles from './Sync.module.css';
 export default function Sync() {
     const { txt } = useShortIntl();
     const [open, setOpen] = useState(false);
+    // The dialog reads onClosed from when it opened, so this is read through a ref
+    const reloadOnClose = useRef(false);
+    const [closedToReload, setClosedToReload] = useState(false);
+
+    // Reloads only after the dialog unmounted, which closes the window it has of its own on AR.
+    // A reload with it still mounted would leave that window behind
+    useEffect(() => {
+        if (closedToReload) window.location.reload();
+    }, [closedToReload]);
 
     return (
         <>
@@ -28,9 +37,16 @@ export default function Sync() {
             >
                 <RefreshCw size={18} strokeWidth={1.75} />
             </button>
-            <AdaptiveDialog open={open} onClose={() => setOpen(false)}>
+            <AdaptiveDialog open={open} onClose={() => setOpen(false)} onClosed={() => reloadOnClose.current && setClosedToReload(true)}>
                 {/* Mounted only while open, as the radar keeps the network busy */}
-                {open && <SyncRadar onClose={() => setOpen(false)} />}
+                {open && (
+                    <SyncRadar
+                        onReload={() => {
+                            reloadOnClose.current = true;
+                            setOpen(false);
+                        }}
+                    />
+                )}
             </AdaptiveDialog>
         </>
     );
@@ -45,18 +61,18 @@ function positionOf(device: SyncDevice): CSSProperties {
     return { left: `${50 + radius * Math.cos(angle)}%`, top: `${50 + radius * Math.sin(angle)}%` };
 }
 
-function SyncRadar({ onClose }: { onClose: () => void }) {
+function SyncRadar({ onReload }: { onReload: () => void }) {
     const { txt } = useShortIntl();
     // The plurals take numbers, which txt does not
     const { formatMessage } = useIntl();
-    const { self, devices, outgoing, incoming, result, failure, syncWith, submitCode, cancel, dismiss } = useSyncSession();
+    const { self, stopped, devices, outgoing, incoming, result, failure, syncWith, submitCode, cancel, dismiss } = useSyncSession();
     const [revealed, setRevealed] = useState(false);
     const [code, setCode] = useState('');
     const isNative = !!getNativeBridge();
 
     const finish = () => {
         // What was added is read when the app starts
-        if (result && (result.projects || result.entries)) window.location.reload();
+        if (result && (result.projects || result.entries)) onReload();
         else dismiss();
     };
 
@@ -64,16 +80,13 @@ function SyncRadar({ onClose }: { onClose: () => void }) {
         <div className={Styles.dialog} data-testid={TestIds.sync.radar}>
             <header className={Styles.header}>
                 <Text type="subtitle">{txt('sync.title')}</Text>
-                <button type="button" className={Styles.button} title={txt('sync.close')} aria-label={txt('sync.close')} onClick={onClose}>
-                    <X size={18} strokeWidth={1.75} />
-                </button>
             </header>
 
             <div className={Styles.radar}>
                 <span className={Styles.ring} />
                 <span className={Styles.ring} />
                 <span className={Styles.ring} />
-                <span className={Styles.sweep} />
+                {!stopped && <span className={Styles.sweep} />}
                 <span className={Styles.self}>
                     <span className={Styles.selfDot} />
                     <span className={Styles.label}>{self?.name ?? txt('sync.thisDevice')}</span>
@@ -96,8 +109,11 @@ function SyncRadar({ onClose }: { onClose: () => void }) {
                 ))}
             </div>
 
-            <Text type="caption" className={Styles.hint}>
-                {devices.length ? txt('sync.pick') : `${txt('sync.searching')} ${txt(isNative ? 'sync.nativeHint' : 'sync.browserHint')}`}
+            <Text type="caption" className={stopped ? `${Styles.hint} ${Styles.error}` : Styles.hint}>
+                {stopped
+                    ? txt('sync.stopped', { reason: stopped })
+                    : devices.length
+                      ? txt('sync.pick') : `${txt('sync.searching')} ${txt(isNative ? 'sync.nativeHint' : 'sync.browserHint')}`}
             </Text>
 
             {incoming && (

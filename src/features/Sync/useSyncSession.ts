@@ -39,6 +39,8 @@ export default function useSyncSession() {
     const [incoming, setIncoming] = useState<Incoming>();
     const [result, setResult] = useState<SyncResult>();
     const [failure, setFailure] = useState<SyncFailure>();
+    /** Why the network could not start or stopped working, so nothing is being searched */
+    const [stopped, setStopped] = useState<string>();
 
     const network = useRef<SyncNetwork>();
     const devicesRef = useRef<SyncDevice[]>([]);
@@ -129,6 +131,9 @@ export default function useSyncSession() {
                 setDevices(list);
             },
             onMessage,
+            onFailure: reason => {
+                if (!unmounted) setStopped(reason);
+            },
         })
             .then(created => {
                 if (unmounted) return created.stop();
@@ -136,7 +141,10 @@ export default function useSyncSession() {
                 network.current = created;
                 setSelf(created.self);
             })
-            .catch(e => console.error('Could not start the sync', e));
+            .catch(e => {
+                console.error('Could not start the sync', e);
+                if (!unmounted) setStopped(e instanceof Error ? e.message : String(e));
+            });
         return () => {
             unmounted = true;
             const self = network.current?.self;
@@ -216,5 +224,5 @@ export default function useSyncSession() {
         setFailure(undefined);
     }, []);
 
-    return { self, devices, outgoing, incoming, result, failure, syncWith, submitCode, cancel, dismiss };
+    return { self, stopped, devices, outgoing, incoming, result, failure, syncWith, submitCode, cancel, dismiss };
 }

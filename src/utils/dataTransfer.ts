@@ -1,5 +1,6 @@
 import { get, keys, set } from 'idb-keyval';
 import { AI_CONFIG_KEYS } from './aiProviders';
+import { HIGHLIGHT_STORAGE_KEY, type HighlightRule } from './highlight';
 import { PLUGIN_DB_PREFIX, pluginStore } from './storage';
 import { allProjectsEntries, clearProjectEntries, loadProjects, projectEntries, saveProjects, scoped, splitProjectKey, type Project } from './projects';
 
@@ -161,9 +162,23 @@ export function parseSyncExport(text: string): SyncExport | undefined {
     }
 }
 
+/** The highlights of a PDF this device misses, by their word, or undefined when either list can't be read */
+function missingHighlights(stored: string, sent: string): HighlightRule[] | undefined {
+    try {
+        const mine = JSON.parse(stored) as HighlightRule[];
+        const theirs = JSON.parse(sent) as HighlightRule[];
+        if (!Array.isArray(mine) || !Array.isArray(theirs)) return undefined;
+        const known = new Set(mine.map(rule => rule.normalizedWord));
+        return theirs.filter(rule => typeof rule?.normalizedWord === 'string' && !known.has(rule.normalizedWord));
+    } catch {
+        return undefined;
+    }
+}
+
 /**
  * Adds what this device misses from a sync, never replacing nor removing anything:
  * a project is added when there is none with its id, and a key only when this device has no value for it.
+ * The highlights of a PDF are the exception: the ones this device misses are added to its own, each counting as an entry.
  * The AI configuration that may come is ignored, as on importData. What is added to the plugins counts as entries
  */
 export async function mergeSyncExport(data: SyncExport): Promise<{ projects: number; entries: number }> {
@@ -178,7 +193,15 @@ export async function mergeSyncExport(data: SyncExport): Promise<{ projects: num
     for (const [key, value] of Object.entries(data.entries)) {
         const split = splitProjectKey(key);
         if (!split || !sent.has(split.id) || isAIConfig(split.key)) continue;
-        if (localStorage.getItem(key) !== null) continue;
+        const stored = localStorage.getItem(key);
+        if (stored !== null) {
+            if (!split.key.startsWith(`${HIGHLIGHT_STORAGE_KEY}/`)) continue;
+            const missing = missingHighlights(stored, value);
+            if (!missing?.length) continue;
+            localStorage.setItem(key, JSON.stringify([...(JSON.parse(stored) as HighlightRule[]), ...missing]));
+            entries += missing.length;
+            continue;
+        }
         localStorage.setItem(key, value);
         entries++;
     }

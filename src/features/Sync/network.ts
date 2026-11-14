@@ -35,7 +35,12 @@ export type SyncNetwork = {
     stop: () => void;
 };
 
-type Listeners = { onDevices: (devices: SyncDevice[]) => void; onMessage: (message: SyncMessage) => void };
+type Listeners = {
+    onDevices: (devices: SyncDevice[]) => void;
+    onMessage: (message: SyncMessage) => void;
+    /** Why the native server stopped working while open, or undefined once it works again */
+    onFailure: (reason: string | undefined) => void;
+};
 
 /** A device is gone once nothing is heard from it for this long */
 const EXPIRES_MS = 12_000;
@@ -155,7 +160,7 @@ function browserName() {
 let lastNativeSession: Promise<void> = Promise.resolve();
 
 /** The sync server of the native app, finding the other native apps over mDNS and receiving the browsers */
-async function startNative(bridge: NativeBridge, { onDevices, onMessage }: Listeners): Promise<SyncNetwork> {
+async function startNative(bridge: NativeBridge, { onDevices, onMessage, onFailure }: Listeners): Promise<SyncNetwork> {
     const id = newId();
     const previous = lastNativeSession;
     let ended!: () => void;
@@ -195,7 +200,14 @@ async function startNative(bridge: NativeBridge, { onDevices, onMessage }: Liste
     every(
         PEERS_MS,
         async () => {
-            const peers = await bridge.syncPeers();
+            let peers: Awaited<ReturnType<NativeBridge['syncPeers']>>;
+            try {
+                peers = await bridge.syncPeers();
+            } catch (e) {
+                // The native server or its mDNS failed, and finds no one until the radar opens again
+                return onFailure(e instanceof Error ? e.message : String(e));
+            }
+            onFailure(undefined);
             for (const peer of peers) roster.seen({ ...peer, kind: 'native' });
             // Registers on each, so it shows this one even when its mDNS missed it
             await Promise.all(peers.map(peer => bridge.syncPost(urlOf(peer.ip, peer.port, 'announce'), JSON.stringify(announce)).catch(() => undefined)));

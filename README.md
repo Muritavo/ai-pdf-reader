@@ -88,9 +88,45 @@ If a local certificate is placed in `.cert/` (`cert.pem` and `key.pem`, e.g. mad
 | `npm run preview` | Serves the built `dist/` |
 | `npm test` | Runs the Playwright end-to-end tests |
 
+## Build
+
+### Web
+
+```bash
+npm run build
+```
+
+Type-checks and builds the app to `dist/`. Every native app bundles this `dist/`, so build it first.
+
 ### Desktop and Android apps
 
 Packages for macOS, Windows, Linux and Android are built from the [`RELEASE/`](RELEASE/README.md) folder.
+
+### visionOS
+
+Requires Xcode with the visionOS platform. The Xcode project copies `dist/` into the app, failing if it wasn't built.
+
+```bash
+npm run build
+```
+
+```bash
+xcodebuild -project visionos/ResearchToolkit.xcodeproj -scheme ResearchToolkit -configuration Debug -destination 'generic/platform=visionOS' -derivedDataPath visionos/build -allowProvisioningUpdates build
+```
+
+To install it on a paired Apple Vision Pro, close the app on the headset first (installing over it force-closes it and its windows lose their places), then:
+
+```bash
+xcrun devicectl list devices
+```
+
+```bash
+xcrun devicectl device install app --device <device id> "visionos/build/Build/Products/Debug-xros/Research Toolkit.app"
+```
+
+```bash
+xcrun devicectl device process launch --device <device id> io.github.muritavo.researchworkflow
+```
 
 ## Data storage
 

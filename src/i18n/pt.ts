@@ -25,6 +25,7 @@ export default {
         searching: 'Procurando dispositivos com o radar aberto...',
         browserHint: 'Abra o radar também no app (Android, desktop ou visionOS). O navegador só sincroniza com os apps.',
         nativeHint: 'Abra o radar também no outro dispositivo.',
+        stopped: 'O radar parou de procurar dispositivos ({reason}). Feche e abra o radar para tentar de novo.',
         pick: 'Toque em um dispositivo para trazer os projetos dele para este.',
         incomingTitle: '{name} quer sincronizar',
         incomingDescription: 'Digite este código em {name} para levar os projetos deste dispositivo para lá.',
@@ -38,7 +39,6 @@ export default {
         submit: 'Sincronizar',
         wrongCode: 'Código incorreto. {left, plural, one {Resta # tentativa} other {Restam # tentativas}}.',
         cancel: 'Cancelar',
-        close: 'Fechar',
         result: '{projects, plural, =0 {Nenhum projeto novo} one {# projeto novo} other {# projetos novos}} e {entries, plural, =0 {nenhum dado adicionado} one {# dado adicionado} other {# dados adicionados}}.',
         resultNothing: 'Nada novo: este dispositivo já tinha tudo.',
         finish: 'Concluir',
@@ -288,7 +288,6 @@ export default {
         open: 'Recordar: buscar algo em todos os artigos com a IA',
         offline: 'Recordar: perguntar fica disponível quando a IA estiver online (o histórico pode ser visto)',
         title: 'Recordar',
-        close: 'Fechar',
         description:
             'Faça uma pergunta sobre todos os artigos. Ela é transformada em uma pergunta para cada artigo, feita a cada PDF já preparado para a IA, e as respostas são reunidas em uma só.',
         placeholder: 'Ex.: Qual destes artigos relatou que não conseguiu reproduzir os resultados de outro trabalho?',
@@ -317,7 +316,6 @@ export default {
     projectNotes: {
         open: 'Notas do projeto',
         title: 'Notas do projeto',
-        close: 'Fechar',
         placeholder: 'Escreva uma nota sobre o projeto...',
         add: 'Adicionar nota',
         empty: 'Nenhuma nota do projeto ainda.',

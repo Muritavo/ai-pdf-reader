@@ -3,7 +3,7 @@ import seedrandom from 'seedrandom';
 import { useEffect, useState } from 'react';
 import { scoped } from './projects';
 
-const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
+export const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
 const DEFINITION_STORAGE_KEY = 'pdf-ai-reader/definitions';
 
 export type HighlightRule = {
