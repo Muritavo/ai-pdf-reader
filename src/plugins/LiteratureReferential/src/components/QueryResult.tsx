@@ -10,6 +10,24 @@ import PageCanvas from './PageCanvas';
 import { useBooksProvider } from './BooksProvider';
 import Styles from '../LiteratureReferential.module.css';
 
+/** The tab of each book, reused so a heavy PDF is loaded by a single viewer */
+const bookTabs = new Map<string, Window>();
+
+function openBookTab(bookId: string, url: string) {
+    const tab = bookTabs.get(bookId);
+    if (tab && !tab.closed) {
+        tab.location.href = url;
+        tab.focus();
+        return;
+    }
+    // Named, so even a tab whose reference was lost (as after a reload of the app) is reused
+    const opened = window.open(url, `book-${bookId}`);
+    if (opened) {
+        bookTabs.set(bookId, opened);
+        opened.focus();
+    }
+}
+
 function PagePreview({ storage, match, onBack }: { storage: PluginStores; match: Match; onBack: () => void }) {
     // As it is now, as the offset changes when the position is adjusted
     const book = useBooks().find(book => book.id === match.book.id) ?? match.book;
@@ -50,8 +68,8 @@ function PagePreview({ storage, match, onBack }: { storage: PluginStores; match:
                         isAR
                             ? // On AR the book is a window of its own, kept when this result is closed
                               books.open(book.id, pdfPage)
-                            : // The viewer of the browser opens on the page of the fragment
-                              window.open(`${fileUrl}#page=${pdfPage}`, '_blank')
+                            : // The viewer of the browser opens on the page of the fragment, on the tab of the book if already open
+                              openBookTab(book.id, `${fileUrl}#page=${pdfPage}`)
                     }
                 >
                     Abrir o livro
