@@ -226,6 +226,7 @@ export default {
             searchOnGoogle: 'Pesquisar no Google',
             googleQuery: 'O que significa {word}?',
             highlightInstances: 'Destacar ocorrências',
+            highlightCutsWord: 'A seleção corta uma palavra ao meio. Selecione palavras inteiras para destacar',
             define: 'Definir',
             markLocation: 'Marcar este local',
             reference: 'Referência',

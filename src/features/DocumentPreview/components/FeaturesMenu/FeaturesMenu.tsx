@@ -59,6 +59,47 @@ type FeaturesMenuProps = {
     onPluginResult: (result: PluginResult) => void;
 };
 
+const isWordCharacter = (character: string | undefined) => (character ? /[\p{L}\p{N}]/u.test(character) : false);
+
+/**
+ * The character of the text layer right before or after a point, looking past the pieces a word is split in (as by a ligature).
+ * Undefined where the line ends, or outside of the text layer.
+ */
+function characterBeside(node: Node, offset: number, side: 'before' | 'after') {
+    // Not `instanceof`, as on AR the document is in a window of its own
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    const layer = element?.closest(`[data-testid="${TestIds.preview.textLayer}"]`);
+    if (!layer) return undefined;
+    const range = node.ownerDocument!.createRange();
+    if (side === 'after') {
+        range.setStart(node, offset);
+        range.setEnd(layer, layer.childNodes.length);
+    } else {
+        range.setStart(layer, 0);
+        range.setEnd(node, offset);
+    }
+    const fragment = range.cloneContents();
+    const walker = fragment.ownerDocument.createTreeWalker(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const nodes: Node[] = [];
+    while (walker.nextNode()) {
+        const current = walker.currentNode;
+        if (current.nodeName === 'BR' || (current.nodeType === Node.TEXT_NODE && current.textContent)) nodes.push(current);
+    }
+    const beside = side === 'after' ? nodes[0] : nodes[nodes.length - 1];
+    if (!beside || beside.nodeName === 'BR') return undefined;
+    const text = beside.textContent!;
+    return side === 'after' ? text[0] : text[text.length - 1];
+}
+
+/** Whether the selection starts or ends in the middle of a word, which a highlight (made of whole words) would never find */
+function cutsWord(selection: Selection) {
+    const text = selection.toString();
+    const range = selection.getRangeAt(0);
+    const cutsStart = isWordCharacter(text[0]) && isWordCharacter(characterBeside(range.startContainer, range.startOffset, 'before'));
+    const cutsEnd = isWordCharacter(text[text.length - 1]) && isWordCharacter(characterBeside(range.endContainer, range.endOffset, 'after'));
+    return cutsStart || cutsEnd;
+}
+
 function extractSelectedWord(selectionText: string) {
     const collapsedText = selectionText.replace(/\s+/g, ' ').trim();
     return collapsedText.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') || undefined;
@@ -83,6 +124,7 @@ export default forwardRef(function FeaturesMenu(
     const { prepare } = useWarmUp(fullText);
     const { menuOptions: pluginOptions } = usePlugins();
     const [word, setWord] = useState<string>();
+    const [selectionCutsWord, setSelectionCutsWord] = useState(false);
     const [{ x, y }, setPosition] = useState({ x: 0, y: 0 });
 
     useImperativeHandle(
@@ -104,6 +146,7 @@ export default forwardRef(function FeaturesMenu(
 
                 const bounds = selection.getRangeAt(0).getBoundingClientRect();
                 setWord(selectedWord);
+                setSelectionCutsWord(cutsWord(selection));
                 setPosition({ x: bounds.left, y: bounds.top });
             },
             closeMenu() {
@@ -151,6 +194,8 @@ export default forwardRef(function FeaturesMenu(
             id: 'highlight-word-instances',
             testId: TestIds.menu.highlight,
             label: txt('documentPreview.menu.highlightInstances'),
+            disabled: selectionCutsWord,
+            hint: txt('documentPreview.menu.highlightCutsWord'),
             onClick: async () => {
                 addHighlight(word);
                 dismiss();
