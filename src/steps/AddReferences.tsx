@@ -5,6 +5,7 @@ import Text from '@onepercentio/one-ui/components/Text';
 import { useArticlesRepository } from '../context/ArticlesRepository';
 import { parseArticlesCsv } from '../utils/parseArticlesCsv';
 import ManualReference, { isManualReference } from '../features/ManualReference';
+import ProjectNotes from '../features/ProjectNotes';
 import { TestIds } from '../testids';
 import Styles from './Steps.module.css';
 
@@ -33,7 +34,10 @@ export default function AddReferences({ onNext }: { onNext: () => void }) {
 
     return (
         <section className={Styles.step}>
-            <Text type="subtitle">Adicionar referências</Text>
+            <div className={Styles.stepHeader}>
+                <Text type="subtitle">Adicionar referências</Text>
+                <ProjectNotes />
+            </div>
             <Text type="description">
                 Envie o CSV exportado da sua triagem (ex.: Rayyan) com as colunas <code>key</code> e{' '}
                 <code>title</code>. Ano, periódico, autores e DOI são lidos quando presentes.

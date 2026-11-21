@@ -50,6 +50,15 @@ const SCAN_COLOR = '#7c9cff';
 /** The most pixels a page is drawn with, so a big screen and a long document don't run out of memory */
 const MAX_CANVAS_PIXELS = 4096 * 4096;
 
+/** Whether a line ends between two pieces of the text layer: pdf.js puts a <br> where it does */
+function endsLine(element: HTMLElement, next: HTMLElement | undefined) {
+    if (!next) return true;
+    const range = element.ownerDocument.createRange();
+    range.setStartAfter(element);
+    range.setEndBefore(next);
+    return range.cloneContents().querySelector('br') !== null;
+}
+
 type PageElement = {
     id: number;
     canvasRef: RefObject<HTMLCanvasElement>;
@@ -546,7 +555,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             const pieces = textLayer.textDivs
                 .map((element, index) => ({ element, text: texts[index], read: textLayer.textContentItemsStr[index] }))
                 .filter(piece => piece.read)
-                .map(({ element, text }) => ({ element, text }));
+                .map(({ element, text }, index, kept) => ({ element, text, endsLine: endsLine(element, kept[index + 1]?.element) }));
             highlightTextLayer(
                 pieces,
                 highlightRules,

@@ -76,7 +76,7 @@ async function finishWithAutoModel(page: Page) {
 }
 
 test.describe('opening the AI configuration', () => {
-    test('opens the wizard from the icon of the preview while the AI is offline', async ({ page, ai }) => {
+    test('opens the AI status from the icon of the preview while the AI is offline', async ({ page, ai }) => {
         await ai.stop();
         await startWithReferences(page, buildCsv(STANDARD_COLUMNS, sampleArticles(1)));
         const card = articleCard(page, 'Article 1');
@@ -86,10 +86,9 @@ test.describe('opening the AI configuration', () => {
 
         await byId(page, TestIds.ai.warmUp).click();
 
-        await expect(wizard(page)).toBeVisible();
-        await expect(wizard(page)).toHaveAttribute('data-step', 'provider');
-        await expect(wizard(page)).toContainText('Vamos integrar com a inteligência artificial');
-        await shot(page, 'preview-offline-opens-wizard', 'page');
+        await expect(byId(page, TestIds.ai.statusDialog)).toBeVisible();
+        await expect(wizard(page)).toHaveCount(0);
+        await shot(page, 'preview-offline-opens-status', 'page');
     });
 
     test('starts the warm up from the icon of the preview, instead of the wizard, while online', async ({ page }) => {
@@ -105,7 +104,7 @@ test.describe('opening the AI configuration', () => {
         await expect(wizard(page)).toHaveCount(0);
     });
 
-    test('closes the wizard opened from the preview once the provider is added, back online', async ({ page, ai }) => {
+    test('adds a provider from the status opened by the preview, back online', async ({ page, ai }) => {
         await ai.stop();
         await routeHost(page, LOCALHOST, { 8000: {} });
         await startWithReferences(page, buildCsv(STANDARD_COLUMNS, sampleArticles(1)));
@@ -114,6 +113,7 @@ test.describe('opening the AI configuration', () => {
         await openPreview(page, card, SAMPLE_PAGES.length);
 
         await byId(page, TestIds.ai.warmUp).click();
+        await byId(page, TestIds.ai.addProvider).click();
         await chooseKind(page, 'local');
         await detectedPort(page, 8000).click();
         await finishWithAutoModel(page);
@@ -638,7 +638,6 @@ test.describe('the providers on the AI status', () => {
 
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Offline');
         await expect(byId(page, TestIds.ai.provider)).toHaveValue(ai.endpoint);
-        await expect(byId(page, TestIds.ai.reconnect)).toBeVisible();
         const providerBox = await byId(page, TestIds.ai.provider).boundingBox();
         const reconnectBox = await byId(page, TestIds.ai.reconnect).boundingBox();
         expect(reconnectBox!.y).toBeGreaterThan(providerBox!.y);
@@ -657,7 +656,6 @@ test.describe('the providers on the AI status', () => {
 
         // Nothing answers there
         await expect(byId(page, TestIds.ai.statusValue)).toHaveText('Offline');
-        await expect(byId(page, TestIds.ai.reconnect)).toBeVisible();
         expect((await storedProviders(page)).current).toBe(other);
 
         await byId(page, TestIds.ai.provider).selectOption(ai.endpoint);

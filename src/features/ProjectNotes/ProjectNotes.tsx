@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import Text from '@onepercentio/one-ui/components/Text';
 import Button from '@onepercentio/one-ui/components/Button';
 import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
+import AnimatedEntrance from '@onepercentio/one-ui/components/AnimatedEntrance';
+import ScrollendIndicator from '@onepercentio/one-ui/components/ScrollendIndicator';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import { NotebookPen, Pencil, Trash2 } from 'lucide-react';
@@ -91,41 +93,47 @@ export default function ProjectNotes() {
                         {notes.length === 0 ? (
                             <Text type="caption">{txt('projectNotes.empty')}</Text>
                         ) : (
-                            <ul className={Styles.list} data-testid={TestIds.projectNotes.list}>
-                                {notes.map(note => (
-                                    <li
-                                        key={note.id}
-                                        className={`${Styles.item} ${editing === note.id ? Styles.editing : ''}`}
-                                        data-testid={TestIds.projectNotes.item}
-                                        data-editing={editing === note.id || undefined}
-                                    >
-                                        <span className={Styles.text}>{note.text}</span>
-                                        <Button
-                                            variant="transparent"
-                                            // Hidden on the note being edited, but still taking its place so the note doesn't move
-                                            className={editing === note.id ? Styles.hiddenAction : undefined}
-                                            disabled={editing === note.id}
-                                            title={txt('projectNotes.edit')}
-                                            aria-label={txt('projectNotes.edit')}
-                                            data-testid={TestIds.projectNotes.edit}
-                                            onClick={() => startEdit(note)}
+                            // The list is what scrolls, so the input stays in place
+                            <div className={Styles.list} data-testid={TestIds.projectNotes.list}>
+                                {/* The newest notes come first */}
+                                <AnimatedEntrance>
+                                    {[...notes].reverse().map(note => (
+                                        <div
+                                            key={note.id}
+                                            className={`${Styles.item} ${editing === note.id ? Styles.editing : ''}`}
+                                            data-testid={TestIds.projectNotes.item}
+                                            data-editing={editing === note.id || undefined}
                                         >
-                                            <Pencil size={16} aria-hidden />
-                                        </Button>
-                                        <Button
-                                            variant="transparent"
-                                            className={editing === note.id ? Styles.hiddenAction : undefined}
-                                            disabled={editing === note.id}
-                                            title={txt('projectNotes.remove')}
-                                            aria-label={txt('projectNotes.remove')}
-                                            data-testid={TestIds.projectNotes.remove}
-                                            onClick={() => setNotes(prev => prev.filter(n => n.id !== note.id))}
-                                        >
-                                            <Trash2 size={16} strokeWidth={1.75} aria-hidden />
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
+                                            <span className={Styles.text}>{note.text}</span>
+                                            <Button
+                                                variant="transparent"
+                                                // Hidden on the note being edited, but still taking its place so the note doesn't move
+                                                className={editing === note.id ? Styles.hiddenAction : undefined}
+                                                disabled={editing === note.id}
+                                                title={txt('projectNotes.edit')}
+                                                aria-label={txt('projectNotes.edit')}
+                                                data-testid={TestIds.projectNotes.edit}
+                                                onClick={() => startEdit(note)}
+                                            >
+                                                <Pencil size={16} aria-hidden />
+                                            </Button>
+                                            <Button
+                                                variant="transparent"
+                                                className={editing === note.id ? Styles.hiddenAction : undefined}
+                                                disabled={editing === note.id}
+                                                title={txt('projectNotes.remove')}
+                                                aria-label={txt('projectNotes.remove')}
+                                                data-testid={TestIds.projectNotes.remove}
+                                                onClick={() => setNotes(prev => prev.filter(n => n.id !== note.id))}
+                                            >
+                                                <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </AnimatedEntrance>
+                                {/* Shows there are more notes above or below */}
+                                <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
+                            </div>
                         )}
                     </div>
                 </div>

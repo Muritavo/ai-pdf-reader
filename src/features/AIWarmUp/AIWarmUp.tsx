@@ -1,14 +1,13 @@
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Brain, Bug, Check, Ellipsis, Play, ScanEye, X } from 'lucide-react';
+import { Brain, Bug, Check, Ellipsis, Play, ScanEye, Trash2, X } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import { validateAgainstPages } from '../../services/ai';
 import { extractPageTexts, getNormalizedText, renderPageImages } from '../../utils/preprocessing';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
-import AdaptiveDialog from '@onepercentio/one-ui/components/AdaptiveDialog';
 import ResponseModal from '../DocumentPreview/components/ResponseModal/ResponseModal';
-import AIIntegrationWizard from '../AIIntegrationWizard';
+import { AIStatusDialog } from '../AIStatus';
 import { TestIds } from '../../testids';
 import Styles from './AIWarmUp.module.css';
 
@@ -17,7 +16,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function AIWarmUp({ fullText }: { fullText: FullText }) {
     const { txt } = useShortIntl();
-    const { status, checking, state, progress, generatedWords, ready, start } = useWarmUp(fullText);
+    const { status, checking, state, progress, generatedWords, ready, start, clear } = useWarmUp(fullText);
     const [holdingCtrl, setHoldingCtrl] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [validating, setValidating] = useState(false);
@@ -25,7 +24,7 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
     const [validation, setValidation] = useState<string>();
     // What a DEBUG item of the menu shows, with its label as the title
     const [debugView, setDebugView] = useState<{ label: string; text: string }>();
-    // While the AI is offline, the button opens its configuration instead
+    // While the AI is offline, the button opens its status instead, as the one of the header
     const [configuring, setConfiguring] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -188,11 +187,24 @@ export default function AIWarmUp({ fullText }: { fullText: FullText }) {
                         <Bug size={16} strokeWidth={1.75} aria-hidden />
                         {txt('aiWarmUp.showUnstructured')}
                     </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className={Styles.menuItem}
+                        data-testid={TestIds.ai.warmUpRemoveNormalized}
+                        onClick={async () => {
+                            setMenuOpen(false);
+                            setValidationFailed(false);
+                            // Deletes the organized text from IndexedDB, so the next warm up normalizes the document again
+                            await clear();
+                        }}
+                    >
+                        <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+                        {txt('aiWarmUp.removeNormalized')}
+                    </button>
                 </div>
             )}
-            <AdaptiveDialog open={configuring} onClose={() => setConfiguring(false)} onClickOut={() => setConfiguring(false)}>
-                {configuring && <AIIntegrationWizard onDone={() => setConfiguring(false)} />}
-            </AdaptiveDialog>
+            <AIStatusDialog open={configuring} onClose={() => setConfiguring(false)} />
             {debugView && (
                 <ResponseModal
                     prompt={debugView.label}

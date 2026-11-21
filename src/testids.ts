@@ -175,6 +175,7 @@ export const TestIds = {
         warmUpValidate: 'ai-warm-up-validate',
         warmUpShowExtracted: 'ai-warm-up-show-extracted',
         warmUpShowUnstructured: 'ai-warm-up-show-unstructured',
+        warmUpRemoveNormalized: 'ai-warm-up-remove-normalized',
         validationModal: 'ai-validation-modal',
         validationAnswer: 'ai-validation-answer',
         debugModal: 'ai-debug-modal',

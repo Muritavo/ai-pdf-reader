@@ -146,6 +146,7 @@ export default {
         validateVisually: 'Validar com as páginas visualmente (experimental)',
         showExtracted: 'DEBUG - Show the extracted content',
         showUnstructured: 'DEBUG - Show unstructured text',
+        removeNormalized: 'DEBUG - Remove normalized entry',
         validating: 'Validando o texto preparado com as imagens das páginas...',
         validationFailed: 'Não foi possível validar. O modelo carregado precisa aceitar imagens.',
         validationTitle: 'Validação visual (experimental)',
