@@ -3,7 +3,8 @@
 .container {
   display: flex;
   flex-direction: column;
-  width: calc(100vw - 48px);
+  // As wide as the dialog lets it be (its max width), so it is not cut and its buttons don't overlap
+  width: 95vw;
   height: 90vh;
   position: relative;
 
