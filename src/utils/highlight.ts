@@ -24,16 +24,27 @@ export type DefinitionRule = {
 type HighlightMatch = { color: string; end: number; start: number; word: string };
 
 /**
+ * Takes away the punctuation around a text, but keeps the minus sign of a negative number and
+ * the percent sign of a percentage, as in "-5" and "5%".
+ */
+export function trimPunctuation(value: string) {
+    if (!/[\p{L}\p{N}]/u.test(value)) return '';
+    return value
+        .replace(/^[^\p{L}\p{N}]*?([-−](?=\p{N}))?(?=[\p{L}\p{N}])/u, '$1')
+        .replace(/([\p{L}\p{N}])(?:(?<=\p{N})(%))?[^\p{L}\p{N}]*$/u, '$1$2');
+}
+
+/**
  * The form a text is compared in: lowercase, with any spacing (as line breaks) as a single space,
  * and the words cut by a hyphen at the end of a line joined back, as "bro- ken" is "broken".
  */
 function normalizeWord(value: string) {
-    return value
-        .replace(/\s+/g, ' ')
-        .replace(/(\p{L})- (\p{L})/gu, '$1$2')
-        .trim()
-        .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
-        .toLocaleLowerCase();
+    return trimPunctuation(
+        value
+            .replace(/\s+/g, ' ')
+            .replace(/(\p{L})- (\p{L})/gu, '$1$2')
+            .trim(),
+    ).toLocaleLowerCase();
 }
 
 function createHighlightColor(normalizedWord: string) {

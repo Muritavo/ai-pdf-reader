@@ -11,6 +11,7 @@ import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
 import { usePlugins } from '../../../../context/PluginsContext';
 import type { PluginResult } from '../../../../plugins/types';
+import { trimPunctuation } from '../../../../utils/highlight';
 
 /** Reopening follows the selection while it changes, as on touch it is adjusted by its handles after it opens */
 export type FeaturesMenuHandle = { openMenu(reopen?: boolean): void; closeMenu(): void };
@@ -102,7 +103,7 @@ function cutsWord(selection: Selection) {
 
 function extractSelectedWord(selectionText: string) {
     const collapsedText = selectionText.replace(/\s+/g, ' ').trim();
-    return collapsedText.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') || undefined;
+    return trimPunctuation(collapsedText) || undefined;
 }
 
 export default forwardRef(function FeaturesMenu(
