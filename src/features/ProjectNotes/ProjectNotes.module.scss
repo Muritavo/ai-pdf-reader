@@ -54,8 +54,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
   padding: 0.5rem 1.25rem 1.25rem;
-  overflow-y: auto;
 }
 
 .input {
@@ -82,16 +82,21 @@
   gap: 12px;
 }
 
+// What scrolls. Positioned, so the scroll end indicator spans the list it measures; its bands stay in view while the list scrolls
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  // The edges that show there is more to scroll, colored like the ones in the features menu
+  --main-color: rgba(217, 133, 59, 0.45);
 }
 
 .item {
+  // A margin, not a gap on the list, so a note entering or leaving does not leave a gap behind
+  margin-bottom: 6px;
   display: flex;
   align-items: flex-start;
   gap: 8px;

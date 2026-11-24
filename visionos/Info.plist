@@ -9,7 +9,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<!-- The services browsed for the names of the devices of the network (see NativeBridge.swift) -->
+	<!-- The services browsed for the names of the devices of the network (see NativeBridge.swift),
+	     and the one of the sync, announced and browsed (see SyncServer.swift) -->
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_companion-link._tcp</string>
@@ -22,6 +23,7 @@
 		<string>_sftp-ssh._tcp</string>
 		<string>_rfb._tcp</string>
 		<string>_http._tcp</string>
+		<string>_researchsync._tcp</string>
 	</array>
 	<!-- Lets the app open AR windows next to the main one (see ARWindows.swift) -->
 	<key>UIApplicationSceneManifest</key>

@@ -1,5 +1,8 @@
+import { get, keys, set } from 'idb-keyval';
 import { AI_CONFIG_KEYS } from './aiProviders';
-import { clearProjectEntries, projectEntries, scoped } from './projects';
+import { HIGHLIGHT_STORAGE_KEY, type HighlightRule } from './highlight';
+import { PLUGIN_DB_PREFIX, pluginStore } from './storage';
+import { allProjectsEntries, clearProjectEntries, loadProjects, projectEntries, saveProjects, scoped, splitProjectKey, type Project } from './projects';
 
 /** Tells an export of this app apart from any other JSON */
 const FORMAT = 'research-workflow-export';
@@ -57,4 +60,151 @@ export function importData(data: DataExport) {
     clearProjectEntries();
     for (const [key, value] of Object.entries(withoutAIConfig(data.localStorage))) localStorage.setItem(scoped(key), value);
     for (const [key, value] of aiConfig) localStorage.setItem(scoped(key), value);
+}
+
+/** Tells what a device sends on a sync apart from anything else */
+const SYNC_FORMAT = 'research-workflow-sync';
+
+/** What a device sends on a sync: every project it has, with everything they keep but the PDFs and the AI configuration */
+export type SyncExport = {
+    format: typeof SYNC_FORMAT;
+    exportedAt: string;
+    projects: Project[];
+    /** By their full key (project/<id>/...) */
+    entries: Record<string, string>;
+    /** The personal storage of each plugin, by its id and then by key, without the files (as the PDFs of the books). Missing from devices before it */
+    plugins?: Record<string, Record<string, unknown>>;
+};
+
+/** A file or bytes, which stay on the device as the PDFs do */
+const hasBinary = (value: unknown): boolean => {
+    if (value instanceof Blob || value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return true;
+    if (Array.isArray(value)) return value.some(hasBinary);
+    if (value && typeof value === 'object') return Object.values(value).some(hasBinary);
+    return false;
+};
+
+/** The ids of the plugins with a personal storage on this device, from the names of their databases */
+async function pluginIds() {
+    const databases = (await indexedDB.databases?.()) ?? [];
+    return databases.flatMap(({ name }) => (name?.startsWith(PLUGIN_DB_PREFIX) && name.endsWith('/personal') ? [name.slice(PLUGIN_DB_PREFIX.length, -'/personal'.length)] : []));
+}
+
+/** The personal storage of every plugin, without its files */
+async function exportPlugins() {
+    const plugins: Record<string, Record<string, unknown>> = {};
+    for (const id of await pluginIds()) {
+        const store = pluginStore(id, 'personal');
+        const values: Record<string, unknown> = {};
+        for (const key of await keys(store)) {
+            if (typeof key !== 'string') continue;
+            const value = await get(key, store);
+            if (!hasBinary(value)) values[key] = value;
+        }
+        plugins[id] = values;
+    }
+    return plugins;
+}
+
+type WithId = { id: string };
+const isListById = (value: unknown): value is WithId[] =>
+    Array.isArray(value) && value.every(item => !!item && typeof item === 'object' && typeof (item as Partial<WithId>).id === 'string');
+
+/**
+ * Adds what this device misses of the plugins: a key it has no value for, and, on a list of items with ids (as the books),
+ * the items it has no id of. Returns how many were added
+ */
+async function mergePlugins(plugins: Record<string, Record<string, unknown>>) {
+    let added = 0;
+    for (const [id, values] of Object.entries(plugins)) {
+        const store = pluginStore(id, 'personal');
+        for (const [key, value] of Object.entries(values)) {
+            if (hasBinary(value)) continue;
+            const current = await get(key, store);
+            if (current === undefined) {
+                await set(key, value, store);
+                added++;
+            } else if (isListById(current) && isListById(value)) {
+                const known = new Set(current.map(item => item.id));
+                const missing = value.filter(item => !known.has(item.id));
+                if (!missing.length) continue;
+                await set(key, [...current, ...missing], store);
+                added += missing.length;
+            }
+        }
+    }
+    return added;
+}
+
+/** Whether the full key holds the AI configuration of a project, which never leaves the machine */
+const isProjectAIConfig = (key: string) => {
+    const split = splitProjectKey(key);
+    return !split || isAIConfig(split.key);
+};
+
+export async function exportAllProjects(): Promise<SyncExport> {
+    const entries = Object.fromEntries(Object.entries(allProjectsEntries()).filter(([key]) => !isProjectAIConfig(key)));
+    return { format: SYNC_FORMAT, exportedAt: new Date().toISOString(), projects: loadProjects().projects, entries, plugins: await exportPlugins() };
+}
+
+/** Reads what a device sent on a sync, or undefined when it is not one */
+export function parseSyncExport(text: string): SyncExport | undefined {
+    try {
+        const data = JSON.parse(text) as Partial<SyncExport>;
+        if (data.format !== SYNC_FORMAT || !Array.isArray(data.projects) || !data.entries || typeof data.entries !== 'object') return undefined;
+        if (!data.projects.every(project => typeof project?.id === 'string' && typeof project.name === 'string')) return undefined;
+        if (!Object.values(data.entries).every(value => typeof value === 'string')) return undefined;
+        if (data.plugins !== undefined && !(data.plugins && typeof data.plugins === 'object' && Object.values(data.plugins).every(values => values && typeof values === 'object')))
+            return undefined;
+        return data as SyncExport;
+    } catch {
+        return undefined;
+    }
+}
+
+/** The highlights of a PDF this device misses, by their word, or undefined when either list can't be read */
+function missingHighlights(stored: string, sent: string): HighlightRule[] | undefined {
+    try {
+        const mine = JSON.parse(stored) as HighlightRule[];
+        const theirs = JSON.parse(sent) as HighlightRule[];
+        if (!Array.isArray(mine) || !Array.isArray(theirs)) return undefined;
+        const known = new Set(mine.map(rule => rule.normalizedWord));
+        return theirs.filter(rule => typeof rule?.normalizedWord === 'string' && !known.has(rule.normalizedWord));
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * Adds what this device misses from a sync, never replacing nor removing anything:
+ * a project is added when there is none with its id, and a key only when this device has no value for it.
+ * The highlights of a PDF are the exception: the ones this device misses are added to its own, each counting as an entry.
+ * The AI configuration that may come is ignored, as on importData. What is added to the plugins counts as entries
+ */
+export async function mergeSyncExport(data: SyncExport): Promise<{ projects: number; entries: number }> {
+    const state = loadProjects();
+    const known = new Set(state.projects.map(project => project.id));
+    const added = data.projects.filter(project => !known.has(project.id));
+    if (added.length) saveProjects({ ...state, projects: [...state.projects, ...added] });
+
+    // Only the keys of the projects that came, so nothing lands outside of a project
+    const sent = new Set(data.projects.map(project => project.id));
+    let entries = 0;
+    for (const [key, value] of Object.entries(data.entries)) {
+        const split = splitProjectKey(key);
+        if (!split || !sent.has(split.id) || isAIConfig(split.key)) continue;
+        const stored = localStorage.getItem(key);
+        if (stored !== null) {
+            if (!split.key.startsWith(`${HIGHLIGHT_STORAGE_KEY}/`)) continue;
+            const missing = missingHighlights(stored, value);
+            if (!missing?.length) continue;
+            localStorage.setItem(key, JSON.stringify([...(JSON.parse(stored) as HighlightRule[]), ...missing]));
+            entries += missing.length;
+            continue;
+        }
+        localStorage.setItem(key, value);
+        entries++;
+    }
+    if (data.plugins) entries += await mergePlugins(data.plugins);
+    return { projects: added.length, entries };
 }

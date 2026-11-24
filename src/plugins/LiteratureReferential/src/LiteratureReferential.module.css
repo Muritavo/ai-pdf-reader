@@ -107,6 +107,28 @@
     cursor: not-allowed;
 }
 
+/** The glossary of the PDF, sent to the AI */
+.glossaryOn,
+.glossaryOn:hover:not(:disabled) {
+    position: relative;
+    color: var(--success);
+}
+
+.glossaryCheck {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    border-radius: 50%;
+    background: var(--success);
+    color: var(--surface, #fff);
+}
+
+/* Over the colors of .pill, which come after */
+.pill.glossaryPill {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+}
+
 .done {
     color: var(--success);
     font-size: 13px;
@@ -134,6 +156,13 @@
     font-size: 14px;
 }
 
+.pillsCell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
 .pills {
     display: flex;
     flex-wrap: wrap;
@@ -152,6 +181,14 @@
     background: var(--accent-soft);
     color: var(--accent);
     font-size: 13px;
+}
+
+/** The page of the bounds, told apart from the ranges */
+.pillOutline {
+    /* As a border: an outline is drawn solid on rounded corners by some browsers */
+    padding: 0 8px;
+    border: 2px dotted var(--accent);
+    background: transparent;
 }
 
 .pill button {
@@ -181,7 +218,20 @@
 }
 
 .editorTitle {
+    max-width: 30vw;
     margin-right: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editorTags {
+    flex-basis: 100%;
+}
+
+.editorTags:empty,
+.editorTags:has(> ul:empty) {
+    display: none;
 }
 
 .rangeForm {
@@ -225,9 +275,18 @@
 }
 
 .pageSheet {
+    position: relative;
     background: #fff;
     border-radius: 2px;
     outline: 3px solid transparent;
+}
+
+/** The part of the page the text is read from */
+.bounds {
+    position: absolute;
+    border: 2px dashed var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    pointer-events: none;
 }
 
 .selected .pageSheet {
@@ -398,4 +457,74 @@
     font-family: ui-monospace, monospace;
     font-size: 12px;
     white-space: pre-wrap;
+}
+
+.bookDialog {
+    width: min(900px, 95vw);
+    height: 90vh;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.bookReader {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+}
+
+.bookReaderHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* Room for the close button of the dialog */
+    padding: 14px 72px 10px 20px;
+}
+
+.bookReaderHeader > strong {
+    margin-right: auto;
+}
+
+.bookReaderPage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    padding: 0 16px 16px;
+}
+
+.bookReaderPage canvas {
+    display: block;
+    background: #fff;
+}
+
+/* Asks which page number is printed on the page of the preview */
+.adjustPosition {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(420px, 85vw);
+}
+
+.adjustPosition label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.adjustPosition input {
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+
+.adjustPositionActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }

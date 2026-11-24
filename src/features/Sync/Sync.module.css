@@ -1,0 +1,216 @@
+.button {
+    display: inline-grid;
+    place-items: center;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.button:hover {
+    color: var(--text);
+    background: var(--surface-raised);
+}
+
+.dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: min(440px, calc(100vw - 32px));
+    padding: 16px 20px 24px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
+}
+
+.radar {
+    position: relative;
+    width: min(340px, calc(100vw - 72px));
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+}
+
+/* Rings growing from the center, one after the other */
+.ring {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: ping 3.6s ease-out infinite;
+}
+
+.ring:nth-child(2) {
+    animation-delay: 1.2s;
+}
+
+.ring:nth-child(3) {
+    animation-delay: 2.4s;
+}
+
+@keyframes ping {
+    from {
+        transform: scale(0.1);
+        opacity: 0.8;
+    }
+    to {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+
+.sweep {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, color-mix(in srgb, var(--accent) 45%, transparent) 360deg);
+    animation: sweep 3s linear infinite;
+}
+
+@keyframes sweep {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.self,
+.device {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transform: translate(-50%, -50%);
+}
+
+.self {
+    left: 50%;
+    top: 50%;
+    pointer-events: none;
+}
+
+.selfDot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 6px var(--accent-soft);
+}
+
+.device {
+    padding: 8px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    animation: appear 0.4s ease-out;
+}
+
+.device:hover {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+@keyframes appear {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+    }
+}
+
+.label {
+    max-width: 120px;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hint {
+    text-align: center;
+}
+
+/* Fades a blur over the radar, which keeps turning behind */
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px;
+    text-align: center;
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: fade 0.3s ease-out;
+}
+
+@keyframes fade {
+    from {
+        opacity: 0;
+    }
+}
+
+.code {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 36px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.2em;
+}
+
+.hidden {
+    color: var(--text-muted);
+}
+
+.codeInput {
+    width: 8ch;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font: inherit;
+    font-size: 28px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+}
+
+.codeInput:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.error {
+    color: var(--danger);
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ring,
+    .sweep {
+        animation-duration: 12s;
+    }
+}

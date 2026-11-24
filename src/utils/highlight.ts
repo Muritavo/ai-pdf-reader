@@ -3,7 +3,7 @@ import seedrandom from 'seedrandom';
 import { useEffect, useState } from 'react';
 import { scoped } from './projects';
 
-const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
+export const HIGHLIGHT_STORAGE_KEY = 'pdf-ai-reader/highlights';
 const DEFINITION_STORAGE_KEY = 'pdf-ai-reader/definitions';
 
 export type HighlightRule = {
@@ -24,16 +24,27 @@ export type DefinitionRule = {
 type HighlightMatch = { color: string; end: number; start: number; word: string };
 
 /**
+ * Takes away the punctuation around a text, but keeps the minus sign of a negative number and
+ * the percent sign of a percentage, as in "-5" and "5%".
+ */
+export function trimPunctuation(value: string) {
+    if (!/[\p{L}\p{N}]/u.test(value)) return '';
+    return value
+        .replace(/^[^\p{L}\p{N}]*?([-−](?=\p{N}))?(?=[\p{L}\p{N}])/u, '$1')
+        .replace(/([\p{L}\p{N}])(?:(?<=\p{N})(%))?[^\p{L}\p{N}]*$/u, '$1$2');
+}
+
+/**
  * The form a text is compared in: lowercase, with any spacing (as line breaks) as a single space,
  * and the words cut by a hyphen at the end of a line joined back, as "bro- ken" is "broken".
  */
 function normalizeWord(value: string) {
-    return value
-        .replace(/\s+/g, ' ')
-        .replace(/(\p{L})- (\p{L})/gu, '$1$2')
-        .trim()
-        .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
-        .toLocaleLowerCase();
+    return trimPunctuation(
+        value
+            .replace(/\s+/g, ' ')
+            .replace(/(\p{L})- (\p{L})/gu, '$1$2')
+            .trim(),
+    ).toLocaleLowerCase();
 }
 
 function createHighlightColor(normalizedWord: string) {
@@ -115,8 +126,11 @@ export function useDefinitionsForPDF(hash?: string) {
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const isWordCharacter = (character: string | undefined) => (character ? /[\p{L}\p{N}]/u.test(character) : false);
 
-/** A line of the text layer of a page: the element that shows it, and its text */
-export type TextPiece = { element: HTMLElement; text: string };
+/**
+ * A piece of the text layer of a page: the element that shows it, and its text.
+ * `endsLine` tells whether the line ends after it (the default): pieces of the same line, as a word cut by a ligature, are joined with no space.
+ */
+export type TextPiece = { element: HTMLElement; text: string; endsLine?: boolean };
 
 /** Where a character of the page text came from. Undefined for the space put between lines */
 type Source = { piece: number; offset: number } | undefined;
@@ -124,6 +138,7 @@ type Source = { piece: number; offset: number } | undefined;
 /**
  * The text of a whole page, so a highlighted text can be found even when it goes on to the next line.
  * The lines are joined by a space, except for a word cut by a hyphen, which is joined back without it.
+ * The pieces of the same line are joined as they are, as a selection reads them.
  */
 function pageTextOf(pieces: TextPiece[]) {
     let text = '';
@@ -144,14 +159,17 @@ function pageTextOf(pieces: TextPiece[]) {
 
     pieces.forEach((piece, index) => {
         const next = pieces[index + 1];
-        const cutByHyphen = next !== undefined && /\p{L}-\s*$/u.test(piece.text) && /^\s*\p{L}/u.test(next.text);
+        const previous = pieces[index - 1];
+        const endsLine = piece.endsLine ?? true;
+        const cutByHyphen = endsLine && next !== undefined && /\p{L}-\s*$/u.test(piece.text) && /^\s*\p{L}/u.test(next.text);
         const lastCharacter = cutByHyphen ? piece.text.lastIndexOf('-') : piece.text.length;
-        const skipsLeadingSpace = index > 0 && /\p{L}-\s*$/u.test(pieces[index - 1].text) && /^\s*\p{L}/u.test(piece.text);
+        const skipsLeadingSpace =
+            previous !== undefined && (previous.endsLine ?? true) && /\p{L}-\s*$/u.test(previous.text) && /^\s*\p{L}/u.test(piece.text);
         for (let offset = 0; offset < lastCharacter; offset++) {
             if (skipsLeadingSpace && offset < piece.text.length - piece.text.trimStart().length) continue;
             push(piece.text[offset], { piece: index, offset });
         }
-        if (!cutByHyphen) push(' ', undefined);
+        if (endsLine && !cutByHyphen) push(' ', undefined);
     });
     return { text, sources };
 }

@@ -3,7 +3,8 @@
 .container {
   display: flex;
   flex-direction: column;
-  width: min(1000px, 92vw);
+  // As wide as the dialog lets it be (its max width), so it is not cut and its buttons don't overlap
+  width: 95vw;
   height: 90vh;
   position: relative;
 
@@ -69,6 +70,8 @@
   overflow: auto;
   user-select: none;
   position: relative;
+  // What is put over the pages stays under the actions at the top right (as the close button of the dialog)
+  isolation: isolate;
 
   canvas {
     user-select: none;
@@ -89,7 +92,9 @@
 
       & span {
         font-size: calc(var(--font-height));
-        transform: scaleX(calc(var(--scale-x)));
+        // pdf.js sets the angle of the text (as on the pages printed sideways) only on the spans that are turned
+        --rotate: 0deg;
+        transform: rotate(var(--rotate)) scaleX(calc(var(--scale-x)));
       }
 
       & span,
@@ -140,7 +145,6 @@
 .wordHighlight {
   border-radius: 4px;
   color: transparent;
-  padding: 0 1px;
 }
 
 .clickIndicator {
@@ -337,5 +341,48 @@
   .imageBox:hover &,
   &:focus-visible {
     opacity: 1;
+  }
+}
+
+// The corner of a page where the button to show it wide is, seen only with the mouse near it
+.pageLandscapeZone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 72px;
+  height: 72px;
+  z-index: 3;
+}
+
+.pageLandscape {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(23, 26, 33, 0.75);
+  color: #e6e8ee;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+
+  .pageLandscapeZone:hover &,
+  &:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  &[data-landscape] svg {
+    transform: rotate(180deg) scaleY(-1);
+  }
+
+  &:disabled {
+    cursor: default;
   }
 }

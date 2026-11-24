@@ -42,5 +42,8 @@
     "sass": "^1.105.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
+  },
+  "patchedDependencies": {
+    "@onepercentio/one-ui@1.5.0": "patches/@onepercentio%2Fone-ui@1.5.0.patch"
   }
 }

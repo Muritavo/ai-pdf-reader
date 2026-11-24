@@ -1,0 +1,126 @@
+diff --git a/dist-ts/components/ARDiv/ARDiv.d.ts b/dist-ts/components/ARDiv/ARDiv.d.ts
+index 17483671355d04e321501c3bc6a96727922cd9d1..47ad64be2bab924ed97877bb8ad3fcc480cdfad4 100644
+--- a/dist-ts/components/ARDiv/ARDiv.d.ts
++++ b/dist-ts/components/ARDiv/ARDiv.d.ts
+@@ -6,7 +6,7 @@ import { HTMLAttributes } from "react";
+  * to open a window with that size through onAREntry. Its content is portaled into that window, so it keeps the same
+  * React tree (state, context and events). Outside AR it's a plain div.
+  */
+-export default function ARDiv({ children, onARExit, snapToWindow, focus, effect, ...props }: HTMLAttributes<HTMLDivElement> & {
++export default function ARDiv({ children, onARExit, snapToWindow, focus, effect, group, ...props }: HTMLAttributes<HTMLDivElement> & {
+     /** Called when the user closes the AR window */
+     onARExit?: () => void;
+     /** Opens the AR window beside the window this div is rendered in, on that side */
+@@ -15,4 +15,9 @@ export default function ARDiv({ children, onARExit, snapToWindow, focus, effect,
+     focus?: boolean;
+     /** How the AR window shows and closes: "pop" grows in like a bubble and pops when it closes */
+     effect?: "pop";
++    /**
++     * The kind of window it is (as "articlePreview"). The wrapper keeps the size the user left the last window of the
++     * group with, and opens the next ones with it instead of the measured size
++     */
++    group?: string;
+ }): import("react/jsx-runtime").JSX.Element;
+diff --git a/dist-ts/components/ARDiv/ARDiv.js b/dist-ts/components/ARDiv/ARDiv.js
+index 2b3f6141a7a332c3bd78f75e0f12ea5ded0f1c4f..a50d1111fc9cb4d6fea2130bdedcccca67b9a5e9 100644
+--- a/dist-ts/components/ARDiv/ARDiv.js
++++ b/dist-ts/components/ARDiv/ARDiv.js
+@@ -41,7 +41,7 @@ function mirrorDocument(popup) {
+  * to open a window with that size through onAREntry. Its content is portaled into that window, so it keeps the same
+  * React tree (state, context and events). Outside AR it's a plain div.
+  */
+-export default function ARDiv({ children, onARExit, snapToWindow, focus = true, effect, ...props }) {
++export default function ARDiv({ children, onARExit, snapToWindow, focus = true, effect, group, ...props }) {
+     const isAR = useIsAR();
+     const placeholderRef = useRef(null);
+     const rootRef = useRef(null);
+@@ -60,7 +60,7 @@ export default function ARDiv({ children, onARExit, snapToWindow, focus = true,
+         // The window it's in: the page's, or the AR window it was lifted into (named by its id when opened)
+         const ownerWindow = el.ownerDocument.defaultView;
+         const parent = ownerWindow === window ? "main" : ownerWindow.name;
+-        postToBridge({ id, width, height, parent, snapToWindow, focus, effect });
++        postToBridge({ id, width, height, parent, snapToWindow, focus, effect, group });
+         const popup = window.open("", id);
+         window.webkit.messageHandlers.arLog?.postMessage(`ARDiv ${id} measured ${width}x${height}, window.open ${popup ? "returned a window" : "returned null"}`);
+         if (!popup)
+diff --git a/dist-ts/components/AdaptiveDialog/AdaptiveDialog.d.ts b/dist-ts/components/AdaptiveDialog/AdaptiveDialog.d.ts
+index 4661966ec2af5a70d6e46f3c95b7ec09b7ede5d9..583c1c0df39f727bba625ff632826082f4ea78c7 100644
+--- a/dist-ts/components/AdaptiveDialog/AdaptiveDialog.d.ts
++++ b/dist-ts/components/AdaptiveDialog/AdaptiveDialog.d.ts
+@@ -6,7 +6,7 @@ import { FromOnePercentUtility } from "../../type-utils";
+  * while on desktop computers, it appears as a centered popup window.
+  * It handles closing animations and can render in different locations on the page.
+  **/
+-export default function AdaptiveDialog({ variant, onClose, open, className, onClickOut, children, onClosed, inline, }: PropsWithChildren<{
++export default function AdaptiveDialog({ variant, onClose, open, className, onClickOut, children, onClosed, inline, arGroup, }: PropsWithChildren<{
+     variant?: FromOnePercentUtility<'UIElements.AdaptiveDialogVariants'>;
+     className?: string;
+     open: boolean;
+@@ -17,4 +17,6 @@ export default function AdaptiveDialog({ variant, onClose, open, className, onCl
+      * Indicates this rendering will write the html inside the current position on dom.
+      * If omitted or false, it will render on the document body, to prevent style bleeding */
+     inline?: boolean;
++    /** On AR, the kind of window the dialog is (the group of ARDiv), whose size the user left it with is kept for the next ones */
++    arGroup?: string;
+ }>): import("react/jsx-runtime").JSX.Element | null;
+diff --git a/dist-ts/components/AdaptiveDialog/AdaptiveDialog.js b/dist-ts/components/AdaptiveDialog/AdaptiveDialog.js
+index d580a8bbba1151902d2ab46e0173199c6d26e445..1ab9c5d458d43ae4c32e7cdb5fc7adde50871637 100644
+--- a/dist-ts/components/AdaptiveDialog/AdaptiveDialog.js
++++ b/dist-ts/components/AdaptiveDialog/AdaptiveDialog.js
+@@ -13,7 +13,7 @@ import { useOneUIConfig } from "../../context/OneUIProvider";
+  * while on desktop computers, it appears as a centered popup window.
+  * It handles closing animations and can render in different locations on the page.
+  **/
+-export default function AdaptiveDialog({ variant = "default", onClose, open = false, className = "", onClickOut, children, onClosed, inline = false, }) {
++export default function AdaptiveDialog({ variant = "default", onClose, open = false, className = "", onClickOut, children, onClosed, inline = false, arGroup, }) {
+     const rootDivRef = useRef(null);
+     // On AR the dialog is in its own window, so the page behind it stays usable and a click on it is not a click out of it
+     const isAR = useIsAR();
+@@ -41,7 +41,7 @@ export default function AdaptiveDialog({ variant = "default", onClose, open = fa
+     const content = (_jsx("div", { ref: rootDivRef, className: `${Styles.backdrop} ${open ? Styles.open : Styles.close} ${expanded ? Styles.expanded : ""} ${globalClassName.backdrop} ${variantClass}`, onClick: isAR ? undefined : onClickOut, onAnimationEnd: ({ target, currentTarget }) => {
+             if (target === currentTarget && !isAR)
+                 target.style.pointerEvents = "initial";
+-        }, children: _jsx(ARDiv, { className: `${Styles.container} ${className} ${globalClassName.dialog}`, onClick: (e) => e.stopPropagation(), onARExit: onClose ?? onClickOut, children: _jsxs(ScrollAndFocusLock, { open: open, children: [onClose &&
++        }, children: _jsx(ARDiv, { className: `${Styles.container} ${className} ${globalClassName.dialog}`, onClick: (e) => e.stopPropagation(), onARExit: onClose ?? onClickOut, group: arGroup, children: _jsxs(ScrollAndFocusLock, { open: open, children: [onClose &&
+                         (CloseButtonComponent ? (_jsx(CloseButtonComponent, { onClick: onClose })) : (_jsx("button", { className: Styles.closeBtn, onClick: onClose, children: _jsx(MutableHamburgerButton, { state: "closed", size: 24 }) }))), _jsx("div", { onClick: () => setExpanded((p) => !p) }), children] }) }) }));
+     return isVisible || open ? (inline ? (content) : (_jsx(_Fragment, { children: ReactDOM.createPortal(content, document.body) }))) : null;
+ }
+diff --git a/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js b/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
+index 2de203d1d492f0612d7b5f2ee70737e9d2e8523c..a389283d0ac3468372f9647358b7e6f1544d2926 100644
+--- a/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
++++ b/dist-ts/components/ScrollendIndicator/ScrollendIndicator.js
+@@ -16,9 +16,12 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+         const el = ref.current?.parentElement;
+         if (!el)
+             return;
++        // The window it is rendered in, which may not be this script's (as content portaled into a popup window).
++        // Another window's ResizeObserver never reports the elements of this one
++        const view = el.ownerDocument.defaultView ?? window;
+         let scrollParent = el;
+-        while (scrollParent && scrollParent !== document.documentElement) {
+-            const style = getComputedStyle(scrollParent);
++        while (scrollParent && scrollParent !== view.document.documentElement) {
++            const style = view.getComputedStyle(scrollParent);
+             if (style.overflow !== "visible" ||
+                 style.overflowX !== "visible" ||
+                 style.overflowY !== "visible") {
+@@ -29,7 +32,7 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+         if (!scrollParent)
+             return;
+         if (forceRelativePosition) {
+-            const currentPos = getComputedStyle(scrollParent).position;
++            const currentPos = view.getComputedStyle(scrollParent).position;
+             if (currentPos !== "static" && currentPos !== "initial") {
+                 console.warn(`[ScrollendIndicator] Parent element has position "${currentPos}". ` +
+                     `Setting to "relative" may cause layout conflicts.`);
+@@ -83,8 +86,8 @@ const ScrollendIndicator = ({ direction = "vertical", forceRelativePosition = fa
+                     rightRef.current.style.setProperty("--radius", `${rightRadius}%`);
+             }
+         };
+-        const observer = typeof ResizeObserver !== "undefined"
+-            ? new ResizeObserver(() => {
++        const observer = typeof view.ResizeObserver !== "undefined"
++            ? new view.ResizeObserver(() => {
+                 syncViewport();
+                 handleScroll();
+             })

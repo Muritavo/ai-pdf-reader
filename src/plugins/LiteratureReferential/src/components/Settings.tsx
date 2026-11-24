@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Switch from '@onepercentio/one-ui/components/Switch';
-import { BookOpen, Bug, Ellipsis, Play, Trash2, Upload } from 'lucide-react';
+import { BookOpen, Bug, Ellipsis, FileWarning, Play, Trash2, Upload } from 'lucide-react';
 import type { PluginEnv } from '../../../types';
-import { addBook, isPreloaded, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, usePreloading, type Book } from '../library';
+import { addBook, hasContent, isPreloaded, pagesOf, relinkBook, removeBook, saveAISettings, saveDisabled, saveOffset, useBooks, useMissingPdfs, usePreloading, type Book } from '../library';
 import { preloadBook } from '../preload';
 import BookEditor from './BookEditor';
 import ExtractedContent from './ExtractedContent';
@@ -31,7 +31,7 @@ function BookStatus({ book }: { book: Book }) {
         );
     return (
         <span className="text-caption" data-testid="literature-status">
-            {book.ranges.length ? 'Não pré-carregado' : 'Clique no livro para escolher as páginas do sumário e do índice'}
+            {hasContent(book) ? 'Não pré-carregado' : 'Clique no livro para escolher as páginas do sumário e do índice'}
         </span>
     );
 }
@@ -63,7 +63,7 @@ function OffsetInput({ book, onSave }: { book: Book; onSave: (offset: number) =>
     );
 }
 
-/** The references (full books), with the ranges of their summary and index, and the preload of them by the AI */
+/** The references (full books), with the pages of their summary and index, and the preload of them by the AI */
 export default function Settings(env: PluginEnv) {
     const { storage, settingsComponents } = env;
     const { AISettingsButton } = settingsComponents;
@@ -72,6 +72,10 @@ export default function Settings(env: PluginEnv) {
     const [editing, setEditing] = useState<string>();
     const [adding, setAdding] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
+    const missingPdfs = useMissingPdfs();
+    /** The book whose PDF is being picked again, as on a device it was synced to */
+    const relinking = useRef<Book>();
+    const relinkInput = useRef<HTMLInputElement>(null);
     const [holdingCtrl, setHoldingCtrl] = useState(false);
     /** The book whose options (shown holding Ctrl) are open */
     const [menuOf, setMenuOf] = useState<string>();
@@ -139,13 +143,36 @@ export default function Settings(env: PluginEnv) {
                         }
                     }}
                 />
+                <input
+                    ref={relinkInput}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    hidden
+                    data-testid="literature-relink-input"
+                    onChange={async e => {
+                        const file = e.target.files?.item(0);
+                        e.target.value = '';
+                        const book = relinking.current;
+                        relinking.current = undefined;
+                        if (!file || !book) return;
+                        const { source } = book;
+                        if (source && (source.name !== file.name || source.size !== file.size)) {
+                            if (!window.confirm(`O livro foi adicionado de ${source.name}, mas o arquivo escolhido é ${file.name}. Usar mesmo assim?`)) return;
+                        }
+                        try {
+                            await relinkBook(storage, book.id, file);
+                        } catch (error) {
+                            alert(`Não foi possível usar o PDF: ${error instanceof Error ? error.message : String(error)}`);
+                        }
+                    }}
+                />
             </div>
             {books.length === 0 && <p className="text-description">Nenhum livro ainda.</p>}
             <ul className={Styles.books}>
                 {books.map(book => {
                     const running = !!preloading[book.id] && !preloading[book.id].error;
-                    // Holding Ctrl, a book with ranges shows its options, as the text that is sent to the AI
-                    const showingOptions = holdingCtrl && book.ranges.length > 0;
+                    // Holding Ctrl, a book with pages shows its options, as the text that is sent to the AI
+                    const showingOptions = holdingCtrl && hasContent(book);
                     return (
                         <li key={book.id} className={`${Styles.book} ${book.disabled ? Styles.bookDisabled : ''}`} data-testid="literature-book">
                             <button type="button" className={Styles.bookTitle} onClick={() => setEditing(book.id)} data-testid="literature-book-open">
@@ -153,10 +180,33 @@ export default function Settings(env: PluginEnv) {
                                 <span>{book.title}</span>
                                 <span className="text-caption">{book.pageCount} páginas</span>
                             </button>
-                            <RangePills ranges={book.ranges} />
+                            {/* One cell of the row, as the tag would take the place of the next one */}
+                            <div className={Styles.pillsCell}>
+                                <RangePills pages={pagesOf(book)} />
+                                {book.glossary && (
+                                    <span className={`${Styles.pill} ${Styles.glossaryPill}`} data-testid="literature-glossary-tag">
+                                        Built-in glossary
+                                    </span>
+                                )}
+                            </div>
                             <OffsetInput book={book} onSave={offset => saveOffset(storage, book.id, offset)} />
                             <BookStatus book={book} />
                             <div className={Styles.bookActions}>
+                                {missingPdfs.has(book.id) && (
+                                    <button
+                                        type="button"
+                                        className={Styles.iconButton}
+                                        title={`PDF ausente neste dispositivo${book.source ? ` (arquivo original: ${book.source.name})` : ''}. Clique para escolher o PDF`}
+                                        aria-label="Escolher o PDF do livro"
+                                        data-testid="literature-relink"
+                                        onClick={() => {
+                                            relinking.current = book;
+                                            relinkInput.current?.click();
+                                        }}
+                                    >
+                                        <FileWarning size={18} />
+                                    </button>
+                                )}
                                 <span className={Styles.bookSwitch}>
                                     <Switch
                                         size={12}
@@ -184,7 +234,7 @@ export default function Settings(env: PluginEnv) {
                                         aria-haspopup="menu"
                                         aria-expanded={menuOf === book.id}
                                         data-testid="literature-preload"
-                                        disabled={!showingOptions && (running || book.ranges.length === 0)}
+                                        disabled={!showingOptions && (running || !hasContent(book))}
                                         onClick={() => (showingOptions ? setMenuOf(book.id) : preloadBook(env, book))}
                                         // On macOS a Ctrl click is a right click, so it comes as the context menu instead
                                         onContextMenu={e => {

@@ -6,3 +6,5 @@ playwright-report
 *.tsbuildinfo
 todo.md
 test/screenshots
+visionos/build
+.playwright-mcp

@@ -1,6 +1,6 @@
 import { DEFAULT_AI_SETTINGS } from '../../../services/ai';
 import type { PluginEnv } from '../../types';
-import { answersKey, contentOf, preloadedBooks, type Book } from './library';
+import { answersKey, contentOf, outlineOf, preloadedBooks, type Book } from './library';
 import { questionMessages } from './prompt';
 
 /** A page of a book where the AI found the excerpt discussed */
@@ -39,13 +39,13 @@ function parsePlaces(answer: string, book: Book): Place[] {
 /** What the book answered about the excerpt: kept, or asked to the AI and kept */
 async function placesOn({ storage, ai }: PluginEnv, book: Book, excerpt: string) {
     const preloadedAt = book.cached!.at;
-    const stored = await storage.get<StoredAnswers>(answersKey(book.id));
+    const stored = await storage.optimization.get<StoredAnswers>(answersKey(book.id));
     const answers = stored?.preloadedAt === preloadedAt ? stored : { preloadedAt, byExcerpt: {} };
     const key = excerptKey(excerpt);
     if (answers.byExcerpt[key]) return answers.byExcerpt[key];
 
-    const places = parsePlaces(await ai.complete(questionMessages(book, contentOf(book.id), excerpt), { cache: true, settings: book.ai }), book);
-    await storage.set(answersKey(book.id), { ...answers, byExcerpt: { ...answers.byExcerpt, [key]: places } });
+    const places = parsePlaces(await ai.complete(questionMessages(book, contentOf(book.id), outlineOf(book.id), excerpt), { cache: true, settings: book.ai }), book);
+    await storage.optimization.set(answersKey(book.id), { ...answers, byExcerpt: { ...answers.byExcerpt, [key]: places } });
     return places;
 }
 

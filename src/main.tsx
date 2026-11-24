@@ -9,6 +9,7 @@ import { ProjectsProvider } from './context/ProjectsContext';
 import { PluginsProvider } from './context/PluginsContext';
 import pt from './i18n/pt';
 import { migrateCacheFromLocalStorage } from './utils/hash';
+import { migrateLegacyStore } from './utils/storageMigration';
 import './index.css';
 
 const UploadIcon = () => (
@@ -17,8 +18,10 @@ const UploadIcon = () => (
     </svg>
 );
 
-/** Before rendering, so no answer is asked again to the AI while it is still being moved */
-migrateCacheFromLocalStorage()
+/** Before rendering, so nothing is read from the new databases while it is still being copied to them */
+migrateLegacyStore()
+    .catch(e => console.error('Failed to copy the old IndexedDB database to the new ones', e))
+    .then(migrateCacheFromLocalStorage)
     .catch(e => console.error('Failed to move the AI cache to IndexedDB', e))
     .then(render);
 

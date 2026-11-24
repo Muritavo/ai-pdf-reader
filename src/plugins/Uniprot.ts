@@ -1,5 +1,4 @@
-import { get, set } from 'idb-keyval';
-import type { Plugin } from './types';
+import type { Plugin, PluginStorage } from './types';
 
 const API = 'https://rest.uniprot.org/uniprotkb';
 
@@ -7,7 +6,7 @@ const API = 'https://rest.uniprot.org/uniprotkb';
 const LIST_URL = `${API}/stream?query=organism_id:9606+AND+reviewed:true&fields=accession,gene_names,protein_name&format=tsv`;
 
 /** Outside of the projects, as the list is the same for all of them */
-const LIST_KEY = 'plugins/uniprot/human';
+const LIST_KEY = 'human';
 
 /** UniProt is released every 8 weeks */
 const LIST_MAX_AGE = 90 * 24 * 60 * 60 * 1000;
@@ -114,11 +113,11 @@ function buildIndex(tsv: string) {
     return built;
 }
 
-async function download() {
+async function download(storage: PluginStorage) {
     const response = await fetch(LIST_URL);
     if (!response.ok) throw new Error(`UniProt answered ${response.status}`);
     const list: StoredList = { downloadedAt: Date.now(), tsv: await response.text() };
-    await set(LIST_KEY, list);
+    await storage.set(LIST_KEY, list);
     return list;
 }
 
@@ -142,11 +141,11 @@ function shortFunction(text: string) {
 
 const UniprotPlugin: Plugin = {
     id: 'uniprot',
-    async setup() {
-        let list = (await get(LIST_KEY)) as StoredList | undefined;
-        if (!list) list = await download();
+    async setup({ storage: { optimization } }) {
+        let list = await optimization.get<StoredList>(LIST_KEY);
+        if (!list) list = await download(optimization);
         // An old list is used while the new one is downloaded, for the next time
-        else if (Date.now() - list.downloadedAt > LIST_MAX_AGE) download().catch(e => console.error('Failed to update the UniProt list', e));
+        else if (Date.now() - list.downloadedAt > LIST_MAX_AGE) download(optimization).catch(e => console.error('Failed to update the UniProt list', e));
         index = buildIndex(list.tsv);
     },
     menuOptions: [

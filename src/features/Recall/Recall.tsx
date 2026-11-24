@@ -214,8 +214,7 @@ export default function Recall() {
             >
                 <RecallIcon />
             </button>
-            {/* Its own close button is in the header, so onClose (which adds one-ui's) is left out */}
-            <AdaptiveDialog open={open} onClickOut={close}>
+            <AdaptiveDialog open={open} onClose={close} onClickOut={close}>
                 <div
                     className={Styles.content}
                     data-testid={TestIds.recall.modal}
@@ -229,9 +228,6 @@ export default function Recall() {
                             <RecallIcon />
                             {txt('recall.title')}
                         </Text>
-                        <Button variant="transparent" onClick={close} aria-label={txt('recall.close')}>
-                            ✕
-                        </Button>
                     </div>
                     <Tabs<Tab>
                         className={Styles.tabs}

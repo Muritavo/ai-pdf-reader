@@ -7,7 +7,7 @@ import Dots from '@onepercentio/one-ui/components/LoaderDotsIndicator';
 import useAsyncMemo from '@onepercentio/one-ui/hooks/utility/useAsyncMemo';
 import useLocalStorage from '@onepercentio/one-ui/hooks/persistence/useLocalStorage';
 import useShortIntl from '@onepercentio/one-ui/hooks/useShortIntl';
-import { ArrowLeft, Brain, Check, Copy, Search } from 'lucide-react';
+import { ArrowLeft, Brain, Check, Copy, RotateCw, Search } from 'lucide-react';
 import type { FullText } from '../../models/Article';
 import { useWarmUp } from '../../context/AIContext';
 import {
@@ -25,7 +25,8 @@ import DocumentActions from './components/DocumentActions';
 import useToggleAction from '../../hooks/useToggleAction';
 import TextLayerOffset, { type Offset } from './components/TextLayerOffset';
 import ImageQuestion, { type ImageQuestionEntry } from './components/ImageQuestion';
-import { cropImage, imageBoxesOf, type ImageBox } from '../../utils/pageImages';
+import { cropImage, imageBoxesOf, rotateBox, unrotateBox, type ImageBox, type PageRotation } from '../../utils/pageImages';
+import { dragZone } from '../../utils/dragZone';
 import { unwrapMarkdownFence } from '../../utils/markdownFence';
 import { getNormalizedText } from '../../utils/preprocessing';
 import { createStreamedWords, uniqueExcerptsOfPage } from '../../utils/progressTracker';
@@ -49,12 +50,14 @@ const SCAN_COLOR = '#7c9cff';
 /** The most pixels a page is drawn with, so a big screen and a long document don't run out of memory */
 const MAX_CANVAS_PIXELS = 4096 * 4096;
 
-/** The smallest side (in pixels of the screen) a zone drawn by hand has to be an image */
-const MIN_ZONE_SIDE = 12;
-/** How close (in pixels) to the top or the bottom of what is seen the mouse starts scrolling the document while drawing a zone */
-const ZONE_SCROLL_EDGE = 60;
-/** The most pixels the document scrolls at each frame while drawing a zone, with the mouse on (or past) the edge */
-const ZONE_SCROLL_SPEED = 24;
+/** Whether a line ends between two pieces of the text layer: pdf.js puts a <br> where it does */
+function endsLine(element: HTMLElement, next: HTMLElement | undefined) {
+    if (!next) return true;
+    const range = element.ownerDocument.createRange();
+    range.setStartAfter(element);
+    range.setEndBefore(next);
+    return range.cloneContents().querySelector('br') !== null;
+}
 
 type PageElement = {
     id: number;
@@ -82,6 +85,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [highlightPages, setHighlightPages] = useState<Record<string, number[]>>({});
     const [focusedMarker, setFocusedMarker] = useState<number>();
     const [reference, setReference] = useState<{ passage: string; answer: string }>();
+    const [definition, setDefinition] = useState<{ word: string; definition: string }>();
     const [pluginResult, setPluginResult] = useState<PluginResult>();
     // The images of each page, recorded while drawing it, and the one a question is being written about
     const [imageBoxes, setImageBoxes] = useState<Record<number, ImageBox[]>>({});
@@ -128,6 +132,16 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     const [imageZones, setImageZones] = useLocalStorage<Record<number, ImageBox[]>>(scoped(`imageZones-${hash}`), {});
     // The texts shown as other ones, for the documents whose text is not what is drawn (as a β read as an "A")
     const [textReplacements, setTextReplacements] = useLocalStorage<TextReplacement[]>(scoped(`textReplacements-${hash}`), []);
+    // The pages shown turned a quarter clockwise, for the ones printed sideways (as wide tables)
+    const [landscapePages, setLandscapePages] = useLocalStorage<number[]>(scoped(`landscapePages-${hash}`), []);
+    const rotationOf = (pageId: number): PageRotation => (landscapePages.includes(pageId) ? 90 : 0);
+    // Read by the drawing of every page, which is not started again when a page is turned
+    const rotationOfRef = useRef(rotationOf);
+    rotationOfRef.current = rotationOf;
+    // The text layer of each page, so turning one page draws only that page again
+    const textLayerOfPage = useRef<Record<number, pdfjsLib.TextLayer>>({});
+    // How each page was turned the first time it was drawn: pdf.js keeps the images it recorded then, as they were drawn
+    const imagesRecordedRotation = useRef<Record<number, PageRotation>>({});
     const clickCounterRef = useRef(0);
 
     // Alt + R replaces the selected text, wherever it is in the document
@@ -161,69 +175,20 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setLastClick({ ...toDocumentCoordinates(e.clientX, e.clientY), key: clickCounterRef.current });
     };
 
-    /** The images of a page: the ones recorded while drawing it, then the zones defined by hand */
-    const boxesOf = (pageId: number) => [...(imageBoxes[pageId] ?? []), ...(imageZones[pageId] ?? [])];
+    /** The images of a page, where they are on the page as shown: the ones recorded while drawing it, then the zones defined by hand */
+    const boxesOf = (pageId: number) =>
+        [...(imageBoxes[pageId] ?? []), ...(imageZones[pageId] ?? [])].map(box => rotateBox(box, rotationOf(pageId)));
 
     /** Alt + drag on a page draws a zone, to be defined as an image once dropped */
     const startZone = (e: MouseEvent<HTMLDivElement>, pageId: number) => {
-        if (!e.altKey || e.button !== 0) return;
-        // Draws instead of selecting text
-        e.preventDefault();
-        previewWindow().getSelection()?.removeAllRanges();
-        const wrapper = e.currentTarget;
-        const at = (event: { clientX: number; clientY: number }) => {
-            const rect = wrapper.getBoundingClientRect();
-            return {
-                x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
-                y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
-            };
-        };
-        const start = at(e);
-        const boxTo = (event: { clientX: number; clientY: number }): ImageBox => {
-            const end = at(event);
-            return {
-                left: Math.min(start.x, end.x),
-                top: Math.min(start.y, end.y),
-                width: Math.abs(end.x - start.x),
-                height: Math.abs(end.y - start.y),
-            };
-        };
+        const started = dragZone(e, {
+            scroller: previewBoxRef.current,
+            onChange: box => setNewZone({ page: pageId, box, dragging: true }),
+            onDrop: box => setNewZone(box ? { page: pageId, box, dragging: false } : undefined),
+        });
+        if (!started) return;
         setAskingImage(undefined);
         setNewZone(undefined);
-        // Where the mouse is, kept for when the document scrolls under it without the mouse moving
-        let pointer = { clientX: e.clientX, clientY: e.clientY };
-        const update = () => setNewZone({ page: pageId, box: boxTo(pointer), dragging: true });
-        const move = (event: globalThis.MouseEvent) => {
-            pointer = { clientX: event.clientX, clientY: event.clientY };
-            update();
-        };
-        // Held near the top or the bottom of what is seen (or past it), the document scrolls, faster the closer to the edge,
-        // so a zone can be taller than what is seen, as a figure of a whole page
-        const scroller = previewBoxRef.current;
-        let frame = 0;
-        const autoScroll = () => {
-            if (scroller) {
-                const { top, bottom } = scroller.getBoundingClientRect();
-                const into = (distance: number) => Math.min(1, Math.max(0, 1 - distance / ZONE_SCROLL_EDGE));
-                const speed = ZONE_SCROLL_SPEED * (into(bottom - pointer.clientY) - into(pointer.clientY - top));
-                if (speed) scroller.scrollTop += speed;
-            }
-            frame = requestAnimationFrame(autoScroll);
-        };
-        frame = requestAnimationFrame(autoScroll);
-        scroller?.addEventListener('scroll', update, { passive: true });
-        const drop = (event: globalThis.MouseEvent) => {
-            window.removeEventListener('mousemove', move);
-            cancelAnimationFrame(frame);
-            scroller?.removeEventListener('scroll', update);
-            const box = boxTo(event);
-            const { width, height } = wrapper.getBoundingClientRect();
-            // Too small to be a zone: an Alt + click, not a drag
-            const isZone = box.width * width >= MIN_ZONE_SIDE && box.height * height >= MIN_ZONE_SIDE;
-            setNewZone(isZone ? { page: pageId, box, dragging: false } : undefined);
-        };
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', drop, { once: true });
     };
 
     /** Copies the image, cut out of the drawn page, to the clipboard */
@@ -413,6 +378,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
 
     useEffect(() => {
         if (!pdf) return;
+        textLayerOfPage.current = {};
+        imagesRecordedRotation.current = {};
         setLoading(true);
         setTextLayers(undefined);
         setPages(
@@ -425,15 +392,22 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         setLoading(false);
     }, [pdf]);
 
-    const renderPage = async (pdfDoc: pdfjsLib.PDFDocumentProxy, pageNum: number, element: PageElement) => {
+    const renderPage = async (
+        pdfDoc: pdfjsLib.PDFDocumentProxy,
+        pageNum: number,
+        element: PageElement,
+        rotation: PageRotation,
+    ) => {
         try {
             const page = await pdfDoc.getPage(pageNum);
-            const pageViewport = page.getViewport({ scale: 1 });
+            // Turned by pdf.js, so the canvas is drawn wide and the page fills the width of the preview as a wide one
+            const pageViewport = page.getViewport({ scale: 1, rotation });
 
             // Scales the page to fit the container width
             const containerWidth = previewBoxRef.current?.clientWidth || 800;
             const scale = containerWidth / pageViewport.width;
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale, rotation });
+            // Not turned: the text layer is turned with the transform below, along with its scale
             const textLayerViewport = page.getViewport({ scale: 1 });
 
             const canvas = element.canvasRef.current;
@@ -461,7 +435,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await drawing.promise;
             // Kept by pdf.js on the page: the getter of the render task reads a field it never sets
-            setImageBoxes(current => ({ ...current, [pageNum]: imageBoxesOf(page.imageCoordinates) }));
+            // Recorded only on the first drawing of the page, so they are turned as the page was then. Kept as on the page in the PDF
+            const recordedRotation = (imagesRecordedRotation.current[pageNum] ??= rotation);
+            setImageBoxes(current => ({
+                ...current,
+                [pageNum]: imageBoxesOf(page.imageCoordinates).map(box => unrotateBox(box, recordedRotation)),
+            }));
 
             textLayerContainer.innerHTML = '';
             const textLayer = new pdfjsLib.TextLayer({
@@ -471,7 +450,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             });
             await textLayer.render();
             // Moved before scaling, so the offset is in pixels of the screen. Read from the preview, so changing it does not draw the pages again
-            textLayerContainer.style.transform = `translate(var(--text-layer-x, 0px), var(--text-layer-y, 0px)) scale(${scale})`;
+            // A turned page has its text layer turned around its top left corner, then moved back down over the page
+            const turn = rotation ? ` rotate(${rotation}deg)` : '';
+            const backOver = rotation ? ' translateY(-100%)' : '';
+            textLayerContainer.style.transform = `translate(var(--text-layer-x, 0px), var(--text-layer-y, 0px))${turn} scale(${scale})${backOver}`;
             textLayerContainer.style.width = `${textLayerViewport.width}px`;
             textLayerContainer.style.height = `${textLayerViewport.height}px`;
 
@@ -487,8 +469,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         (async () => {
             const rendered: pdfjsLib.TextLayer[] = [];
             for (let i = 0; i < pages.length; i++) {
-                const textLayer = await renderPage(pdf, i + 1, pages[i]);
-                if (textLayer) rendered.push(textLayer);
+                const textLayer = await renderPage(pdf, i + 1, pages[i], rotationOfRef.current(i + 1));
+                if (!textLayer) continue;
+                textLayerOfPage.current[i + 1] = textLayer;
+                rendered.push(textLayer);
             }
             if (!cancelled) setTextLayers(rendered);
         })();
@@ -496,6 +480,23 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             cancelled = true;
         };
     }, [pages, pdf]);
+
+    /** Shows a page wide (turned a quarter clockwise) or back as it is in the PDF, drawing only that page again */
+    const toggleLandscape = async (page: PageElement) => {
+        // Only once every page is drawn, as a canvas can't be drawn twice at once
+        if (!pdf || !textLayers) return;
+        const rotation: PageRotation = rotationOf(page.id) ? 0 : 90;
+        setLandscapePages(prev => (rotation ? [...prev, page.id] : prev.filter(id => id !== page.id)));
+        // Not about the page before
+        setAskingImage(current => (current?.page === page.id ? undefined : current));
+        setNewZone(current => (current?.page === page.id ? undefined : current));
+        const before = textLayerOfPage.current[page.id];
+        const textLayer = await renderPage(pdf, page.id, page, rotation);
+        if (!textLayer) return;
+        textLayerOfPage.current[page.id] = textLayer;
+        // A new text layer, so the highlights are put on it again
+        setTextLayers(current => current?.map(other => (other === before ? textLayer : other)));
+    };
 
     // Keeps how far the document was read, once every page is rendered and the height is known
     useEffect(() => {
@@ -554,7 +555,7 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
             const pieces = textLayer.textDivs
                 .map((element, index) => ({ element, text: texts[index], read: textLayer.textContentItemsStr[index] }))
                 .filter(piece => piece.read)
-                .map(({ element, text }) => ({ element, text }));
+                .map(({ element, text }, index, kept) => ({ element, text, endsLine: endsLine(element, kept[index + 1]?.element) }));
             highlightTextLayer(
                 pieces,
                 highlightRules,
@@ -736,7 +737,9 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                                 onClose={() => setNewZone(undefined)}
                                 onDefine={() => {
-                                    setImageZones(prev => ({ ...prev, [page.id]: [...(prev[page.id] ?? []), newZone.box] }));
+                                    // Kept as on the page in the PDF, so it stays on its image when the page is turned
+                                    const zone = unrotateBox(newZone.box, rotationOf(page.id));
+                                    setImageZones(prev => ({ ...prev, [page.id]: [...(prev[page.id] ?? []), zone] }));
                                     setNewZone(undefined);
                                 }}
                             />
@@ -776,6 +779,24 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                                 }}
                             />
                         )}
+                        {/* Seen only with the mouse near the top right corner of the page */}
+                        <div className={Styles.pageLandscapeZone} onMouseDown={e => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                className={Styles.pageLandscape}
+                                data-testid={TestIds.preview.pageLandscape}
+                                data-landscape={rotationOf(page.id) ? '' : undefined}
+                                disabled={!textLayers}
+                                title={txt(rotationOf(page.id) ? 'documentPreview.showPortrait' : 'documentPreview.showLandscape')}
+                                aria-label={txt(rotationOf(page.id) ? 'documentPreview.showPortrait' : 'documentPreview.showLandscape')}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    toggleLandscape(page);
+                                }}
+                            >
+                                <RotateCw size={14} strokeWidth={1.75} />
+                            </button>
+                        </div>
                         {warmUp.state === 'running' && warmUp.page === page.id && (
                             <div className={Styles.readingPage}>
                                 <PixelatedScan
@@ -835,7 +856,10 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 getWindow={previewWindow}
                 onMarkLocation={addPointOfInterest}
                 onReferenceFound={(passage, answer) => setReference({ passage, answer })}
-                onDefined={addDefinition}
+                onDefined={(word, text) => {
+                    addDefinition(word, text);
+                    setDefinition({ word, definition: text });
+                }}
                 onAskAbout={statement => promptBarRef.current?.askAbout(statement)}
                 onPluginResult={setPluginResult}
             />
@@ -862,6 +886,19 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                         answer: txt('documentPreview.responseModal.answer'),
                     }}
                     testIds={{ modal: TestIds.preview.imageAnswerModal, answer: TestIds.preview.imageAnswer }}
+                />
+            )}
+            {definition && (
+                <ResponseModal
+                    prompt={definition.word}
+                    answer={definition.definition}
+                    onClose={() => setDefinition(undefined)}
+                    labels={{
+                        title: txt('documentPreview.definitionModal.title'),
+                        prompt: txt('documentPreview.definitionModal.term'),
+                        answer: txt('documentPreview.definitionModal.definition'),
+                    }}
+                    testIds={{ modal: TestIds.ai.definitionModal, answer: TestIds.ai.definitionModalAnswer }}
                 />
             )}
             {reference && (

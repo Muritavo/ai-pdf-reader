@@ -1,6 +1,7 @@
 import { delMany, keys } from 'idb-keyval';
 import chroma from 'chroma-js';
 import seedrandom from 'seedrandom';
+import { optimizationStore, personalStore } from './storage';
 
 /** Each project keeps its own references, PDFs, annotations, questions and AI cache */
 export type Project = { id: string; name: string; createdAt: string; lastOpenedAt?: string };
@@ -59,6 +60,22 @@ export function projectEntries() {
     return entries;
 }
 
+/** The keys of every project, with their project prefix (project/<id>/...) */
+export function allProjectsEntries() {
+    const entries: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)!;
+        if (key.startsWith('project/')) entries[key] = localStorage.getItem(key)!;
+    }
+    return entries;
+}
+
+/** The project a key of allProjectsEntries belongs to, and the key inside of it */
+export function splitProjectKey(key: string): { id: string; key: string } | undefined {
+    const match = /^project\/([^/]+)\/(.+)$/.exec(key);
+    return match ? { id: match[1], key: match[2] } : undefined;
+}
+
 function removeStoredWithPrefix(prefix: string) {
     const toRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -73,12 +90,14 @@ export function clearProjectEntries() {
     removeStoredWithPrefix(scoped(''));
 }
 
-/** Everything the project kept, PDFs included */
+/** Everything the project kept, PDFs and AI cache included */
 export async function deleteProjectData(id: string) {
     const prefix = prefixOf(id);
     removeStoredWithPrefix(prefix);
-    const files = (await keys()).filter(key => typeof key === 'string' && key.startsWith(prefix));
-    await delMany(files);
+    for (const store of [personalStore, optimizationStore]) {
+        const stored = (await keys(store)).filter(key => typeof key === 'string' && key.startsWith(prefix));
+        await delMany(stored, store);
+    }
     await removeBrowserAttachments(id);
 }
 

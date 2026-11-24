@@ -233,3 +233,11 @@
 .lastOpeningFill {
     background: var(--danger);
 }
+
+/* The title of the step, with its actions at the end */
+.stepHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}

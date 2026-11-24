@@ -1,5 +1,4 @@
-import { get, set } from 'idb-keyval';
-import type { Plugin } from './types';
+import type { Plugin, PluginStorage } from './types';
 
 const API = 'https://www.ebi.ac.uk/chembl/api/data';
 
@@ -9,7 +8,7 @@ const LIST_URL = `${API}/molecule.json?max_phase=4&only=molecule_chembl_id,pref_
 const PAGE_SIZE = 1000;
 
 /** Outside of the projects, as the list is the same for all of them */
-const LIST_KEY = 'plugins/chembl/approved';
+const LIST_KEY = 'approved';
 
 /** ChEMBL is released about twice a year */
 const LIST_MAX_AGE = 90 * 24 * 60 * 60 * 1000;
@@ -62,7 +61,7 @@ async function fetchPage(offset: number) {
     return (await response.json()) as ListPage;
 }
 
-async function download() {
+async function download(storage: PluginStorage) {
     const first = await fetchPage(0);
     const offsets = [];
     for (let offset = PAGE_SIZE; offset < first.page_meta.total_count; offset += PAGE_SIZE) offsets.push(offset);
@@ -79,7 +78,7 @@ async function download() {
         )
         .join('\n');
     const list: StoredList = { downloadedAt: Date.now(), tsv };
-    await set(LIST_KEY, list);
+    await storage.set(LIST_KEY, list);
     return list;
 }
 
@@ -109,11 +108,11 @@ async function fetchJson<T>(url: string) {
 
 const ChemblPlugin: Plugin = {
     id: 'chembl',
-    async setup() {
-        let list = (await get(LIST_KEY)) as StoredList | undefined;
-        if (!list) list = await download();
+    async setup({ storage: { optimization } }) {
+        let list = await optimization.get<StoredList>(LIST_KEY);
+        if (!list) list = await download(optimization);
         // An old list is used while the new one is downloaded, for the next time
-        else if (Date.now() - list.downloadedAt > LIST_MAX_AGE) download().catch(e => console.error('Failed to update the ChEMBL list', e));
+        else if (Date.now() - list.downloadedAt > LIST_MAX_AGE) download(optimization).catch(e => console.error('Failed to update the ChEMBL list', e));
         index = buildIndex(list.tsv);
     },
     menuOptions: [

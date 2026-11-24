@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron'
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { getDevices } = require('./devices.cjs');
+const sync = require('./sync.cjs');
 
 /** The web build sits next to this file once packaged, and on the project's dist/ while running from source */
 const WEB_ROOT = app.isPackaged ? path.join(__dirname, 'web') : path.join(__dirname, '..', 'dist');
@@ -56,6 +57,12 @@ function createWindow() {
 app.whenReady().then(() => {
     protocol.handle(SCHEME, serve);
     ipcMain.handle('native-bridge:get-devices', () => getDevices());
+    ipcMain.handle('native-bridge:sync-start', (_, id) => sync.syncStart(id));
+    ipcMain.handle('native-bridge:sync-stop', () => sync.syncStop());
+    ipcMain.handle('native-bridge:sync-peers', () => sync.syncPeers());
+    ipcMain.handle('native-bridge:sync-inbox', () => sync.syncInbox());
+    ipcMain.handle('native-bridge:sync-hold', (_, to, body) => sync.syncHold(to, body));
+    ipcMain.handle('native-bridge:sync-post', (_, url, body) => sync.syncPost(url, body));
     createWindow();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();

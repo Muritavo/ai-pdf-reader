@@ -47,7 +47,39 @@ final class ARWindowStore: ObservableObject {
         let focus: Bool
         /// How the window shows and closes: "pop" grows in like a bubble and pops when it closes
         let effect: String?
+        /// The kind of window it is (ARDiv's `group`), whose size the user left the last one with is kept for the next
+        let sizeGroup: String?
     }
+
+    /// The size the user left the last window of the group with, kept across launches
+    static func savedSize(of sizeGroup: String) -> CGSize? {
+        #if DEBUG
+        resetSizesIfAsked()
+        #endif
+        guard let saved = UserDefaults.standard.array(forKey: sizeKey(sizeGroup)) as? [Double], saved.count == 2 else { return nil }
+        return CGSize(width: saved[0], height: saved[1])
+    }
+
+    static func saveSize(_ size: CGSize, of sizeGroup: String) {
+        arLog("keeping \(size.width)x\(size.height) for \(sizeGroup)")
+        UserDefaults.standard.set([Double(size.width), Double(size.height)], forKey: sizeKey(sizeGroup))
+    }
+
+    private static func sizeKey(_ sizeGroup: String) -> String { "arWindowSize.\(sizeGroup)" }
+
+    #if DEBUG
+    /// Forgets every kept size when "Reset window sizes" was turned on in the Settings app (debug builds only), then
+    /// turns it off. Checked on each read, so it applies without relaunching the app
+    private static func resetSizesIfAsked() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "resetWindowSizes") else { return }
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("arWindowSize.") {
+            defaults.removeObject(forKey: key)
+        }
+        defaults.set(false, forKey: "resetWindowSizes")
+        arLog("window sizes reset")
+    }
+    #endif
 
     @Published private(set) var entries: [String: Entry] = [:]
     /// Requests reported before their popup exists, in the order the page opens them
@@ -120,7 +152,8 @@ final class ARWindowStore: ObservableObject {
         let group = (0..<Self.slotCount).map(Self.slotWindowID).first { !taken.contains($0) } ?? Self.sharedWindowID
         entries[next.id] = Entry(
             webView: webView,
-            size: next.size,
+            // The size the user left the last window of its group with, if it has one
+            size: next.sizeGroup.flatMap(Self.savedSize(of:)) ?? next.size,
             request: next,
             group: group,
             returnFocusTo: next.focus ? nil : self.webView(of: next.parent)
@@ -170,7 +203,7 @@ final class ARWindowStore: ObservableObject {
     }
 }
 
-/// Receives `window.webkit.messageHandlers.onAREntry.postMessage({ id, width, height, parent, snapToWindow, focus, effect })`
+/// Receives `window.webkit.messageHandlers.onAREntry.postMessage({ id, width, height, parent, snapToWindow, focus, effect, group })`
 @MainActor
 final class ARBridgeHandler: NSObject, WKScriptMessageHandler {
     static let name = "onAREntry"
@@ -187,7 +220,8 @@ final class ARBridgeHandler: NSObject, WKScriptMessageHandler {
             parent: body["parent"] as? String ?? ARWindowStore.mainWindowID,
             snapToWindow: body["snapToWindow"] as? String,
             focus: body["focus"] as? Bool ?? true,
-            effect: body["effect"] as? String
+            effect: body["effect"] as? String,
+            sizeGroup: body["group"] as? String
         ))
     }
 }
@@ -238,7 +272,12 @@ struct ARWindowView: View {
     var body: some View {
         ZStack {
             if let entry = store.entries[id] {
-                WebViewHost(webView: entry.webView, initialSize: entry.size, returnFocusTo: entry.returnFocusTo) {
+                WebViewHost(
+                    webView: entry.webView,
+                    initialSize: entry.size,
+                    sizeGroup: entry.request.sizeGroup,
+                    returnFocusTo: entry.returnFocusTo
+                ) {
                     guard pops else { return }
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) { bubble = .shown }
                 }
@@ -298,10 +337,11 @@ struct ARWindowView: View {
 private struct WebViewHost: UIViewRepresentable {
     let webView: WKWebView
     let initialSize: CGSize
+    let sizeGroup: String?
     let returnFocusTo: WKWebView?
     let onReveal: () -> Void
     func makeUIView(context: Context) -> SizingHost {
-        SizingHost(webView: webView, initialSize: initialSize, returnFocusTo: returnFocusTo, onReveal: onReveal)
+        SizingHost(webView: webView, initialSize: initialSize, sizeGroup: sizeGroup, returnFocusTo: returnFocusTo, onReveal: onReveal)
     }
     func updateUIView(_ view: SizingHost, context: Context) {}
 }
@@ -335,6 +375,8 @@ private final class SizingHost: UIView {
 
     private let webView: WKWebView
     private let initialSize: CGSize
+    /// The group whose size is kept when the user resizes the window, if any
+    private let sizeGroup: String?
     private weak var returnFocusTo: WKWebView?
     private let onReveal: () -> Void
     private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .regular))
@@ -343,9 +385,10 @@ private final class SizingHost: UIView {
     private var lastSize: CGSize = .zero
     private var settle: DispatchWorkItem?
 
-    init(webView: WKWebView, initialSize: CGSize, returnFocusTo: WKWebView?, onReveal: @escaping () -> Void) {
+    init(webView: WKWebView, initialSize: CGSize, sizeGroup: String?, returnFocusTo: WKWebView?, onReveal: @escaping () -> Void) {
         self.webView = webView
         self.initialSize = initialSize
+        self.sizeGroup = sizeGroup
         self.returnFocusTo = returnFocusTo
         self.onReveal = onReveal
         super.init(frame: .zero)
@@ -390,6 +433,8 @@ private final class SizingHost: UIView {
         UIView.animate(withDuration: 0.15) { self.blur.alpha = 1 }
         afterLayout(of: size) { [weak self] in
             UIView.animate(withDuration: 0.25) { self?.blur.alpha = 0 }
+            // Kept for the next windows of its group, once the resize is done
+            if let sizeGroup = self?.sizeGroup { ARWindowStore.saveSize(size, of: sizeGroup) }
         }
     }
 
@@ -423,6 +468,9 @@ private final class SizingHost: UIView {
         guard !revealed else { return }
         revealed = true
         arLog("revealing window at \(bounds.width)x\(bounds.height)")
+        // The first window of its group keeps the size it opened with, so the next ones open straight at a size the
+        // system gives them, instead of waiting for a measured one it may not reach
+        if let sizeGroup, ARWindowStore.savedSize(of: sizeGroup) == nil { ARWindowStore.saveSize(bounds.size, of: sizeGroup) }
         UIView.animate(withDuration: 0.2) { self.webView.alpha = 1 }
         onReveal()
         giveFocusBack()

@@ -11,6 +11,7 @@ import { TestIds } from '../../../../testids';
 import AsyncInteractionButton from '../../../../components/AsyncInteractionButton';
 import { usePlugins } from '../../../../context/PluginsContext';
 import type { PluginResult } from '../../../../plugins/types';
+import { trimPunctuation } from '../../../../utils/highlight';
 
 /** Reopening follows the selection while it changes, as on touch it is adjusted by its handles after it opens */
 export type FeaturesMenuHandle = { openMenu(reopen?: boolean): void; closeMenu(): void };
@@ -37,7 +38,7 @@ const PASSAGE_MIN_WORDS = 6;
 const DOI_FORMAT = /^(?:doi:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}\/\S+)$/i;
 
 const MAX_MENU_HEIGHT = 340;
-/** Enough for the selected text and a couple of actions, even close to the bottom of the screen */
+/** Enough for the selected text and a couple of actions, even close to the top of the screen */
 const MIN_MENU_HEIGHT = 180;
 
 type FeaturesMenuProps = {
@@ -59,9 +60,50 @@ type FeaturesMenuProps = {
     onPluginResult: (result: PluginResult) => void;
 };
 
+const isWordCharacter = (character: string | undefined) => (character ? /[\p{L}\p{N}]/u.test(character) : false);
+
+/**
+ * The character of the text layer right before or after a point, looking past the pieces a word is split in (as by a ligature).
+ * Undefined where the line ends, or outside of the text layer.
+ */
+function characterBeside(node: Node, offset: number, side: 'before' | 'after') {
+    // Not `instanceof`, as on AR the document is in a window of its own
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    const layer = element?.closest(`[data-testid="${TestIds.preview.textLayer}"]`);
+    if (!layer) return undefined;
+    const range = node.ownerDocument!.createRange();
+    if (side === 'after') {
+        range.setStart(node, offset);
+        range.setEnd(layer, layer.childNodes.length);
+    } else {
+        range.setStart(layer, 0);
+        range.setEnd(node, offset);
+    }
+    const fragment = range.cloneContents();
+    const walker = fragment.ownerDocument.createTreeWalker(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const nodes: Node[] = [];
+    while (walker.nextNode()) {
+        const current = walker.currentNode;
+        if (current.nodeName === 'BR' || (current.nodeType === Node.TEXT_NODE && current.textContent)) nodes.push(current);
+    }
+    const beside = side === 'after' ? nodes[0] : nodes[nodes.length - 1];
+    if (!beside || beside.nodeName === 'BR') return undefined;
+    const text = beside.textContent!;
+    return side === 'after' ? text[0] : text[text.length - 1];
+}
+
+/** Whether the selection starts or ends in the middle of a word, which a highlight (made of whole words) would never find */
+function cutsWord(selection: Selection) {
+    const text = selection.toString();
+    const range = selection.getRangeAt(0);
+    const cutsStart = isWordCharacter(text[0]) && isWordCharacter(characterBeside(range.startContainer, range.startOffset, 'before'));
+    const cutsEnd = isWordCharacter(text[text.length - 1]) && isWordCharacter(characterBeside(range.endContainer, range.endOffset, 'after'));
+    return cutsStart || cutsEnd;
+}
+
 function extractSelectedWord(selectionText: string) {
     const collapsedText = selectionText.replace(/\s+/g, ' ').trim();
-    return collapsedText.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') || undefined;
+    return trimPunctuation(collapsedText) || undefined;
 }
 
 export default forwardRef(function FeaturesMenu(
@@ -83,6 +125,7 @@ export default forwardRef(function FeaturesMenu(
     const { prepare } = useWarmUp(fullText);
     const { menuOptions: pluginOptions } = usePlugins();
     const [word, setWord] = useState<string>();
+    const [selectionCutsWord, setSelectionCutsWord] = useState(false);
     const [{ x, y }, setPosition] = useState({ x: 0, y: 0 });
 
     useImperativeHandle(
@@ -104,7 +147,8 @@ export default forwardRef(function FeaturesMenu(
 
                 const bounds = selection.getRangeAt(0).getBoundingClientRect();
                 setWord(selectedWord);
-                setPosition({ x: bounds.left, y: bounds.bottom });
+                setSelectionCutsWord(cutsWord(selection));
+                setPosition({ x: bounds.left, y: bounds.top });
             },
             closeMenu() {
                 if (word) setWord(undefined);
@@ -151,6 +195,8 @@ export default forwardRef(function FeaturesMenu(
             id: 'highlight-word-instances',
             testId: TestIds.menu.highlight,
             label: txt('documentPreview.menu.highlightInstances'),
+            disabled: selectionCutsWord,
+            hint: txt('documentPreview.menu.highlightCutsWord'),
             onClick: async () => {
                 addHighlight(word);
                 dismiss();
@@ -162,17 +208,11 @@ export default forwardRef(function FeaturesMenu(
             label: txt('documentPreview.menu.define'),
             disabled: !aiReady,
             hint: txt('aiWarmUp.locked'),
+            // A failure is left to the button, that offers to try again with the word still selected
             onClick: async () => {
-                try {
-                    const normalizedText = await prepare();
-                    const definition = await defineWordInContext(word, normalizedText);
-                    onDefined(word, definition);
-                    alert(definition);
-                } catch (error) {
-                    alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
-                } finally {
-                    dismiss();
-                }
+                const normalizedText = await prepare();
+                onDefined(word, await defineWordInContext(word, normalizedText));
+                dismiss();
             },
         },
         {
@@ -273,8 +313,14 @@ export default forwardRef(function FeaturesMenu(
             snapToWindow="right"
             focus={false}
             effect="pop"
-            // Limited, and never past the bottom of the screen, as it opens under the selection
-            style={{ left: x, top: y, maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, view.innerHeight - y - 16)) }}
+            // Opens with the size the last menu was left with
+            group="featureMenu"
+            // Opens above the selection, so it does not cover the lines that follow it, limited to never go past the top of the screen
+            style={{
+                left: x,
+                bottom: view.innerHeight - y,
+                maxHeight: Math.max(MIN_MENU_HEIGHT, Math.min(MAX_MENU_HEIGHT, y - 16)),
+            }}
         >
             <div className={Styles.selectedWord}>{displayWord}</div>
             <div className={Styles.actions} data-testid={TestIds.menu.actions}>
@@ -285,7 +331,7 @@ export default forwardRef(function FeaturesMenu(
                         {notRecommendedItems.map(renderItem)}
                     </div>
                 )}
-                {/* Shows there are more actions above or below. The menu, not this list, is what it is placed on, so it stays still while the list scrolls */}
+                {/* Shows there are more actions above or below */}
                 <ScrollendIndicator indicatorSize={28} maxGradientScroll={80} />
             </div>
         </ARDiv>,
