@@ -104,6 +104,8 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
     // Ctrl held on the keyboard, or turned on with the toggle under the preview's window on the Vision Pro
     const removingDefinitions = useToggleAction('ctrl', previewBoxRef);
     const lastPointerTypeRef = useRef<string>();
+    // The word selected by a double click, while it is dragged: null while waiting for it, undefined when not double clicking
+    const doubleClickedWordRef = useRef<Range | null>();
     const scrollBarRef = useRef<HTMLDivElement>(null);
     const [pdf] = useAsyncMemo(async () => {
         const response = await fetch(fullText.url);
@@ -202,6 +204,24 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 window.setTimeout(() => setCopiedImage(current => (current === key ? undefined : current)), 1200);
             })
             .catch(err => console.error('Could not copy the image:', err));
+    };
+
+    /** Puts back in the selection the word a double click selected, when Safari dropped it while dragging (see the workaround for Safari) */
+    const keepDoubleClickedWord = () => {
+        const word = doubleClickedWordRef.current;
+        doubleClickedWordRef.current = undefined;
+        const selection = previewWindow().getSelection();
+        if (!word || !selection || selection.rangeCount === 0) return;
+        const range = selection.getRangeAt(0);
+        const startsBeforeWord = range.compareBoundaryPoints(Range.START_TO_START, word) < 0;
+        const endsAfterWord = range.compareBoundaryPoints(Range.END_TO_END, word) > 0;
+        const holdsWord = range.compareBoundaryPoints(Range.START_TO_START, word) <= 0 && range.compareBoundaryPoints(Range.END_TO_END, word) >= 0;
+        // As on the other browsers, nothing is missing
+        if (holdsWord) return;
+        // Dragged back: from the end of the word to where the drag stopped
+        if (startsBeforeWord) selection.setBaseAndExtent(word.endContainer, word.endOffset, range.startContainer, range.startOffset);
+        // Dragged forward: from the start of the word to where the drag stopped
+        else if (endsAfterWord) selection.setBaseAndExtent(word.startContainer, word.startOffset, range.endContainer, range.endOffset);
     };
 
     const getDocumentCoordinates = () => {
@@ -337,6 +357,21 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
         const listener = () => window.setTimeout(() => menuRef.current?.closeMenu(), 0);
         view.addEventListener('mouseup', listener);
         return () => view.removeEventListener('mouseup', listener);
+    }, []);
+
+    // WORKAROUND for Safari: https://bugs.webkit.org/show_bug.cgi?id=333120
+    // After a double click, dragging back and stopping on a one character word (as the "2" of "2-hydroxyestrone")
+    // drops the double clicked word from the selection, leaving only "2-". The word is the first selection after
+    // the double click, so it is kept here and put back on the mouse up (see `keepDoubleClickedWord`)
+    useEffect(() => {
+        const view = previewWindow();
+        const listener = () => {
+            if (doubleClickedWordRef.current !== null) return;
+            const selection = view.getSelection();
+            if (selection && !selection.isCollapsed) doubleClickedWordRef.current = selection.getRangeAt(0).cloneRange();
+        };
+        view.document.addEventListener('selectionchange', listener);
+        return () => view.document.removeEventListener('selectionchange', listener);
     }, []);
 
     // A touch selection has no mouse up, so the menu follows the selection once it stops changing
@@ -658,7 +693,12 @@ export default function DocumentPreview({ fullText }: { fullText: FullText }) {
                 // On macOS, Ctrl + click is the right click
                 onContextMenu={removeDefinitionAt}
                 onPointerDown={e => (lastPointerTypeRef.current = e.pointerType)}
-                onMouseUp={() => window.setTimeout(() => menuRef.current?.openMenu(), 0)}
+                // Waits for the word a double click selects (see the workaround for Safari)
+                onMouseDown={e => (doubleClickedWordRef.current = e.detail === 2 ? null : undefined)}
+                onMouseUp={() => {
+                    keepDoubleClickedWord();
+                    window.setTimeout(() => menuRef.current?.openMenu(), 0);
+                }}
             >
                 {!pdf && (
                     <div className={Styles.loaderOverlay}>
